@@ -1,0 +1,50 @@
+# Développement local — services Docker (MySQL + phpMyAdmin).
+# L'application Next.js tourne en général sur l'hôte : `npm run dev`
+#   avec DATABASE_URL pointant vers le conteneur `db`.
+#
+# Usage : docker compose up -d
+# Variables optionnelles : copier docker/env/development.env.example vers .env (racine)
+# ou fusionner les clés dans .env.local pour Next.js sur l'hôte.
+
+services:
+  db:
+    image: mysql:8.4
+    container_name: aerispay-mysql-dev
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootsecret}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-aerispay}
+      MYSQL_USER: ${MYSQL_USER:-aerispay}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-aerispay}
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql_data_dev:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  phpmyadmin:
+    image: phpmyadmin:5
+    container_name: aerispay-phpmyadmin-dev
+    restart: unless-stopped
+    ports:
+      - "${PHPMYADMIN_PORT:-8080}:80"
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  mysql_data_dev:
+    name: aerispay_mysql_data_dev
+
+networks:
+  default:
+    name: aerispay_dev

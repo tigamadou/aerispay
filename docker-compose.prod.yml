@@ -1,0 +1,59 @@
+# Production — base de données + image applicative AerisPay.
+# Prévoir un fichier d'environnement (ex. `.env.production` ou `docker/env/production.env`)
+# avec mots de passe forts et NEXTAUTH_SECRET.
+#
+# Build & démarrage (exemple) :
+#   docker compose -f docker-compose.prod.yml --env-file docker/env/production.env up -d --build
+#
+# Avant le premier trafic : exécuter les migrations
+#   docker compose -f docker-compose.prod.yml run --rm app npx prisma migrate deploy
+
+services:
+  db:
+    image: mysql:8.4
+    container_name: aerispay-mysql-prod
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in env}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:?set MYSQL_DATABASE in env}
+      MYSQL_USER: ${MYSQL_USER:?set MYSQL_USER in env}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD in env}
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql_data_prod:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    # Ne pas publier 3306 sur l'Internet sauf besoin d'opération (bastion, VPN) :
+    # ports: []
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: aerispay:${AERISPAY_TAG:-latest}
+    container_name: aerispay-app
+    restart: always
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: 3000
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in env}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:?set NEXTAUTH_URL in env}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?set NEXTAUTH_SECRET in env}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  mysql_data_prod:
+    name: aerispay_mysql_data_prod
+
+networks:
+  default:
+    name: aerispay_prod

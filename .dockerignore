@@ -1,0 +1,35 @@
+# Dépendances & build
+node_modules
+npm-debug.log*
+.pnpm-store
+
+# Next.js
+.next
+out
+
+# Environnements
+.env
+.env.*
+!.env.example
+!.env*.example
+
+# Outils
+.git
+.gitignore
+.DS_Store
+*.md
+!README.md
+.vscode
+.cursor
+
+# Tests
+coverage
+playwright-report
+test-results
+**/*.test.ts
+**/*.spec.ts
+e2e
+
+# Autre
+tmp
+tmp.*
