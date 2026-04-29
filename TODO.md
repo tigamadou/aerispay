@@ -39,7 +39,7 @@
 Ces éléments sont considérés **à jour** pour le MVP et les jalons v2+ documentés — les évolutions se font par **nouvelle version** de spec (`ROADMAP` / champs *Version* en tête de fichier) :
 
 - [x] `ARCHITECTURE_MVP.md` — schéma, endpoints, rôles §8  
-- [x] `SPECS/` — STOCK, CAISSE, AUTH (2 niveaux groupe/PDV), IMPRESSION, ACTIVITY_LOG, PERIPHERIQUES, **MULTI_ORGANISATION**, **PAGES_MVP** (inventaire des pages)  
+- [x] `SPECS/` — STOCK, CAISSE, AUTH (2 niveaux groupe/PDV), IMPRESSION, ACTIVITY_LOG, PERIPHERIQUES, **MULTI_ORGANISATION**, **PAGES_MVP**, **DASHBOARD** (KPI)  
 - [x] `CLAUDE.md`, `CONVENTIONS.md`, `DOCKER.md`  
 - [x] Stack Docker (Compose racine, app sous `web/app/`)  
 - [x] `ROADMAP.md` v1.1.0 (versionnement + phases **1.0.0** / backlog **2.x+**)

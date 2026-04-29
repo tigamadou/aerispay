@@ -593,7 +593,7 @@ Caissier → Interface POS
 ### Dashboard
 | Méthode | Endpoint | Description |
 |---|---|---|
-| GET | `/api/dashboard/kpis` | KPIs du jour (CA, nb ventes, stock) |
+| GET | `/api/dashboard/kpis` | Indicateurs tableau de bord : CA, ventes, panier moyen, répartition espèces / autre, alertes & ruptures stock, série 7 jours, top produits — périmètre par rôle ; voir **`SPECS/DASHBOARD.md`** |
 
 ---
 

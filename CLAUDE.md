@@ -60,6 +60,7 @@ aerispay/                              ← racine du dépôt (docker compose, do
 │   ├── PERIPHERIQUES.md               ← périphériques caisse (web vs serveur, ordre, Docker)
 │   ├── MULTI_ORGANISATION.md          ← multi-magasins, local + sauvegarde ; rôles groupe/PDV → SPECS/AUTH.md
 │   ├── PAGES_MVP.md                  ← pages / routes App Router MVP : actions & règles
+│   ├── DASHBOARD.md                  ← KPI, graphiques, /api/dashboard/kpis
 │   └── ACTIVITY_LOG.md
 └── web/                               ← artefacts applicatifs
     ├── Dockerfile                     ← Image production Next.js (standalone)
@@ -158,7 +159,7 @@ aerispay/                              ← racine du dépôt (docker compose, do
 - Toujours lire `CONVENTIONS.md` avant d’écrire du code
 - Toujours lire `ARCHITECTURE_MVP.md` pour le schéma Prisma de référence et la liste des endpoints
 - Toujours lire la spec du module concerné dans `SPECS/`
-- Pour toute **nouvelle page** ou écran du dashboard : vérifier `SPECS/PAGES_MVP.md` (actions, rôles, règles)
+- Pour toute **nouvelle page** ou écran du dashboard : vérifier `SPECS/PAGES_MVP.md` (actions, rôles) et `SPECS/DASHBOARD.md` (KPI, visibilité par rôle, API)
 - Pour toute **action métier sensible** (CRUD critique, caisse, auth) : consulter `SPECS/ACTIVITY_LOG.md` et appeler `logActivity` lorsque c’est prévu
 - Pour l’impression ticket, le tiroir-caisse et la douchette : consulter `SPECS/PERIPHERIQUES.md` en plus de `SPECS/CAISSE.md` et `SPECS/IMPRESSION.md`
 - Pour le déploiement multi-sites, sauvegarde en ligne et accès distant (sans implémenter avant d’avoir relu la spec) : `SPECS/MULTI_ORGANISATION.md`

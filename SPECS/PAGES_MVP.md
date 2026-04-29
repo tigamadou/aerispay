@@ -45,9 +45,9 @@
 
 | | |
 |---|---|
-| **Accès** | Tous. |
-| **Actions** | Afficher des **KPI** (CA du jour, nombre de ventes, etc.) — données via `GET /api/dashboard/kpis` (ou équivalent). Clics éventuels vers `/stock?…` (ruptures) si prévu. |
-| **Règles** | `CAISSIER` voit un dashboard pertinent (caisse + indicateurs autorisés) ; pas d’exposition d’actions réservées `ADMIN` (`SPECS/AUTH.md`). Widgets type « produits en rupture » : alignés sur `SPECS/STOCK.md` (clic → liste filtrée). |
+| **Accès** | Tous (contenu différencié par rôle). |
+| **Actions** | **`ADMIN` / `MANAGER` :** cartes KPI (CA jour, nb ventes, panier moyen, espèces / hors espèces, alertes & ruptures stock), graphique **7 jours**, **top 5** produits, aperçu alertes stock — voir liste complète **`SPECS/DASHBOARD.md`**. **`CAISSIER` :** accueil + lien **Caisse** ; optionnellement indicateurs **personnels** du jour (pas les totaux magasin) — **§5** de `DASHBOARD.md`. Données : `GET /api/dashboard/kpis`. |
+| **Règles** | Ne pas exposer les KPI magasin aux `CAISSIER` (`SPECS/AUTH.md` + `DASHBOARD.md`). Clics stock : `SPECS/STOCK.md`. Composant `KPICard` pour les cartes chiffrées. |
 
 ---
 
@@ -168,7 +168,7 @@
 | Page | `ADMIN` | `MANAGER` | `CAISSIER` |
 |------|:-------:|:---------:|:----------:|
 | Login | ✓ (public) | idem | idem |
-| Dashboard `/` | ✓ | ✓ | ✓ |
+| Dashboard `/` | ✓ KPI magasin complets | ✓ idem | ✓ **vue caissier** (sans KPI magasin — `DASHBOARD.md` §5) |
 | `/users`, `/users/nouveau` | ✓ | — | — |
 | `/activity-logs` | ✓ | ✓ (lecture) | — |
 | `/stock` liste | ✓ (édition) | ✓ (édition) | ✓ (lecture si exposé) |
@@ -189,6 +189,7 @@
 | Thème | Documents |
 |--------|------------|
 | Rôles & règles d’accès | `SPECS/AUTH.md`, `ARCHITECTURE_MVP.md` §8 |
+| Tableau de bord & KPI | `SPECS/DASHBOARD.md` |
 | Stock & mouvements | `SPECS/STOCK.md` |
 | Caisse, sessions, ventes, annulation | `SPECS/CAISSE.md` |
 | PDF, thermique, tiroir | `SPECS/IMPRESSION.md`, `SPECS/PERIPHERIQUES.md` |
