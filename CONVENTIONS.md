@@ -381,7 +381,17 @@ const errorMessage = 'Le stock est insuffisant pour effectuer cette vente.'
 
 ---
 
-## 10. Conteneurisation (Docker)
+## 10. Tests et TDD
+
+- **TDD obligatoire** : pour chaque nouvelle fonctionnalité, correction métier ou régression, écrire d’abord les tests qui expriment le comportement attendu.
+- Priorité des tests : API Routes et logique métier avec Vitest, composants critiques avec React Testing Library, parcours utilisateur critiques avec Playwright.
+- Les tests doivent couvrir le chemin nominal, les erreurs de validation, les permissions et les effets de bord persistants (transactions, stock, ventes, logs d’activité).
+- L’implémentation commence seulement après avoir défini les tests pertinents ; un ticket n’est accepté que lorsque les tests ciblés passent avec `npm run test` et, si applicable, `npm run test:e2e`.
+- Ne pas affaiblir ou supprimer un test existant pour faire passer une implémentation ; corriger le comportement ou actualiser le test uniquement si la spec a changé.
+
+---
+
+## 11. Conteneurisation (Docker)
 
 - Fichiers Compose : `docker-compose.yml` (développement) et `docker-compose.prod.yml` (production) — ne pas les fusionner.
 - Noms d’exemples d’environnement : `web/development.env.example` et `web/production.env.example` ; ne jamais committer de secrets.

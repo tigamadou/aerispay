@@ -16,6 +16,14 @@ Les fichiers Compose sont maintenant à la **racine du dépôt**. Le `Dockerfile
 - Fichier `web/app/package.json` (projet Next.js initialisé).
 - Dans `web/app/next.config.ts` : `output: "standalone"` (requis par le `Dockerfile` de production).
 - Schéma Prisma : `datasource db { provider = "mysql" }` et `DATABASE_URL` au format `mysql://...` (voir `ARCHITECTURE_MVP.md`). La phase **builder** exécute `npx prisma generate` avant `npm run build` depuis le contexte `web/app/`.
+- Démarche **TDD** : avant d’ajouter une fonctionnalité qui dépend de Docker, de la base ou d’un service, écrire les tests ou contrôles automatisés qui valident le comportement attendu.
+
+## Périphériques de caisse
+
+- **Imprimante ticket** : privilégier une imprimante ESC/POS réseau (`tcp://IP:9100`) pour les environnements Docker. C’est le mode le plus portable entre macOS, Linux et production.
+- **Douchette code-barres** : les lecteurs USB/HID en mode clavier fonctionnent côté navigateur sans accès spécial au conteneur. Le POS doit traiter le scan comme une saisie clavier rapide terminée par `Enter`.
+- **Tiroir-caisse** : mode recommandé via l’imprimante ticket (port RJ11/RJ12) avec impulsion ESC/POS. Un tiroir USB/série direct nécessite d’exposer le device au conteneur et n’est pas portable sur Docker Desktop macOS.
+- **USB / série dans Docker** : éviter en développement macOS si possible ; utiliser une imprimante réseau ou lancer l’intégration matérielle sur l’hôte lorsque l’accès device est requis.
 
 ## Développement local
 
@@ -36,6 +44,8 @@ Les fichiers Compose sont maintenant à la **racine du dépôt**. Le `Dockerfile
    ```
 
    - **App** : <http://localhost:3000> (ou `APP_PORT` dans `.env`) — le compose définit `DATABASE_URL` vers le service `db` ; `node_modules` est stocké dans un volume nommé `aerispay_app_node_modules_dev` (évite conflit hôte/ Linux).
+
+   Les fonctionnalités développées dans ce conteneur suivent le même cycle TDD que l’hôte : tests d’abord, implémentation ensuite, puis validation avec `npm run test` / `npm run test:e2e` selon le périmètre.
 
 3. Migrations (premier lancement, ou depuis l’hôte) :
 

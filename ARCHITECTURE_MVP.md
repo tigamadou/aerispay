@@ -2,14 +2,14 @@
 
 > **Version :** 1.0 — MVP  
 > **Date :** Avril 2026  
-> **Modules couverts :** Gestion de Stock · Gestion de Caisse · Journal d’activité (audit)  
+> **Modules couverts :** Gestion de Stock · Gestion de Caisse · Périphériques de caisse · Journal d’activité (audit)  
 > **Stack :** Next.js 14 · TypeScript · Prisma · MySQL · Tailwind CSS
 
 ---
 
 ## 1. Vue d'ensemble
 
-AerisPay MVP est une application web de gestion commerciale et comptable conçue pour les petits et moyens commerces. La première version se concentre sur la **gestion de stock** et la **gestion de caisse**, l’impression de tickets normalisés (PDF + thermique) et un **journal d’activité** centralisé pour l’audit des opérations.
+AerisPay MVP est une application web de caisse enregistreuse et de gestion commerciale conçue pour les petits et moyens commerces. La première version se concentre sur la **gestion de stock**, la **gestion de caisse**, la compatibilité avec les périphériques de caisse (imprimante ticket, douchette code-barres, tiroir-caisse), l’impression de tickets normalisés (PDF + thermique) et un **journal d’activité** centralisé pour l’audit des opérations.
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -21,7 +21,7 @@ AerisPay MVP est une application web de gestion commerciale et comptable conçue
 ┌──────────────────────▼──────────────────────────┐
 │               Next.js API Routes                 │
 │         Logique métier · Validations             │
-│         Génération PDF · Commandes ESC/POS       │
+│         PDF · ESC/POS · Douchette · Tiroir       │
 └──────────────────────┬──────────────────────────┘
                        │ Prisma ORM
 ┌──────────────────────▼──────────────────────────┐
@@ -60,7 +60,14 @@ AerisPay MVP est une application web de gestion commerciale et comptable conçue
 | **node-thermal-printer** | Imprimante thermique | Support ESC/POS 58mm / 80mm |
 | **qrcode** | QR Code sur ticket | Lien de vérification du ticket |
 
-### 2.4 Infrastructure
+### 2.4 Périphériques de caisse
+| Périphérique | Mode de support | Notes |
+|---|---|---|
+| **Imprimante ticket** | ESC/POS réseau, USB ou série | Réseau recommandé en production Docker ; USB/série nécessite exposition explicite du device |
+| **Douchette code-barres** | USB/HID en mode clavier | Compatible navigateur sans driver ; scan capturé via champ recherche POS / buffer clavier |
+| **Tiroir-caisse** | Impulsion ESC/POS via imprimante, ou interface directe configurée | Ouverture automatique après paiement espèces validé |
+
+### 2.5 Infrastructure
 | Technologie | Rôle |
 |---|---|
 | **Docker & Docker Compose** | Environnements reproductibles : `docker-compose.yml` (dev) et `docker-compose.prod.yml` (prod) — voir `DOCKER.md` |
@@ -68,6 +75,19 @@ AerisPay MVP est une application web de gestion commerciale et comptable conçue
 | **Vercel / PaaS** | Déploiement Next.js possible en alternative au conteneur applicatif |
 | **Cloud DB** | MySQL / MariaDB managé (PlanetScale, AWS RDS, etc., hors Docker local) |
 | **Cloudinary / S3** | Stockage images produits (optionnel MVP) |
+
+---
+
+## 2.6 Méthodologie TDD
+
+Le MVP est développé en **Test-Driven Development**. Pour chaque fonctionnalité, correction métier ou régression :
+
+1. Écrire d’abord les tests qui décrivent le comportement attendu.
+2. Vérifier que les tests échouent lorsque le comportement n’existe pas encore, si le contexte le permet.
+3. Implémenter le code minimal pour faire passer ces tests.
+4. Refactorer sans affaiblir la couverture.
+
+Les API Routes et transactions Prisma sont couvertes par Vitest, les composants et formulaires critiques par React Testing Library, et les parcours de caisse/stock/impression par Playwright lorsque le comportement est de bout en bout.
 
 ---
 
@@ -214,6 +234,7 @@ model Categorie {
 model Produit {
   id              String   @id @default(cuid())
   reference       String   @unique
+  codeBarres      String?  @unique
   nom             String
   description     String?
   image           String?  // URL image
@@ -405,18 +426,20 @@ Utilisateur → Formulaire Entrée Stock
 
 **Fonctionnalités :**
 - Interface POS tactile avec grille de produits
-- Recherche produit en temps réel (nom, référence)
+- Recherche produit en temps réel (nom, référence, code-barres)
+- Ajout rapide au panier par douchette lecteur de code-barres USB/HID
 - Panier de vente (ajout, suppression, modification quantité)
 - Application de remises (globale ou par ligne)
 - Paiement multi-modes (espèces avec calcul monnaie, carte, mobile money)
 - Historique des ventes avec filtres
 - Gestion des sessions de caisse (ouverture/fermeture avec fonds)
 - Impression ticket (PDF + thermique)
+- Ouverture tiroir-caisse après paiement espèces validé
 
 **Flux principal — Vente :**
 ```
 Caissier → Interface POS
-→ Sélection produits → Panier (Zustand store)
+→ Sélection produits ou scan douchette → Panier (Zustand store)
 → Clic "Encaisser" → Modale paiement
 → Saisie montant reçu / mode paiement
 → POST /api/ventes
@@ -426,6 +449,7 @@ Caissier → Interface POS
        └── Créer MouvementStock (type: SORTIE) par produit
 → GET /api/tickets/[id]/pdf → Génération PDF
 → Option : envoi commande ESC/POS vers imprimante thermique
+→ Si paiement espèces : impulsion ESC/POS d’ouverture tiroir-caisse
 → Réinitialisation panier
 ```
 
@@ -533,6 +557,8 @@ Caissier → Interface POS
 | GET | `/api/ventes/[id]` | Détail vente |
 | PUT | `/api/ventes/[id]/annuler` | Annuler vente |
 | GET | `/api/tickets/[id]/pdf` | Générer PDF ticket |
+| POST | `/api/tickets/[id]/print` | Imprimer ticket thermique |
+| POST | `/api/cash-drawer/open` | Ouvrir tiroir-caisse configuré |
 
 ### Dashboard
 | Méthode | Endpoint | Description |
@@ -562,6 +588,7 @@ Caissier → Interface POS
 MVP v1.0 (Actuel)
 ├── ✅ Gestion de stock
 ├── ✅ Gestion de caisse POS
+├── ✅ Périphériques caisse (imprimante ticket, douchette, tiroir-caisse)
 ├── ✅ Impression tickets (PDF + thermique)
 └── ✅ Journal d’activité (audit)
 
@@ -590,11 +617,13 @@ v3.0 — Comptabilité Générale
 2. **Conteneurisation locale (option recommandée)** — `docker compose up -d` (MySQL + phpMyAdmin), configurer `DATABASE_URL` (`mysql://...`) puis Prisma
 3. **Configuration Prisma** — Connexion MySQL, migration initiale
 4. **Authentification** — Mise en place NextAuth.js avec email/password
-5. **Module Stock** — Modèles, API Routes, interfaces CRUD
-6. **Module Caisse** — Interface POS, flux de vente, paiements
-7. **Impression** — Génération PDF avec @react-pdf/renderer
-8. **Impression thermique** — Intégration node-thermal-printer
-9. **Journal d’activité** — modèle `ActivityLog`, `logActivity`, page `/activity-logs`, `GET /api/activity-logs` (voir `SPECS/ACTIVITY_LOG.md`)
+5. **Tests d’abord** — écrire les tests du module avant les API, composants ou flux associés
+6. **Module Stock** — Modèles, API Routes, interfaces CRUD
+7. **Module Caisse** — Interface POS, flux de vente, paiements, scan code-barres
+8. **Impression** — Génération PDF avec @react-pdf/renderer
+9. **Périphériques caisse** — Imprimante ticket ESC/POS, douchette USB/HID, tiroir-caisse
+10. **Impression thermique** — Intégration node-thermal-printer
+11. **Journal d’activité** — modèle `ActivityLog`, `logActivity`, page `/activity-logs`, `GET /api/activity-logs` (voir `SPECS/ACTIVITY_LOG.md`)
 
 ---
 

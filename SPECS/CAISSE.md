@@ -1,7 +1,7 @@
 # Spec — Module Gestion de Caisse (POS)
 
 ## Objectif
-Interface point de vente intuitive permettant à un caissier de réaliser des ventes rapides avec encaissement multi-modes et génération de tickets.
+Interface point de vente intuitive permettant à un caissier de réaliser des ventes rapides avec encaissement multi-modes, génération de tickets et compatibilité matériel de caisse : imprimante ticket, douchette lecteur de code-barres et tiroir-caisse.
 
 ---
 
@@ -84,6 +84,12 @@ TOTAL TTC         = subtotal - discount + TVA (aligné modèle)
 - Décrémentation atomique (transaction Prisma sur `Product.currentStock`)
 - Si un produit est en rupture → erreur 422 avec message explicite
 
+### Périphériques de caisse
+- **Douchette code-barres** : support prioritaire des lecteurs USB/HID en mode clavier. Un scan remplit la barre de recherche ou ajoute directement le produit si le code correspond à une référence / code-barres unique.
+- **Imprimante ticket** : impression thermique ESC/POS après validation de vente, avec fallback PDF si l’imprimante est désactivée ou indisponible.
+- **Tiroir-caisse** : ouverture automatique après paiement `CASH` validé, via impulsion ESC/POS envoyée à l’imprimante connectée au tiroir (RJ11/RJ12) ou via une interface configurée.
+- Les erreurs matériel ne doivent jamais annuler une vente déjà validée ; elles déclenchent un message clair et une entrée de journal d’activité si pertinent.
+
 ### Annulation
 - Réservée à ADMIN / MANAGER
 - Uniquement si `status` = COMPLETED
@@ -115,6 +121,8 @@ TOTAL TTC         = subtotal - discount + TVA (aligné modèle)
 └──────────────────────────┴──────────────────────┘
 ```
 
+La barre de recherche doit rester compatible douchette : focus rapide, scan complet détecté par suffixe `Enter`, recherche par `reference` / code-barres, ajout immédiat au panier quand un seul produit actif correspond.
+
 ### Carte Produit dans la grille
 - Nom du produit
 - Prix de vente TTC
@@ -139,6 +147,7 @@ TOTAL TTC         = subtotal - discount + TVA (aligné modèle)
    - Champ référence transaction (optionnel)
 5. Bouton "Valider" → `POST /api/sales`
 6. Succès → modal ticket + bouton imprimer + réinitialisation panier
+7. Si paiement CASH et tiroir activé → ouverture du tiroir-caisse après validation serveur
 
 ---
 
@@ -206,6 +215,8 @@ interface CartStore {
 ---
 
 ## Tests Requis
+Ces tests sont le point de départ TDD du module Caisse. Écrire d’abord les tests Vitest des transactions et permissions, puis les tests RTL/Playwright des parcours POS critiques.
+
 - [ ] Ouvrir session → status OPEN
 - [ ] Tentative de 2ème session simultanée → erreur 409
 - [ ] Vente complète → currentStock décrémenté + StockMovement créé
@@ -215,3 +226,7 @@ interface CartStore {
 - [ ] CAISSIER ne peut pas annuler → erreur 403
 - [ ] Numérotation séquentielle ventes (`number`) → pas de doublon
 - [ ] Clôture session → solde théorique calculé correctement
+- [ ] Scan douchette code-barres → produit correspondant ajouté au panier
+- [ ] Scan inconnu → message "Produit introuvable" sans modifier le panier
+- [ ] Vente CASH avec tiroir activé → commande d’ouverture tiroir envoyée après validation
+- [ ] Erreur imprimante / tiroir → vente conservée, message clair affiché

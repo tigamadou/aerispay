@@ -2,6 +2,10 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+This app follows a mandatory TDD workflow. For every feature or bug fix, write the relevant tests first, then implement the behavior until those tests pass.
+
+The POS target hardware includes an ESC/POS receipt printer, a USB/HID barcode scanner in keyboard mode, and a cash drawer opened through the receipt printer pulse or a configured direct interface.
+
 First, run the development server:
 
 ```bash
@@ -12,6 +16,13 @@ yarn dev
 pnpm dev
 # or
 bun dev
+```
+
+Run the test suite before marking a feature as done once the project test scripts are configured:
+
+```bash
+npm run test
+npm run test:e2e
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.

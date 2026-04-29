@@ -63,6 +63,8 @@ enum Role { ADMIN MANAGER CAISSIER }
 ```
 
 ## Tests requis
+Ces tests doivent être écrits en premier selon la démarche **TDD**. L’implémentation des pages, callbacks NextAuth, middleware et routes utilisateurs vient ensuite, jusqu’à faire passer les tests.
+
 - [ ] Login avec credentials valides → session créée
 - [ ] Login avec mauvais mot de passe → erreur 401
 - [ ] Accès route protégée sans session → redirection /login

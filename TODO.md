@@ -4,6 +4,8 @@
 > **Dernière mise à jour :** 23 Avril 2026  
 > **Prochain ticket :** SETUP-00  
 > **Contexte :** toute l’infrastructure d’exécution (MySQL, phpMyAdmin, image de prod) est pilotée par les fichiers **Docker Compose à la racine** ; le code applicatif vit dans le dossier **`web/app/`**.
+> **Méthodologie :** **TDD obligatoire** — pour chaque fonctionnalité, écrire ou mettre à jour les tests avant l’implémentation.
+> **Matériel cible :** caisse enregistreuse compatible imprimante ticket, douchette lecteur de code-barres et tiroir-caisse.
 
 ---
 
@@ -16,6 +18,8 @@
 | **`web/app/`** | Application Next.js, `package.json`, Prisma, `src/app/`, `lib/`, `components/` |
 
 **Règle :** les commandes `docker compose` se lancent depuis la **racine du dépôt**. Les commandes `npm` / `npx` (Prisma, Next) lancées sur l’hôte se font depuis **`web/app/`**. Les chemins de fichiers listés dans les tickets sont relatifs à **`web/app/`**, sauf mention « racine du dépôt ».
+
+**Règle TDD :** tout ticket fonctionnel commence par les tests qui décrivent le comportement attendu. Implémenter ensuite le code minimal, puis valider avec `npm run test` et, si le parcours utilisateur est concerné, `npm run test:e2e`.
 
 ---
 
@@ -46,6 +50,7 @@ Cela démarre **MySQL 8.4**, **phpMyAdmin** et le service Next.js **app** (volum
 - [ ] `docker compose ps` (depuis la racine) montre les services `db` (healthy), `phpmyadmin` et, si utilisé, `app`
 - [ ] MySQL joignable depuis la machine hôte sur le port exposé (ex. `3306`) ; phpMyAdmin via le port mappé (ex. `http://localhost:8080`)
 - [ ] Aucun secret d’environnement commité (fichiers listés dans `web/.gitignore`)
+- [ ] Les contrôles automatisables liés au ticket sont écrits avant l’implémentation et documentés dans la validation
 
 ---
 
@@ -93,6 +98,8 @@ npm install -D @types/bcryptjs vitest @vitejs/plugin-react \
 - [ ] Prettier configuré avec `web/app/.prettierrc` (ou équivalent)
 - [ ] ESLint configuré avec règles strictes
 - [ ] Alias `@/*` fonctionnel vers `web/app/src` (ou `web/app` selon structure choisie par create-next-app)
+- [ ] Les tests de setup disponibles sont écrits avant validation (`npm run test` dès que la stack de test existe)
+- [ ] Les dépendances et scripts de test permettent de couvrir les flux POS matériel (scan code-barres simulé, impression, tiroir-caisse)
 
 ---
 
@@ -112,6 +119,7 @@ npm install -D @types/bcryptjs vitest @vitejs/plugin-react \
 - [ ] Toutes les tables créées en MySQL (conteneur Docker)
 - [ ] `npx prisma studio` (depuis `web/app/`) : tables visibles
 - [ ] Pas d'erreur TypeScript sur les types Prisma générés
+- [ ] Les tests Prisma/API liés au schéma sont écrits avant l’implémentation des accès DB
 
 ---
 
@@ -137,6 +145,7 @@ npm install -D @types/bcryptjs vitest @vitejs/plugin-react \
 - [ ] Route `/login` redirige vers `/` si déjà connecté
 - [ ] Logout fonctionnel
 - [ ] Seul un `ADMIN` peut lister / créer / modifier des utilisateurs (403 pour les autres rôles)
+- [ ] Tests auth/permissions écrits avant les routes et pages correspondantes
 
 ---
 
@@ -157,6 +166,7 @@ npm install -D @types/bcryptjs vitest @vitejs/plugin-react \
 - [ ] Navbar avec nom utilisateur et bouton déconnexion
 - [ ] Layout responsive (mobile: sidebar collapsible)
 - [ ] Page dashboard affiche "Bienvenue, [Nom]"
+- [ ] Tests composants/layout écrits avant l’implémentation UI
 
 ---
 
@@ -173,12 +183,36 @@ npm install -D @types/bcryptjs vitest @vitejs/plugin-react \
 - 1 Caissier : `caissier@aerispay.com` / `Caissier@1234` / rôle CAISSIER
 - 5 catégories : Alimentation, Boissons, Hygiène, Électronique, Divers
 - 20 produits réalistes avec prix et stock variés (certains en alerte)
+- Codes-barres réalistes sur une partie des produits pour tester la douchette
 
 **Critères d'acceptation :**
 - [ ] `cd web/app && npx prisma db seed` sans erreur
 - [ ] 3 utilisateurs créés avec hash bcrypt correct
 - [ ] 20 produits avec stock varié (certains sous seuil minimum)
+- [ ] Plusieurs produits possèdent un `barcode` unique pour tests POS
 - [ ] Les 3 comptes peuvent se connecter
+- [ ] Tests seed/auth associés écrits avant finalisation du ticket
+
+---
+
+### SETUP-06 — Compatibilité matériel caisse
+**Assigné à :** Agent  
+**Priorité :** 🔴 Critique  
+**Dépend de :** SETUP-01  
+**Specs :** `SPECS/CAISSE.md`, `SPECS/IMPRESSION.md`, `SPECS/STOCK.md`
+
+**Instructions :**
+1. Écrire d’abord les tests de comportement pour scan code-barres, impression ticket et ouverture tiroir.
+2. Définir les abstractions serveur pour imprimante ESC/POS et tiroir-caisse, avec erreurs non bloquantes après vente validée.
+3. Définir le comportement UI de la douchette : scan par clavier/HID, recherche `barcode` / `reference`, ajout au panier si un seul produit actif correspond.
+
+**Critères d'acceptation :**
+- [ ] Douchette USB/HID en mode clavier : scan produit → ajout panier
+- [ ] Scan inconnu → message clair, panier inchangé
+- [ ] Imprimante ticket ESC/POS configurable par env
+- [ ] Tiroir-caisse ouvrable via impulsion imprimante après paiement CASH validé
+- [ ] Erreur imprimante / tiroir n’annule jamais une vente déjà créée
+- [ ] Tests Vitest / RTL / Playwright pertinents écrits avant implémentation
 
 ---
 
@@ -187,6 +221,7 @@ npm install -D @types/bcryptjs vitest @vitejs/plugin-react \
 - **Développement :** `docker compose up -d` depuis la racine — base + phpMyAdmin + app (cf. `DOCKER.md`).
 - **Production :** `docker compose -f docker-compose.prod.yml --env-file <fichier-env> up -d --build` depuis la racine (image Next construite par `web/Dockerfile` avec le contexte `web/app`).
 - L’**application** est dans **`web/app/`** ; les fichiers Compose et la doc de référence conteneur sont à la **racine**.
+- **Matériel POS :** privilégier imprimante réseau ESC/POS en Docker ; les périphériques USB/série nécessitent une exposition explicite au conteneur ou un lancement hôte.
 
 ---
 
@@ -209,13 +244,14 @@ npm install -D @types/bcryptjs vitest @vitejs/plugin-react \
 3. **Démarre** MySQL (et outils) avec **Docker** depuis la racine avant migrations / seed
 4. **Prends le premier ticket** non commencé de la section "À faire" (ordre : SETUP-00 → …)
 5. **Lis la spec** correspondante avant de coder
-6. **Respecte les conventions** de `CONVENTIONS.md` — chemins côté code = `web/app/...` dans ce dépôt
-7. **Marque la tâche ✅** une fois terminée et les critères validés
-8. **Passe au ticket suivant** dans l'ordre de priorité
+6. **Écris les tests d’abord** (Vitest, RTL ou Playwright selon le comportement)
+7. **Respecte les conventions** de `CONVENTIONS.md` — chemins côté code = `web/app/...` dans ce dépôt
+8. **Marque la tâche ✅** une fois terminée et les critères validés
+9. **Passe au ticket suivant** dans l'ordre de priorité
 
 > Ne jamais placer le code source Next/Prisma **hors** de `web/app/` (sauf explicitation contraire)  
 > Ne jamais modifier les fichiers de documentation (`*.md` hors `web/`) **sans instruction explicite**  
-> Toujours viser des tests pour le code produit (dans `web/app/`, ex. `vitest` / `playwright`)
+> Toujours écrire les tests avant le code produit (dans `web/app/`, ex. `vitest` / `playwright`)
 
 ---
 

@@ -7,10 +7,10 @@
 
 ## 1. Contexte du Projet
 
-**AerisPay** est une application web de gestion commerciale et comptable destinée aux petits et moyens commerces. Le MVP couvre deux modules fondamentaux :
+**AerisPay** est une application web de caisse enregistreuse et de gestion commerciale destinée aux petits et moyens commerces. Le MVP couvre deux modules fondamentaux :
 
 - **Gestion de Stock** : produits, catégories, mouvements, alertes de rupture
-- **Gestion de Caisse (POS)** : interface point de vente, ventes, paiements, tickets
+- **Gestion de Caisse (POS)** : interface point de vente, ventes, paiements, tickets, douchette code-barres, imprimante ticket et tiroir-caisse
 - **Journal d’activité** : trace d’audit des opérations (consultation `ADMIN` / `MANAGER`)
 
 L'application est développée en **Next.js 14 (App Router) + TypeScript + Prisma + MySQL**.
@@ -31,6 +31,7 @@ Database     : MySQL
 Auth         : NextAuth.js v5 (credentials provider)
 PDF          : @react-pdf/renderer
 Thermique    : node-thermal-printer (ESC/POS)
+Périphériques: imprimante ticket ESC/POS · douchette code-barres USB/HID · tiroir-caisse via impulsion ESC/POS
 Tests        : Vitest + React Testing Library + Playwright (e2e)
 Linting      : ESLint + Prettier
 ```
@@ -146,6 +147,7 @@ aerispay/
 - Toujours lire la spec du module concerné dans `SPECS/`
 - Pour toute **action métier sensible** (CRUD critique, caisse, auth) : consulter `SPECS/ACTIVITY_LOG.md` et appeler `logActivity` lorsque c’est prévu
 - Vérifier `TODO.md` pour savoir quelle tâche est en cours
+- Appliquer le **TDD obligatoire** : écrire d’abord les tests qui décrivent le comportement attendu, les voir échouer si possible, puis implémenter le code minimal pour les faire passer
 - Ne jamais modifier les fichiers dans `components/ui/` (shadcn)
 
 ### 4.2 TypeScript
@@ -205,6 +207,8 @@ export async function POST(req: Request) {
 - Les variables d'environnement sensibles sont uniquement dans `.env.local` (non commité)
 
 ### 4.8 Tests
+- **TDD obligatoire pour chaque fonctionnalité** : les tests Vitest / RTL / Playwright sont écrits avant l’implémentation métier ou UI
+- Un ticket fonctionnel n’est terminé que si les tests ciblant le comportement demandé passent
 - Chaque API Route doit avoir un test unitaire Vitest
 - Les composants critiques (Cart, PaymentModal, ProductForm) doivent avoir des tests RTL
 - Les flux e2e critiques (vente complète, mouvement stock) doivent avoir des tests Playwright
@@ -270,10 +274,11 @@ Quand un agent travaille sur ce projet, il doit :
 2. **Identifier la tâche** dans `TODO.md`
 3. **Lire la spec** dans `SPECS/<MODULE>.md`
 4. **Respecter les conventions** de `CONVENTIONS.md`
-5. **Écrire du code complet et fonctionnel** — pas de pseudo-code, pas de `// TODO`
-6. **Tester** le code qu'il écrit avant de marquer la tâche comme terminée
-7. **Mettre à jour `TODO.md`** une fois la tâche complétée
-8. **Ne jamais modifier** `CLAUDE.md`, `ROADMAP.md` ou les specs sans instruction explicite
+5. **Écrire ou mettre à jour les tests d’abord** pour le comportement attendu
+6. **Écrire du code complet et fonctionnel** — pas de pseudo-code, pas de `// TODO`
+7. **Tester** le code qu'il écrit avant de marquer la tâche comme terminée
+8. **Mettre à jour `TODO.md`** une fois la tâche complétée
+9. **Ne jamais modifier** `CLAUDE.md`, `ROADMAP.md` ou les specs sans instruction explicite
 
 ---
 

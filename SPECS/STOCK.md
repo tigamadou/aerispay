@@ -11,6 +11,7 @@ Permettre la gestion complète du catalogue produits et le suivi en temps réel 
 | Field | Type | Règles |
 |---|---|---|
 | `reference` | String unique | Auto-générée format `PRD-XXXXX` ou saisie manuelle |
+| `barcode` | String unique? | Code-barres scanné par douchette, optionnel mais unique si renseigné |
 | `name` | String | Requis, min 2 chars |
 | `description` | String? | Optionnel |
 | `image` | String? | URL, optionnel MVP |
@@ -68,6 +69,11 @@ Permettre la gestion complète du catalogue produits et le suivi en temps réel 
 - `salePrice` doit être supérieur à `purchasePrice` (validation Zod)
 - La marge brute est calculée côté client : `(salePrice - purchasePrice) / salePrice × 100`
 
+### Code-barres
+- Un produit peut avoir un `barcode` optionnel, unique, utilisé par la douchette lecteur de code-barres en caisse.
+- Le POS recherche d’abord par `barcode`, puis par `reference`, puis par texte libre.
+- Un scan ne doit jamais ajouter un produit inactif au panier.
+
 ---
 
 ## Interfaces Utilisateur
@@ -111,6 +117,7 @@ Permettre la gestion complète du catalogue produits et le suivi en temps réel 
 // lib/validations/product.ts
 export const ProductSchema = z.object({
   reference: z.string().optional(),
+  barcode: z.string().trim().min(4).max(64).optional(),
   name: z.string().min(2, 'Nom trop court').max(100),
   categoryId: z.string().cuid('Catégorie invalide'),
   purchasePrice: z.number().positive('Prix achat doit être positif'),
@@ -142,6 +149,8 @@ export const StockMovementSchema = z.object({
 ---
 
 ## Tests Requis
+Ces tests doivent être écrits avant l’implémentation du module Stock selon la démarche **TDD**. Commencer par les tests Vitest des règles métier/API, puis ajouter les tests React Testing Library des formulaires et tableaux.
+
 - [ ] Créer produit avec données valides → 201
 - [ ] Créer produit avec salePrice < purchasePrice → 400
 - [ ] Entrée stock → currentStock incrémenté + StockMovement créé
@@ -149,3 +158,5 @@ export const StockMovementSchema = z.object({
 - [ ] Désactivation produit → n'apparaît plus dans POS
 - [ ] Filtrage par catégorie → résultats corrects
 - [ ] Alerte stock déclenché correctement selon seuils
+- [ ] Créer produit avec barcode déjà utilisé → 409
+- [ ] Recherche produit par barcode → produit actif correct retourné

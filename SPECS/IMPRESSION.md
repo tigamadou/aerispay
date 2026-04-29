@@ -1,7 +1,7 @@
 # Spec — Module Impression des Tickets
 
 ## Objectif
-Générer des tickets de caisse normalisés en PDF et les envoyer à une imprimante thermique POS.
+Générer des tickets de caisse normalisés en PDF, les envoyer à une imprimante thermique POS et piloter le tiroir-caisse lorsque le matériel le permet.
 
 ---
 
@@ -109,6 +109,12 @@ interface PrinterConfig {
   type: 'EPSON' | 'STAR'
   interface: string  // 'tcp://192.168.1.100:9100' ou '/dev/usb/lp0'
   width: 48 | 32    // colonnes selon largeur papier
+  cashDrawer?: {
+    enabled: boolean
+    pin: 2 | 5
+    onTime: number
+    offTime: number
+  }
 }
 
 export async function printReceipt(data: ReceiptData, config: PrinterConfig): Promise<void> {
@@ -128,6 +134,12 @@ export async function printReceipt(data: ReceiptData, config: PrinterConfig): Pr
 7. Pied de page : `alignCenter()` + message
 8. `cut()` — coupe automatique du papier
 9. `beep()` — signal sonore (optionnel)
+
+### Tiroir-caisse
+- Mode recommandé : tiroir branché à l’imprimante ticket via port RJ11/RJ12, ouvert par impulsion ESC/POS (`kick drawer`) après paiement espèces validé.
+- L’ouverture ne doit être déclenchée qu’après confirmation serveur de la vente ou via une action manuelle réservée `ADMIN` / `MANAGER`.
+- En cas d’échec d’ouverture, la vente reste validée ; afficher une erreur claire et tracer l’événement si le journal d’activité est disponible.
+- Les tiroirs USB/série directs sont supportés uniquement si l’interface est explicitement configurée côté serveur / conteneur.
 
 ### QR Code (`lib/receipt/qr-generator.ts`)
 - Contenu : `aerispay://ticket?id={saleId}&n={number}&t={total}&d={date}`
@@ -153,6 +165,12 @@ PRINTER_TYPE=EPSON                       # EPSON | STAR
 PRINTER_INTERFACE=tcp://192.168.1.100:9100
 PRINTER_WIDTH=48                         # 48 (80mm) | 32 (58mm)
 PRINTER_AUTO_PRINT=false                 # impression auto après vente
+
+# Tiroir-caisse
+CASH_DRAWER_ENABLED=false                # true pour activer l'ouverture tiroir
+CASH_DRAWER_MODE=printer                 # printer | direct
+CASH_DRAWER_PIN=2                        # 2 ou 5 selon imprimante/tiroir
+CASH_DRAWER_OPEN_ON_CASH=true            # ouvrir après vente espèces validée
 ```
 
 ---
@@ -170,6 +188,12 @@ PRINTER_AUTO_PRINT=false                 # impression auto après vente
 - Body : `{ printerConfig?: PrinterConfig }` (override config env)
 - Réponse succès : `{ success: true, message: "Ticket envoyé à l'imprimante" }`
 - Réponse erreur : `{ success: false, error: "Imprimante non joignable" }`
+
+### `POST /api/cash-drawer/open`
+- Ouvre le tiroir-caisse configuré, sans impression de ticket
+- Réservé `ADMIN` / `MANAGER`, ou action système après vente `CASH` validée
+- Réponse succès : `{ success: true, message: "Tiroir-caisse ouvert" }`
+- Réponse erreur : `{ success: false, error: "Tiroir-caisse non joignable" }`
 
 ---
 
@@ -197,6 +221,8 @@ PRINTER_AUTO_PRINT=false                 # impression auto après vente
 ---
 
 ## Tests Requis
+Ces tests doivent être écrits avant le générateur PDF, les endpoints ticket et l’intégration thermique selon la démarche **TDD**. Les tests automatisés passent en priorité ; les tests manuels d’imprimante restent explicitement tracés dans la validation.
+
 - [ ] Génération PDF avec toutes les données → fichier valide non vide
 - [ ] PDF contient : number, total, cashier (User.name), lignes
 - [ ] Calculs corrects sur le ticket (subtotal, vat, total)
@@ -205,3 +231,6 @@ PRINTER_AUTO_PRINT=false                 # impression auto après vente
 - [ ] Impression thermique : test connexion imprimante
 - [ ] Impression thermique : ticket complet imprimé (test manuel)
 - [ ] Gestion erreur imprimante non joignable → message d'erreur clair
+- [ ] Ouverture tiroir-caisse après vente CASH → impulsion envoyée
+- [ ] Ouverture tiroir manuelle sans rôle autorisé → 403
+- [ ] Erreur tiroir-caisse non joignable → vente conservée + message clair

@@ -1,6 +1,6 @@
 # AerisPay — Roadmap de Développement
 
-> **Méthodologie :** Sprints de 1 semaine · Chaque tâche = 1 ticket agent IA  
+> **Méthodologie :** Sprints de 1 semaine · Chaque tâche = 1 ticket agent IA · **TDD obligatoire**  
 > **Statuts :** `[ ]` À faire · `[→]` En cours · `[x]` Terminé · `[!]` Bloqué
 
 ---
@@ -15,10 +15,10 @@ Phase 1 — Module Stock (Semaines 2–3)
   └─ CRUD produits, catégories, mouvements, alertes
 
 Phase 2 — Module Caisse (Semaines 4–5)
-  └─ Interface POS, ventes, paiements, sessions
+  └─ Interface POS, ventes, paiements, sessions, douchette code-barres, tiroir-caisse
 
 Phase 3 — Impression (Semaine 6)
-  └─ Tickets PDF normalisés + imprimante thermique
+  └─ Tickets PDF normalisés + imprimante thermique ESC/POS
 
 Phase 4 — Dashboard & Rapports (Semaine 7)
   └─ KPIs, graphiques, exports
@@ -26,6 +26,12 @@ Phase 4 — Dashboard & Rapports (Semaine 7)
 Phase 5 — Qualité & Déploiement (Semaine 8)
   └─ Tests, optimisations, mise en production
 ```
+
+---
+
+## Règle TDD
+
+Chaque fonctionnalité de cette roadmap se développe en **tests d’abord** : écrire les tests Vitest, React Testing Library ou Playwright qui décrivent le comportement attendu, les faire échouer si possible, puis implémenter le code jusqu’à ce qu’ils passent. Les critères de succès incluent toujours les tests ciblés du ticket, même si la ligne ne le répète pas explicitement.
 
 ---
 
@@ -76,6 +82,7 @@ Phase 5 — Qualité & Déploiement (Semaine 8)
 
 ### Sprint 1.1 — API Stock
 - [ ] **[STOCK-API-01]** API `GET/POST /api/produits`
+  - Écrire d’abord les tests Vitest des cas nominaux, filtres, pagination, validation et permissions
   - Validation Zod, pagination, filtres (catégorie, statut, stock)
   - Réponse paginée : `{ data: Produit[], total, page, pageSize }`
   - _Critère :_ Tests Vitest passent
@@ -134,7 +141,7 @@ Phase 5 — Qualité & Déploiement (Semaine 8)
 ## Phase 2 — Module Gestion de Caisse (POS)
 
 **Objectif :** Interface POS complète permettant de réaliser une vente de bout en bout.  
-**Critère de succès :** Un caissier peut ouvrir une session, vendre des produits, encaisser et imprimer un ticket.
+**Critère de succès :** Un caissier peut ouvrir une session, scanner des produits avec une douchette, encaisser, imprimer un ticket et ouvrir le tiroir-caisse.
 
 ### Sprint 2.1 — Sessions de Caisse
 - [ ] **[CAISSE-API-01]** API `GET/POST /api/caisse/sessions`
@@ -155,9 +162,10 @@ Phase 5 — Qualité & Déploiement (Semaine 8)
 ### Sprint 2.2 — Interface POS
 - [ ] **[CAISSE-UI-02]** Interface POS principale (`/caisse`)
   - Grille de produits (carte avec photo, nom, prix) — disposition par catégorie
-  - Barre de recherche produit (nom ou référence)
+  - Barre de recherche produit (nom, référence ou code-barres)
+  - Support douchette lecteur code-barres USB/HID en mode clavier
   - Responsive : adapté aux écrans tactiles (tablette)
-  - _Critère :_ Tous les produits actifs affichés, recherche fonctionnelle
+  - _Critère :_ Tous les produits actifs affichés, recherche et scan douchette fonctionnels
 
 - [ ] **[CAISSE-UI-03]** Composant Panier (`Cart`)
   - Liste des articles avec quantité modifiable
@@ -178,6 +186,7 @@ Phase 5 — Qualité & Déploiement (Semaine 8)
 
 ### Sprint 2.3 — Logique de Vente
 - [ ] **[CAISSE-API-03]** API `POST /api/ventes`
+  - Écrire d’abord les tests Vitest couvrant transaction, stock insuffisant et rollback
   - Transaction atomique :
     1. Créer `Vente` avec numéro séquentiel (VTE-2026-XXXXX)
     2. Créer `LigneVente` pour chaque article
@@ -185,7 +194,8 @@ Phase 5 — Qualité & Déploiement (Semaine 8)
     4. Décrémenter `stockActuel` de chaque `Produit`
     5. Créer `MouvementStock` (type: SORTIE) pour chaque produit
   - Vérifier stock suffisant avant transaction
-  - _Critère :_ Si stock insuffisant → erreur 422, aucune donnée créée
+  - Déclencher l’ouverture tiroir-caisse après vente espèces validée si activée
+  - _Critère :_ Si stock insuffisant → erreur 422, aucune donnée créée ; si CASH → tiroir ouvert sans annuler la vente en cas d’échec matériel
 
 - [ ] **[CAISSE-API-04]** API `GET /api/ventes` + `GET /api/ventes/[id]`
   - Liste avec filtres : date, caissier, session, statut
@@ -209,7 +219,7 @@ Phase 5 — Qualité & Déploiement (Semaine 8)
 ## Phase 3 — Impression des Tickets
 
 **Objectif :** Générer et imprimer des tickets de caisse normalisés.  
-**Critère de succès :** Un ticket PDF est généré à chaque vente ; l'impression thermique fonctionne en réseau local.
+**Critère de succès :** Un ticket PDF est généré à chaque vente ; l'impression thermique fonctionne en réseau local ; le tiroir-caisse peut être ouvert via ESC/POS.
 
 ### Sprint 3.1 — Ticket PDF
 - [ ] **[PRINT-01]** Générateur de PDF (`lib/receipt/pdf-generator.ts`)
@@ -249,6 +259,18 @@ Phase 5 — Qualité & Déploiement (Semaine 8)
   - Après validation vente : modale avec choix PDF ou thermique
   - Option "Imprimer automatiquement" (config utilisateur)
   - _Critère :_ Déclenchement impression depuis le bouton
+
+- [ ] **[PRINT-08]** Ouverture tiroir-caisse
+  - Support impulsion ESC/POS via imprimante ticket
+  - Ouverture automatique après paiement espèces validé
+  - Ouverture manuelle réservée `ADMIN` / `MANAGER`
+  - _Critère :_ Tiroir ouvert en test manuel ; échec matériel affiché sans annuler la vente
+
+- [ ] **[POS-HW-01]** Validation matériel caisse
+  - Tester une douchette code-barres USB/HID en mode clavier
+  - Tester une imprimante ticket 58mm ou 80mm
+  - Tester un tiroir-caisse connecté à l’imprimante
+  - _Critère :_ Scénario complet scan → vente CASH → ticket → ouverture tiroir validé
 
 ---
 
@@ -301,9 +323,10 @@ Phase 5 — Qualité & Déploiement (Semaine 8)
 
 - [ ] **[QA-01]** Tests unitaires API (Vitest) — couverture ≥ 80%
 - [ ] **[QA-02]** Tests composants (React Testing Library) — composants critiques
-- [ ] **[QA-03]** Tests e2e Playwright — flux complet vente + impression
-- [ ] **[QA-04]** Audit performance (Lighthouse ≥ 90)
-- [ ] **[QA-05]** Audit sécurité (OWASP checklist)
+- [ ] **[QA-03]** Tests e2e Playwright — flux complet vente + impression + scan code-barres simulé
+- [ ] **[QA-04]** Vérification TDD — chaque feature livrée référence les tests écrits avant l’implémentation
+- [ ] **[QA-05]** Audit performance (Lighthouse ≥ 90)
+- [ ] **[QA-06]** Audit sécurité (OWASP checklist)
 - [ ] **[DEPLOY-01]** Valider le déploiement avec `docker-compose.prod.yml` + `Dockerfile` (build réel, migrations, secrets) — fichiers de base décrits dans `DOCKER.md`
 - [ ] **[DEPLOY-02]** Variables d'environnement production + secrets
 - [ ] **[DEPLOY-03]** Déploiement Vercel OU VPS (selon choix infrastructure)
