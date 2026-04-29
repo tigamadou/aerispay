@@ -203,4 +203,4 @@ Pour chaque page, les **tests** (Playwright e2e pour les parcours critiques, Rea
 
 ---
 
-*AerisPay — Spec inventaire pages MVP — Avril 2026*
+*AerisPay — Spec inventaire pages MVP — **doc v1.1.0** — Avril 2026*

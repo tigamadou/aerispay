@@ -1,11 +1,22 @@
-# AerisPay — TODO Sprint Actuel
+# AerisPay — TODO & suivi d’itération
 
-> **Phase en cours :** Phase 0 — Fondations  
-> **Dernière mise à jour :** 23 Avril 2026  
+> **Aligné sur :** `ROADMAP.md` **document v1.1.0** · Cible release code **MVP 1.0.0** (Phases 0–5)  
+> **Phase code en cours :** Phase 0 — Fondations  
+> **Dernière mise à jour :** 29 avril 2026  
 > **Prochain ticket :** SETUP-00  
-> **Contexte :** toute l’infrastructure d’exécution (MySQL, phpMyAdmin, image de prod) est pilotée par les fichiers **Docker Compose à la racine** ; le code applicatif vit dans le dossier **`web/app/`**.
-> **Méthodologie :** **TDD obligatoire** — pour chaque fonctionnalité, écrire ou mettre à jour les tests avant l’implémentation.
-> **Matériel cible :** caisse enregistreuse compatible imprimante ticket, douchette lecteur de code-barres et tiroir-caisse.
+> **Contexte :** infrastructure Docker (Compose **à la racine**) ; code applicatif dans **`web/app/`** (voir `CLAUDE.md`).  
+> **Méthodologie :** **TDD obligatoire** — tests avant implémentation.  
+> **Matériel cible :** `SPECS/PERIPHERIQUES.md` · **Écrans / règles :** `SPECS/PAGES_MVP.md` · **Rôles :** `SPECS/AUTH.md`
+
+---
+
+## Versionnement (rappel)
+
+| Élément | Version | Rôle |
+|---------|---------|------|
+| **Documentation** (`SPECS/`, `ROADMAP`, `TODO`, `ARCHITECTURE_MVP`…) | **1.1.0** | Spécifications stabilisées pour l’implémentation MVP. |
+| **Application (code)** | **→ 1.0.0** (à taguer) | Objectif : fin de Phase 5 (Qualité & déploiement). |
+| **Produit > MVP** | **2.x+** | Multi-org, etc. : `SPECS/MULTI_ORGANISATION.md` |
 
 ---
 
@@ -13,29 +24,43 @@
 
 | Emplacement | Contenu |
 |-------------|--------|
-| **Racine** (`./`) | Documentation : `ARCHITECTURE_MVP.md`, `CLAUDE.md`, `SPECS/`, `ROADMAP.md`, `CONVENTIONS.md`, `DOCKER.md`, `README.md`, ainsi que `docker-compose.yml` et `docker-compose.prod.yml` |
-| **`web/`** | Artefacts Docker applicatifs (`Dockerfile`) et exemples d’environnement (`development.env.example`, `production.env.example`) |
-| **`web/app/`** | Application Next.js, `package.json`, Prisma, `src/app/`, `lib/`, `components/` |
+| **Racine** | Docs : `ARCHITECTURE_MVP.md`, `CLAUDE.md`, `SPECS/` (dont `PAGES_MVP`, `AUTH`, `MULTI_ORGANISATION`…), `ROADMAP.md`, `CONVENTIONS.md`, `DOCKER.md`, `README.md` ; `docker-compose*.yml` |
+| **`web/`** | `Dockerfile`, `development.env.example`, `production.env.example` |
+| **`web/app/`** | Next.js, `package.json`, Prisma, `app/`, `lib/`, `components/`, etc. |
 
-**Règle :** les commandes `docker compose` se lancent depuis la **racine du dépôt**. Les commandes `npm` / `npx` (Prisma, Next) lancées sur l’hôte se font depuis **`web/app/`**. Les chemins de fichiers listés dans les tickets sont relatifs à **`web/app/`**, sauf mention « racine du dépôt ».
+**Règles :** `docker compose` depuis la **racine** ; `npm` / `npx` / Prisma depuis **`web/app/`** ; chemins de tickets côté code = relatifs à **`web/app/`** sauf mention inverse.
 
-**Règle TDD :** tout ticket fonctionnel commence par les tests qui décrivent le comportement attendu. Implémenter ensuite le code minimal, puis valider avec `npm run test` et, si le parcours utilisateur est concerné, `npm run test:e2e`.
-
----
-
-## 🔴 En cours
-
-_Aucune tâche en cours — prêt à démarrer_
+**TDD :** chaque ticket = tests d’abord (Vitest / RTL / Playwright selon le périmètre).
 
 ---
 
-## 🟡 À faire — Phase 0 (Fondations)
+## Documentation livrée (v1.1.0) — ne pas re-traiter comme code
+
+Ces éléments sont considérés **à jour** pour le MVP et les jalons v2+ documentés — les évolutions se font par **nouvelle version** de spec (`ROADMAP` / champs *Version* en tête de fichier) :
+
+- [x] `ARCHITECTURE_MVP.md` — schéma, endpoints, rôles §8  
+- [x] `SPECS/` — STOCK, CAISSE, AUTH (2 niveaux groupe/PDV), IMPRESSION, ACTIVITY_LOG, PERIPHERIQUES, **MULTI_ORGANISATION**, **PAGES_MVP** (inventaire des pages)  
+- [x] `CLAUDE.md`, `CONVENTIONS.md`, `DOCKER.md`  
+- [x] Stack Docker (Compose racine, app sous `web/app/`)  
+- [x] `ROADMAP.md` v1.1.0 (versionnement + phases **1.0.0** / backlog **2.x+**)
+
+> Toute modification de spec hors ticket explicite : incrémenter le **versionnement document** (ex. 1.1.0 → 1.2.0) dans l’en-tête du fichier concerné et `ROADMAP` si besoin.
+
+---
+
+## En cours
+
+_Aucune tâche en cours — prêt à démarrer SETUP-00_
+
+---
+
+## À faire — Phase 0 (Fondations) — cible **MVP 1.0.0**
 
 ### SETUP-00 — Prérequis : Docker (stack locale)
 **Assigné à :** Agent  
-**Priorité :** 🔴 Critique  
+**Priorité :** Critique  
 **Dépend de :** —  
-**Spec :** `DOCKER.md` (équivalent fonctionnel : `docker-compose.yml`)
+**Spec :** `DOCKER.md` (équivalent : `docker-compose.yml` à la racine)
 
 **Instructions :**
 ```bash
@@ -49,22 +74,21 @@ Cela démarre **MySQL 8.4**, **phpMyAdmin** et le service Next.js **app** (volum
 **Critères d'acceptation :**
 - [ ] `docker compose ps` (depuis la racine) montre les services `db` (healthy), `phpmyadmin` et, si utilisé, `app`
 - [ ] MySQL joignable depuis la machine hôte sur le port exposé (ex. `3306`) ; phpMyAdmin via le port mappé (ex. `http://localhost:8080`)
-- [ ] Aucun secret d’environnement commité (fichiers listés dans `web/.gitignore`)
-- [ ] Les contrôles automatisables liés au ticket sont écrits avant l’implémentation et documentés dans la validation
+- [ ] Aucun secret d’environnement commité
+- [ ] Les contrôles automatisables liés au ticket sont documentés (TDD)
 
 ---
 
 ### SETUP-01 — Initialisation du projet Next.js dans `web/app/`
 **Assigné à :** Agent  
-**Priorité :** 🔴 Critique  
+**Priorité :** Critique  
 **Dépend de :** — (peut être parallélisé avec SETUP-00)  
-**Spec :** `CLAUDE.md` section 2 (Stack)
+**Spec :** `CLAUDE.md` (stack) · `SPECS/PAGES_MVP.md` (routes à venir)
 
-**Instructions :** tout se fait **sous `web/app/`** (c’est le répertoire de l’application Next.js). Les fichiers Compose restent à la racine.
-
+**Instructions :** tout se fait **sous `web/app/`**. Exemple d’amorçage (adapter si le squelette existe déjà) :
 ```bash
 cd web/app
-# Si le squelette Next.js n’existe pas encore (dossier sans package.json Next) :
+# Si le squelette n’existe pas :
 npx create-next-app@latest . \
   --typescript \
   --tailwind \
@@ -72,187 +96,136 @@ npx create-next-app@latest . \
   --src-dir \
   --import-alias "@/*"
 
-# Installer les dépendances principales
 npm install @prisma/client prisma next-auth@beta \
   @auth/prisma-adapter zod react-hook-form \
   @hookform/resolvers zustand @tanstack/react-query \
   @tanstack/react-query-devtools bcryptjs
-
-# Installer shadcn/ui
 npx shadcn@latest init
-# Sélectionner: Default style, Slate color, CSS variables: Yes
-npx shadcn@latest add button input label card table \
-  dialog sheet badge select toast form
-
-# Dépendances développement
+# puis composants shadcn nécessaires
 npm install -D @types/bcryptjs vitest @vitejs/plugin-react \
   @testing-library/react @testing-library/user-event \
   @playwright/test prettier eslint-config-prettier
 ```
 
-**Note :** si le projet a déjà été initialisé, ne lancer que les `npm install` / `npx shadcn` manquants.
-
 **Critères d'acceptation :**
-- [ ] `npm run dev` (lancé depuis `web/app/`) démarre sans erreur sur `http://localhost:3000`
-- [ ] TypeScript strict mode activé dans `web/app/tsconfig.json`
-- [ ] Prettier configuré avec `web/app/.prettierrc` (ou équivalent)
-- [ ] ESLint configuré avec règles strictes
-- [ ] Alias `@/*` fonctionnel vers `web/app/src` (ou `web/app` selon structure choisie par create-next-app)
-- [ ] Les tests de setup disponibles sont écrits avant validation (`npm run test` dès que la stack de test existe)
-- [ ] Les dépendances et scripts de test permettent de couvrir les flux POS matériel (scan code-barres simulé, impression, tiroir-caisse)
+- [ ] `npm run dev` (depuis `web/app/`) sur `http://localhost:3000` sans erreur
+- [ ] TypeScript strict ; Prettier + ESLint
+- [ ] Alias `@/*` OK
+- [ ] Préparer tests (Vitest / Playwright) pour les parcours futurs (POS, matériel)
 
 ---
 
 ### SETUP-02 — Configuration Prisma + MySQL
 **Assigné à :** Agent  
-**Priorité :** 🔴 Critique  
+**Priorité :** Critique  
 **Dépend de :** SETUP-00, SETUP-01  
-**Spec :** `ARCHITECTURE_MVP.md` section 4
+**Spec :** `ARCHITECTURE_MVP.md` §4
 
 **Instructions :**
-1. S’assurer que la stack Docker (SETUP-00) est **up** et que `web/app/.env.local` contient un `DATABASE_URL` valide (hôte `localhost` depuis l’hôte, pas `db`).
-2. Copier le schéma Prisma complet dans **`web/app/prisma/schema.prisma`**
-3. Créer **`web/app/lib/db.ts`** avec le singleton Prisma (voir `CONVENTIONS.md` section 6)
-4. `cd web/app` puis : `npx prisma migrate dev --name init`, puis vérifier avec `npx prisma studio`
+1. Stack Docker up ; `web/app/.env.local` avec `DATABASE_URL` hôte `localhost` depuis l’hôte.  
+2. `web/app/prisma/schema.prisma`  
+3. `web/app/lib/db.ts` (singleton) — `CONVENTIONS.md` §6  
+4. `cd web/app` → `npx prisma migrate dev --name init` ; `npx prisma studio`
 
 **Critères d'acceptation :**
-- [ ] Toutes les tables créées en MySQL (conteneur Docker)
-- [ ] `npx prisma studio` (depuis `web/app/`) : tables visibles
-- [ ] Pas d'erreur TypeScript sur les types Prisma générés
-- [ ] Les tests Prisma/API liés au schéma sont écrits avant l’implémentation des accès DB
+- [ ] Tables en MySQL ; `prisma studio` OK ; types générés
 
 ---
 
 ### SETUP-03 — Authentification NextAuth.js v5
 **Assigné à :** Agent  
-**Priorité :** 🔴 Critique  
+**Priorité :** Critique  
 **Dépend de :** SETUP-02  
-**Spec :** `SPECS/AUTH.md`
+**Spec :** `SPECS/AUTH.md` · écrans : `SPECS/PAGES_MVP.md` (Login, Utilisateurs)
 
-**Fichiers à créer (sous `web/app/`) :**
-- `lib/auth.ts` — configuration NextAuth
-- `app/api/auth/[...nextauth]/route.ts` (ou chemin src selon le projet)
-- `middleware.ts` (à la racine du projet Next = `web/app/`)
-- `app/(auth)/login/page.tsx`, `app/(auth)/login/LoginForm.tsx`
-- **Pas** de page `/register` ni d'inscription publique
-- `app/api/users/route.ts` + `app/api/users/[id]/route.ts` — CRUD restreint au rôle `ADMIN` uniquement
-- `app/(dashboard)/users/page.tsx` + `users/nouveau/page.tsx` + composants (voir `SPECS/AUTH.md`)
+**Fichiers cibles (sous `web/app/`) :** `lib/auth.ts`, `app/api/auth/[...nextauth]/route.ts`, `middleware.ts`, `app/(auth)/login/...`, **pas** de `/register` public, `app/api/users/route.ts`, `app/api/users/[id]/route.ts`, `app/(dashboard)/users/...` — rôle `ADMIN` pour CRUD users.
 
 **Critères d'acceptation :**
-- [ ] Login email/password fonctionnel
-- [ ] Session JWT avec `{ id, name, email, role }` (aligner les clés sur le modèle)
-- [ ] Route `/` redirige vers `/login` si non connecté
-- [ ] Route `/login` redirige vers `/` si déjà connecté
-- [ ] Logout fonctionnel
-- [ ] Seul un `ADMIN` peut lister / créer / modifier des utilisateurs (403 pour les autres rôles)
-- [ ] Tests auth/permissions écrits avant les routes et pages correspondantes
+- [ ] Login / logout ; session avec rôle ; protection routes  
+- [ ] Seul `ADMIN` gère les comptes (403 sinon)  
+- [ ] Tests auth / permissions avant pages
 
 ---
 
-### SETUP-04 — Layout principal
+### SETUP-04 — Layout principal (dashboard)
 **Assigné à :** Agent  
-**Priorité :** 🟡 Haute  
+**Priorité :** Haute  
 **Dépend de :** SETUP-03  
+**Spec :** `SPECS/PAGES_MVP.md` §0 (sidebar : Utilisateurs si `ADMIN` ; Journal si `ADMIN` / `MANAGER`)
 
-**Fichiers à créer (sous `web/app/`) :**
-- `app/(dashboard)/layout.tsx`
-- `components/shared/Sidebar.tsx`
-- `components/shared/Navbar.tsx`
-- `components/shared/KPICard.tsx`
-- `app/(dashboard)/page.tsx` (dashboard vide)
+**Fichiers :** `app/(dashboard)/layout.tsx`, `components/shared/Sidebar.tsx`, `Navbar.tsx`, `KPICard.tsx`, `app/(dashboard)/page.tsx` (accueil minimal).
 
 **Critères d'acceptation :**
-- [ ] Sidebar avec liens : Dashboard, Stock, Caisse ; **Utilisateurs** si `ADMIN` ; **Journal d’activité** si `ADMIN` ou `MANAGER` (cf. `SPECS/ACTIVITY_LOG.md`)
-- [ ] Navbar avec nom utilisateur et bouton déconnexion
-- [ ] Layout responsive (mobile: sidebar collapsible)
-- [ ] Page dashboard affiche "Bienvenue, [Nom]"
-- [ ] Tests composants/layout écrits avant l’implémentation UI
+- [ ] Navigation conditionnelle par rôle ; responsive  
+- [ ] Bienvenue + déconnexion
 
 ---
 
 ### SETUP-05 — Seed de base de données
 **Assigné à :** Agent  
-**Priorité :** 🟡 Haute  
+**Priorité :** Haute  
 **Dépend de :** SETUP-02  
+**Spec :** `SPECS/AUTH.md` (rôles) · `SPECS/STOCK.md` (données de test)
 
-**Fichier à créer :** `web/app/prisma/seed.ts` + entrée `prisma` dans `package.json` si besoin
+**Données :** 1 compte `ADMIN`, 1 `MANAGER`, 1 `CAISSIER` ; 5 catégories ; 20 produits (certains en alerte) ; codes-barres sur une partie des produits.
 
-**Données à créer :**
-- 1 Admin : `admin@aerispay.com` / `Admin@1234` / rôle ADMIN
-- 1 Manager : `manager@aerispay.com` / `Manager@1234` / rôle MANAGER
-- 1 Caissier : `caissier@aerispay.com` / `Caissier@1234` / rôle CAISSIER
-- 5 catégories : Alimentation, Boissons, Hygiène, Électronique, Divers
-- 20 produits réalistes avec prix et stock variés (certains en alerte)
-- Codes-barres réalistes sur une partie des produits pour tester la douchette
-
-**Critères d'acceptation :**
-- [ ] `cd web/app && npx prisma db seed` sans erreur
-- [ ] 3 utilisateurs créés avec hash bcrypt correct
-- [ ] 20 produits avec stock varié (certains sous seuil minimum)
-- [ ] Plusieurs produits possèdent un `barcode` unique pour tests POS
-- [ ] Les 3 comptes peuvent se connecter
-- [ ] Tests seed/auth associés écrits avant finalisation du ticket
+**Critère :** `npx prisma db seed` OK ; les 3 comptes se connectent.
 
 ---
 
 ### SETUP-06 — Compatibilité matériel caisse
-**Assigné à :** Agent
-**Priorité :** 🔴 Critique
-**Dépend de :** SETUP-01
+**Assigné à :** Agent  
+**Priorité :** Haute (peut suivre un premier jet de caisse)  
+**Dépend de :** SETUP-01 min.  
 **Specs :** `SPECS/PERIPHERIQUES.md` (principal), `SPECS/CAISSE.md`, `SPECS/IMPRESSION.md`, `SPECS/STOCK.md`
 
-**Instructions :**
-1. Écrire d’abord les tests de comportement pour scan code-barres, impression ticket et ouverture tiroir.
-2. Définir les abstractions serveur pour imprimante ESC/POS et tiroir-caisse, avec erreurs non bloquantes après vente validée.
-3. Définir le comportement UI de la douchette : scan par clavier/HID, recherche `barcode` / `reference`, ajout au panier si un seul produit actif correspond.
+**Instructions :** TDD d’abord (scan, print, tiroir) ; abstractions serveur ; erreurs matériel n’annulent pas une vente validée.
 
-**Critères d'acceptation :**
-- [ ] Douchette USB/HID en mode clavier : scan produit → ajout panier
-- [ ] Scan inconnu → message clair, panier inchangé
-- [ ] Imprimante ticket ESC/POS configurable par env
-- [ ] Tiroir-caisse ouvrable via impulsion imprimante après paiement CASH validé
-- [ ] Erreur imprimante / tiroir n’annule jamais une vente déjà créée
-- [ ] Tests Vitest / RTL / Playwright pertinents écrits avant implémentation
+**Critères d'acceptation :** alignés `PERIPHERIQUES` + `IMPRESSION` (imprimante réseau, tiroir, douchette HID, messages d’erreur, tests automatisables).
 
 ---
 
-## 🐳 Rappel Docker (résumé)
+## Phases 1–5 (rappel)
 
-- **Développement :** `docker compose up -d` depuis la racine — base + phpMyAdmin + app (cf. `DOCKER.md`).
-- **Production :** `docker compose -f docker-compose.prod.yml --env-file <fichier-env> up -d --build` depuis la racine (image Next construite par `web/Dockerfile` avec le contexte `web/app`).
-- L’**application** est dans **`web/app/`** ; les fichiers Compose et la doc de référence conteneur sont à la **racine**.
-- **Matériel POS :** privilégier imprimante réseau ESC/POS en Docker ; les périphériques USB/série nécessitent une exposition explicite au conteneur ou un lancement hôte.
+Ordre et identifiants de tickets : **voir `ROADMAP.md`** (STOCK-*, CAISSE-*, PRINT-*, DASH-*, LOG-*, QA-*, DEPLOY-*). Chaque lot doit respecter `PAGES_MVP` + spec module.
 
----
-
-## ✅ Terminé
-
-- [x] Architecture définie (`ARCHITECTURE_MVP.md`)
-- [x] Schéma Prisma complet rédigé
-- [x] Roadmap complète (`ROADMAP.md`)
-- [x] Specs fonctionnelles rédigées (`SPECS/`)
-- [x] Conventions de code définies (`CONVENTIONS.md`)
-- [x] Fichier de consignes agents (`CLAUDE.md`)
-- [x] Stack Docker (fichiers Compose à la racine, application sous `web/app/`)
+| Phase | Contenu synthétique | Version cible |
+|--------|----------------------|---------------|
+| 1 | Stock | 1.0.0 |
+| 2 | Caisse / ventes | 1.0.0 |
+| 3 | Impression & matériel | 1.0.0 |
+| 4 | Dashboard, activity logs | 1.0.0 |
+| 5 | Qualité, déploiement, **tag v1.0.0** | 1.0.0 release |
 
 ---
 
-## 📋 Instructions pour l'Agent qui prend ce TODO
+## Rappel Docker (résumé)
 
-1. **Commence toujours par lire** `CLAUDE.md` en entier
-2. **Travaille le code applicatif** dans **`web/app/`** (pas à la racine du dépôt, sauf documentation et Compose)
-3. **Démarre** MySQL (et outils) avec **Docker** depuis la racine avant migrations / seed
-4. **Prends le premier ticket** non commencé de la section "À faire" (ordre : SETUP-00 → …)
-5. **Lis la spec** correspondante avant de coder
-6. **Écris les tests d’abord** (Vitest, RTL ou Playwright selon le comportement)
-7. **Respecte les conventions** de `CONVENTIONS.md` — chemins côté code = `web/app/...` dans ce dépôt
-8. **Marque la tâche ✅** une fois terminée et les critères validés
-9. **Passe au ticket suivant** dans l'ordre de priorité
-
-> Ne jamais placer le code source Next/Prisma **hors** de `web/app/` (sauf explicitation contraire)  
-> Ne jamais modifier les fichiers de documentation (`*.md` hors `web/`) **sans instruction explicite**  
-> Toujours écrire les tests avant le code produit (dans `web/app/`, ex. `vitest` / `playwright`)
+- **Dev :** `docker compose up -d` (racine) — cf. `DOCKER.md`.  
+- **Prod :** `docker compose -f docker-compose.prod.yml ...` ; build contexte `web/app/`, `web/Dockerfile`.  
+- **Imprimante :** préférence **réseau** ESC/POS en conteneur ; USB = complexe (voir `PERIPHERIQUES`).
 
 ---
 
-*Mis à jour le : 23 Avril 2026*
+## Terminé (hors code — traçabilité)
+
+- [x] Architecture & roadmap versionnée (**doc 1.1.0** / cible app **1.0.0**)  
+- [x] Specs MVP complètes + `PAGES_MVP` + `MULTI_ORGANISATION` + rôles `AUTH`  
+- [x] Fichiers Compose + doc Docker alignés `web/app/`
+
+---
+
+## Instructions agent (raccourci)
+
+1. Lire `CLAUDE.md`  
+2. Coder dans **`web/app/`**  
+3. Docker / DB : racine puis `web/app/` pour Prisma & Next  
+4. **Premier ticket ouvert** : SETUP-00 → … (ordre `ROADMAP` / section ci-dessus)  
+5. Spec : module + `PAGES_MVP` si UI  
+6. **Tests d’abord**  
+7. `CONVENTIONS.md`  
+8. Cocher la tâche, passer au ticket suivant  
+
+---
+
+*TODO — **v1.1.0** — 29 avril 2026 · Cible **MVP 1.0.0** = fin Phase 5 (`ROADMAP.md`).*
