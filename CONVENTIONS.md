@@ -384,7 +384,7 @@ const errorMessage = 'Le stock est insuffisant pour effectuer cette vente.'
 ## 10. Conteneurisation (Docker)
 
 - Fichiers Compose : `docker-compose.yml` (développement) et `docker-compose.prod.yml` (production) — ne pas les fusionner.
-- Noms d’exemples d’environnement : `docker/env/development.env.example` et `docker/env/production.env.example` ; ne jamais committer de secrets.
+- Noms d’exemples d’environnement : `web/development.env.example` et `web/production.env.example` ; ne jamais committer de secrets.
 - Détails opérationnels (ports, volumes, commandes) : `DOCKER.md`.
 
 ---

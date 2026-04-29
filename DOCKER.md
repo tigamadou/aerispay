@@ -2,38 +2,36 @@
 
 L’infrastructure cible repose sur **deux configurations Compose distinctes** : une pour le **développement local** (données faciles, outils d’admin) et une pour la **production** (application buildée + base de données persistante).
 
-Les fichiers Compose, le `Dockerfile` et `package.json` de l’application sont dans le dossier **`web/`** à la racine du dépôt (voir aussi `TODO.md`).
+Les fichiers Compose sont maintenant à la **racine du dépôt**. Le `Dockerfile` et les exemples d’environnement restent sous **`web/`**, et le projet Next.js vit sous **`web/app/`** (voir aussi `TODO.md`).
 
 | Fichier | Usage |
 |--------|--------|
-| `web/docker-compose.yml` | **Développement** : MySQL 8.4 + phpMyAdmin + service **`app`** (Next.js en `npm run dev` dans le conteneur, code monté depuis `web/`). |
-| `web/docker-compose.prod.yml` | **Production** : build de l’image + MySQL, réseau et volumes nommés. |
+| `docker-compose.yml` | **Développement** : MySQL 8.4 + phpMyAdmin + service **`app`** (Next.js en `npm run dev` dans le conteneur, code monté depuis `web/app/`). |
+| `docker-compose.prod.yml` | **Production** : build de l’image + MySQL, réseau et volumes nommés. |
 | `web/Dockerfile` | Image de production Next.js (mode `standalone`). |
-| `web/development.env.example` / `web/production.env.example` | Exemples de variables (copie vers `.env.local` ou fichier d’environnement non versionné). |
+| `web/development.env.example` / `web/production.env.example` | Exemples de variables (copie vers `.env` à la racine, ou vers un fichier d’environnement non versionné passé avec `--env-file`). |
 
 ## Prérequis côté application (build image)
 
-- Fichier `web/package.json` (projet Next.js initialisé).
-- Dans `web/next.config.js` ou `web/next.config.mjs` : `output: "standalone"` (requis par le `Dockerfile`).
-- Schéma Prisma : `datasource db { provider = "mysql" }` et `DATABASE_URL` au format `mysql://...` (voir `ARCHITECTURE_MVP.md`). La phase **builder** exécute `npx prisma generate` avant `npm run build` (tout depuis `web/`).
+- Fichier `web/app/package.json` (projet Next.js initialisé).
+- Dans `web/app/next.config.ts` : `output: "standalone"` (requis par le `Dockerfile` de production).
+- Schéma Prisma : `datasource db { provider = "mysql" }` et `DATABASE_URL` au format `mysql://...` (voir `ARCHITECTURE_MVP.md`). La phase **builder** exécute `npx prisma generate` avant `npm run build` depuis le contexte `web/app/`.
 
 ## Développement local
 
-1. Configurer les variables. **Important :** lancer `docker compose` **depuis `web/`** (recommandé) afin que le conteneur `app` voie le bon `package.json` (montage du code vers `/app`).
+1. Configurer les variables. Lancer `docker compose` depuis la **racine du dépôt** afin que le fichier `.env` racine soit chargé et que le montage par défaut `./web/app:/app` pointe vers le projet Next.js.
 
    ```bash
-   cp web/development.env.example web/.env
-   # éditer web/.env (NEXTAUTH_SECRET, etc.)
-   cd web
+   cp web/development.env.example .env
+   # éditer .env (NEXTAUTH_SECRET, ports, etc.)
    docker compose up -d
    ```
 
-   Si vous devez lancer `docker compose -f web/docker-compose.yml` **depuis la racine du dépôt** (sans `cd web`), le montage pointe sur le mauvais dossier sauf surchargé : créez un `.env` **à la racine** avec `APP_BIND=web` (voir `web/development.env.example`).
+   Le chemin monté dans le conteneur `app` est configurable avec `APP_BIND` si le projet Next.js est déplacé. Par défaut : `APP_BIND=./web/app`.
 
 2. Démarrer toute la stack (base + phpMyAdmin + app) — de préférence :
 
    ```bash
-   cd web
    docker compose up -d
    ```
 
@@ -42,18 +40,16 @@ Les fichiers Compose, le `Dockerfile` et `package.json` de l’application sont 
 3. Migrations (premier lancement, ou depuis l’hôte) :
 
    ```bash
-   cd web
    docker compose exec app npx prisma migrate dev
    ```
 
 4. **phpMyAdmin** : <http://localhost:8080> (sauf si `PHPMYADMIN_PORT` a été modifié). Serveur : `db`, utilisateur / mot de passe : `MYSQL_USER` / `MYSQL_PASSWORD` (ou `root` / `MYSQL_ROOT_PASSWORD`).
 
-5. **Option** : ne pas utiliser le service `app` et lancer Next **sur l’hôte** — exécuter seulement `db` + `phpmyadmin` n’est pas le fichier par défaut (vous pouvez retirer le service `app` ou utiliser [profiles](https://docs.docker.com/compose/profiles/)). Sinon : `docker compose up -d` puis `npx prisma migrate dev` + `npm run dev` en local, avec `DATABASE_URL=...localhost:3306` dans `web/.env.local`.
+5. **Option** : ne pas utiliser le service `app` et lancer Next **sur l’hôte** — exécuter seulement `db` + `phpmyadmin` n’est pas le fichier par défaut (vous pouvez retirer le service `app` ou utiliser [profiles](https://docs.docker.com/compose/profiles/)). Sinon : `docker compose up -d` depuis la racine, puis `cd web/app && npx prisma migrate dev && npm run dev` en local, avec `DATABASE_URL=...localhost:3306` dans `web/app/.env.local`.
 
 6. Arrêt des services :
 
    ```bash
-   cd web
    docker compose down
    ```
 
@@ -64,24 +60,22 @@ Les fichiers Compose, le `Dockerfile` et `package.json` de l’application sont 
 1. Copier l’exemple d’environnement et le renseigner (mots de passe, `NEXTAUTH_URL` publique, `NEXTAUTH_SECRET`) :
 
    ```bash
-   cp web/production.env.example web/production.env
-   # éditer web/production.env
+   cp web/production.env.example .env.production
+   # éditer .env.production
    ```
 
    Important : `DATABASE_URL` doit utiliser le **hostname du service Compose** `db` (et non `localhost`), car l’app tourne dans le même réseau Docker que MySQL, sur le port **3306**.
 
-2. Build et démarrage (depuis la racine du dépôt ou en étant dans `web/`) :
+2. Build et démarrage depuis la racine du dépôt :
 
    ```bash
-   cd web
-   docker compose -f docker-compose.prod.yml --env-file production.env up -d --build
+   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
    ```
 
 3. **Migrations** (à automatiser en CI ou à lancer après déploiement) : utiliser le même `DATABASE_URL` qu’en production.
 
    ```bash
-   cd web
-   docker compose -f docker-compose.prod.yml run --rm app npx prisma migrate deploy
+   docker compose -f docker-compose.prod.yml --env-file .env.production run --rm app npx prisma migrate deploy
    ```
 
    Variante : exécuter `prisma migrate deploy` depuis un pipeline qui a accès à la base, avant de router le trafic vers la nouvelle version.
@@ -98,13 +92,14 @@ Les fichiers Compose, le `Dockerfile` et `package.json` de l’application sont 
 | `phpmyadmin` | Oui | Non | Interface web SQL (uniquement en dev) |
 | `app` | Oui (`node` + `npm run dev` monté) | Oui (image `web/Dockerfile`) | Next.js |
 
-En **prod** l’image est buildée par le `Dockerfile`. En **dev** le conteneur `app` installe les deps (`npm install`), exécute `npx prisma generate` puis `next dev` sur `0.0.0.0:3000`.
+En **prod** l’image est buildée par `web/Dockerfile` avec le contexte `web/app`. En **dev** le conteneur `app` installe les deps (`npm install`), exécute `npx prisma generate` seulement si `prisma/schema.prisma` existe, puis `next dev` sur `0.0.0.0:3000`.
 
 ## Dépannage (service `app`)
 
-- **`package.json` introuvable dans `/app` (npm ENOENT)** : vous n’utilisez pas le bon répertoire comme racine de montage. Faire **`cd web`** puis `docker compose up`, ou définir **`APP_BIND=web`** dans le `.env` du répertoire d’où part la commande. Vérifier aussi qu’un `package.json` existe (projet initialisé avec `create-next-app` dans `web/`).
+- **`package.json` introuvable dans `/app` (npm ENOENT)** : le montage du service `app` ne pointe pas vers le projet Next.js. Avec le compose racine, le défaut est `APP_BIND=./web/app`. Vérifier que `web/app/package.json` existe ou corriger `APP_BIND` dans le `.env` racine.
 
 ## Fichiers de référence
 
-- `web/.dockerignore` : réduit le contexte d’image (exclut `node_modules`, secrets, etc.).
+- `web/Dockerfile` : construit l’image applicative depuis le contexte `web/app`.
+- `web/app/.gitignore` : exclut les dépendances, builds, fichiers d’environnement et artefacts locaux du projet Next.js.
 - Noms de volumes : `aerispay_mysql_data_dev` / `aerispay_mysql_data_prod` pour ne pas mélanger les jeux de données.

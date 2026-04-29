@@ -42,7 +42,7 @@ Phase 5 — Qualité & Déploiement (Semaine 8)
   - _Critère :_ `npm run dev` démarre sans erreur
 
 - [ ] **[SETUP-02]** Configurer Prisma + MySQL
-  - Démarrer la base : `docker compose up -d` (fichier `docker-compose.yml`, MySQL + phpMyAdmin) et reprendre `docker/env/development.env.example` pour `DATABASE_URL` (`mysql://...`) / `.env.local`
+  - Démarrer la base : `docker compose up -d` depuis la racine (fichier `docker-compose.yml`, MySQL + phpMyAdmin) et reprendre `web/development.env.example` pour `DATABASE_URL` (`mysql://...`) / `.env.local`
   - Initialiser Prisma : `npx prisma init`
   - Écrire le schéma complet (`prisma/schema.prisma`) selon `ARCHITECTURE_MVP.md`
   - Créer la première migration : `npx prisma migrate dev --name init`

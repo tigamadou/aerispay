@@ -1,6 +1,6 @@
 # Développement local — MySQL + phpMyAdmin + application Next.js (`app`).
 #
-# Prérequis : projet initialisé dans ce dossier (`package.json`, Prisma, etc.).
+# Prérequis : projet Next.js initialisé dans `web/app` (`package.json`, Prisma, etc.).
 #
 # Usage :
 #   docker compose up -d

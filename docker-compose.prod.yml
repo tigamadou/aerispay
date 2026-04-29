@@ -1,9 +1,9 @@
 # Production — base de données + image applicative AerisPay.
-# Prévoir un fichier d'environnement (ex. `.env.production` ou `docker/env/production.env`)
+# Prévoir un fichier d'environnement à la racine (ex. `.env.production`)
 # avec mots de passe forts et NEXTAUTH_SECRET.
 #
 # Build & démarrage (exemple) :
-#   docker compose -f docker-compose.prod.yml --env-file docker/env/production.env up -d --build
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
 #
 # Avant le premier trafic : exécuter les migrations
 #   docker compose -f docker-compose.prod.yml run --rm app npx prisma migrate deploy
@@ -32,8 +32,8 @@ services:
 
   app:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ./web/app
+      dockerfile: ../Dockerfile
     image: aerispay:${AERISPAY_TAG:-latest}
     container_name: aerispay-app
     restart: always
