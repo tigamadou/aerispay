@@ -6,7 +6,7 @@ Les fichiers Compose, le `Dockerfile` et `package.json` de l’application sont 
 
 | Fichier | Usage |
 |--------|--------|
-| `web/docker-compose.yml` | **Développement** : MySQL 8.4 + phpMyAdmin. L’app Next.js est en principe lancée sur l’hôte (`cd web && npm run dev`) pour le rechargement à chaud. |
+| `web/docker-compose.yml` | **Développement** : MySQL 8.4 + phpMyAdmin + service **`app`** (Next.js en `npm run dev` dans le conteneur, code monté depuis `web/`). |
 | `web/docker-compose.prod.yml` | **Production** : build de l’image + MySQL, réseau et volumes nommés. |
 | `web/Dockerfile` | Image de production Next.js (mode `standalone`). |
 | `web/development.env.example` / `web/production.env.example` | Exemples de variables (copie vers `.env.local` ou fichier d’environnement non versionné). |
@@ -19,33 +19,45 @@ Les fichiers Compose, le `Dockerfile` et `package.json` de l’application sont 
 
 ## Développement local
 
-1. Démarrer la base (et phpMyAdmin) :
+1. Configurer les variables. **Important :** lancer `docker compose` **depuis `web/`** (recommandé) afin que le conteneur `app` voie le bon `package.json` (montage du code vers `/app`).
+
+   ```bash
+   cp web/development.env.example web/.env
+   # éditer web/.env (NEXTAUTH_SECRET, etc.)
+   cd web
+   docker compose up -d
+   ```
+
+   Si vous devez lancer `docker compose -f web/docker-compose.yml` **depuis la racine du dépôt** (sans `cd web`), le montage pointe sur le mauvais dossier sauf surchargé : créez un `.env` **à la racine** avec `APP_BIND=web` (voir `web/development.env.example`).
+
+2. Démarrer toute la stack (base + phpMyAdmin + app) — de préférence :
 
    ```bash
    cd web
    docker compose up -d
    ```
 
-2. Configurer l’environnement de l’app sur l’hôte, par exemple en reprenant `web/development.env.example` dans **`web/.env.local`** (adapter `DATABASE_URL` si le port diffère, par défaut `3306` ; hôte `localhost` quand l’app tourne sur l’hôte, pas `db`).
+   - **App** : <http://localhost:3000> (ou `APP_PORT` dans `.env`) — le compose définit `DATABASE_URL` vers le service `db` ; `node_modules` est stocké dans un volume nommé `aerispay_app_node_modules_dev` (évite conflit hôte/ Linux).
 
-3. Lancer Prisma et l’application :
+3. Migrations (premier lancement, ou depuis l’hôte) :
 
    ```bash
    cd web
-   npx prisma migrate dev
-   npm run dev
+   docker compose exec app npx prisma migrate dev
    ```
 
-4. **phpMyAdmin** : <http://localhost:8080> (sauf si `PHPMYADMIN_PORT` a été modifié). Serveur : `db`, utilisateur / mot de passe : voir `MYSQL_USER` / `MYSQL_PASSWORD` (ou `root` / `MYSQL_ROOT_PASSWORD`).
+4. **phpMyAdmin** : <http://localhost:8080> (sauf si `PHPMYADMIN_PORT` a été modifié). Serveur : `db`, utilisateur / mot de passe : `MYSQL_USER` / `MYSQL_PASSWORD` (ou `root` / `MYSQL_ROOT_PASSWORD`).
 
-5. Arrêt des services :
+5. **Option** : ne pas utiliser le service `app` et lancer Next **sur l’hôte** — exécuter seulement `db` + `phpmyadmin` n’est pas le fichier par défaut (vous pouvez retirer le service `app` ou utiliser [profiles](https://docs.docker.com/compose/profiles/)). Sinon : `docker compose up -d` puis `npx prisma migrate dev` + `npm run dev` en local, avec `DATABASE_URL=...localhost:3306` dans `web/.env.local`.
+
+6. Arrêt des services :
 
    ```bash
    cd web
    docker compose down
    ```
 
-   Données MySQL : volume nommé `aerispay_mysql_data_dev` (conservé entre les `down` / `up`).
+   Données MySQL : volume `aerispay_mysql_data_dev`. Dépendances Node : volume `aerispay_app_node_modules_dev` (conservé entre les redémarrages).
 
 ## Production
 
@@ -84,9 +96,13 @@ Les fichiers Compose, le `Dockerfile` et `package.json` de l’application sont 
 |--------|-------------|--------------|------|
 | `db` | Oui | Oui | MySQL 8.4, volume persistant, healthcheck `mysqladmin ping` |
 | `phpmyadmin` | Oui | Non | Interface web SQL (uniquement en dev) |
-| `app` | Non* | Oui | Next.js (image `web/Dockerfile`) |
+| `app` | Oui (`node` + `npm run dev` monté) | Oui (image `web/Dockerfile`) | Next.js |
 
-\*En dev, l’exécution de Next sur l’hôte est le flux recommandé. Pour tout exécuter en conteneur, il faudrait un service supplémentaire (montage de code, commande `npm run dev`) : non fourni ici afin d’éviter une image de dev lourde et frêle.
+En **prod** l’image est buildée par le `Dockerfile`. En **dev** le conteneur `app` installe les deps (`npm install`), exécute `npx prisma generate` puis `next dev` sur `0.0.0.0:3000`.
+
+## Dépannage (service `app`)
+
+- **`package.json` introuvable dans `/app` (npm ENOENT)** : vous n’utilisez pas le bon répertoire comme racine de montage. Faire **`cd web`** puis `docker compose up`, ou définir **`APP_BIND=web`** dans le `.env` du répertoire d’où part la commande. Vérifier aussi qu’un `package.json` existe (projet initialisé avec `create-next-app` dans `web/`).
 
 ## Fichiers de référence
 
