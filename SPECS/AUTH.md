@@ -40,7 +40,7 @@ Ces rôles s’appliquent **au site sur lequel l’instance est installée** (un
 | Créer / modifier / désactiver comptes **de ce magasin** | Oui | Non | Non |
 | Créer / modifier produits, stock | Oui | Oui | Non |
 | Vendre, ouvrir/fermer **sa** session de caisse | Oui | Oui | Oui |
-| Gérer / clôturer session **d’un autre** opérateur | Oui | Oui | Sous règles `SPECS/CAISSE.md` |
+| Gérer / clôturer session **d’un autre** opérateur | Oui | Oui | Non |
 | Annuler une vente | Oui | Oui | Non |
 | Consulter le journal d’activité (audit) | Oui | Oui | Non |
 | Rapports / KPIs **locaux** | Oui | Oui | Non |
@@ -99,10 +99,12 @@ Quand le mode **groupe** sera en base, ajouter notamment (noms de code indicatif
 - Réservé à l’**administrateur du point de vente** : liste et création de comptes **pour ce site uniquement** (MVP)
 
 ## Sécurité
-- Mots de passe : **bcrypt** (ex. 12 rounds), jamais en clair
-- `NEXTAUTH_SECRET` pour la signature
+- Mots de passe : **bcrypt minimum 12 rounds**, jamais stockés en clair
+- `NEXTAUTH_SECRET` pour la signature JWT (générer avec `openssl rand -base64 32`)
 - Session : durée de travail d’une journée (ou configuration équivalente)
 - Middleware : routes limitées ; APIs sensibles refont un contrôle de rôle
+- **Rate limiting** : limiter les tentatives de connexion sur `POST /api/auth/callback/credentials` (ex. 10 tentatives / 15 min par IP) pour résister aux attaques par force brute. À implémenter via middleware Next.js ou reverse proxy (Nginx, Traefik)
+- **CSRF** : géré automatiquement par NextAuth.js v5 (token CSRF inclus dans les callbacks)
 
 ## Modèle Prisma (MVP, référence)
 

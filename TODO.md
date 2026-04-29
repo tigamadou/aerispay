@@ -196,10 +196,10 @@ npm install -D @types/bcryptjs vitest @vitejs/plugin-react \
 ---
 
 ### SETUP-06 — Compatibilité matériel caisse
-**Assigné à :** Agent  
-**Priorité :** 🔴 Critique  
-**Dépend de :** SETUP-01  
-**Specs :** `SPECS/CAISSE.md`, `SPECS/IMPRESSION.md`, `SPECS/STOCK.md`
+**Assigné à :** Agent
+**Priorité :** 🔴 Critique
+**Dépend de :** SETUP-01
+**Specs :** `SPECS/PERIPHERIQUES.md` (principal), `SPECS/CAISSE.md`, `SPECS/IMPRESSION.md`, `SPECS/STOCK.md`
 
 **Instructions :**
 1. Écrire d’abord les tests de comportement pour scan code-barres, impression ticket et ouverture tiroir.

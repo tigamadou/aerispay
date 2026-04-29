@@ -103,85 +103,105 @@ Les API Routes et transactions Prisma sont couvertes par Vitest, les composants 
 
 ## 3. Structure du Projet
 
+> **Règle :** le code applicatif vit sous **`web/app/`**. Les fichiers Docker Compose et la documentation sont à la **racine**. Les commandes `npm`/`npx`/`prisma` se lancent depuis `web/app/` ; les commandes `docker compose` depuis la racine.
+
 ```
-aerispay/
-├── docker/
-│   └── env/                      # Exemples .env pour Docker (dev / prod)
-├── docker-compose.yml            # Dev : MySQL + phpMyAdmin
-├── docker-compose.prod.yml       # Prod : app (Dockerfile) + MySQL
-├── Dockerfile                    # Image production Next (standalone)
-├── DOCKER.md                     # Guide conteneurisation
-├── app/                          # App Router Next.js
-│   ├── (auth)/                   # Pages authentification (pas d'inscription publique)
-│   │   └── login/
-│   ├── (dashboard)/              # Layout principal avec sidebar
-│   │   ├── layout.tsx
-│   │   ├── page.tsx              # Dashboard / KPIs
-│   │   ├── users/                # ADMIN : gestion des comptes utilisateurs
-│   │   │   ├── page.tsx
-│   │   │   └── nouveau/
-│   │   ├── activity-logs/        # ADMIN + MANAGER : journal d’audit
-│   │   │   └── page.tsx
-│   │   ├── stock/                # Module Stock
-│   │   │   ├── page.tsx          # Liste des produits
-│   │   │   ├── [id]/page.tsx     # Détail produit
-│   │   │   ├── nouveau/page.tsx  # Créer produit
-│   │   │   ├── categories/       # Gestion catégories
-│   │   │   └── mouvements/       # Historique mouvements
-│   │   └── caisse/               # Module Caisse
-│   │       ├── page.tsx          # Interface POS
-│   │       ├── sessions/         # Gestion sessions
-│   │       ├── ventes/           # Historique ventes
-│   │       └── tickets/[id]/     # Visualisation ticket
-│   └── api/                      # API Routes
-│       ├── auth/[...nextauth]/
-│       ├── users/                # CRUD utilisateurs (réservé ADMIN)
-│       ├── activity-logs/        # GET liste (ADMIN + MANAGER)
-│       ├── produits/
-│       ├── categories/
-│       ├── stock/mouvements/
-│       ├── caisse/sessions/
-│       ├── ventes/
-│       └── tickets/[id]/pdf/     # Génération PDF ticket
-│
-├── components/                   # Composants réutilisables
-│   ├── ui/                       # shadcn/ui components
-│   ├── stock/                    # Composants module stock
-│   │   ├── ProductCard.tsx
-│   │   ├── ProductForm.tsx
-│   │   ├── StockAlertBadge.tsx
-│   │   └── MovementTable.tsx
-│   ├── caisse/                   # Composants module caisse
-│   │   ├── POSGrid.tsx           # Grille produits POS
-│   │   ├── Cart.tsx              # Panier de vente
-│   │   ├── PaymentModal.tsx      # Modale paiement
-│   │   └── ReceiptPreview.tsx    # Prévisualisation ticket
-│   ├── users/                    # ADMIN — gestion des comptes
-│   │   ├── UserForm.tsx
-│   │   └── UsersTable.tsx
-│   ├── activity-logs/            # ADMIN + MANAGER
-│   │   └── ActivityLogTable.tsx
-│   └── shared/
-│       ├── Navbar.tsx
-│       ├── Sidebar.tsx
-│       └── KPICard.tsx
-│
-├── lib/                          # Utilitaires & logique
-│   ├── db.ts                     # Client Prisma singleton
-│   ├── auth.ts                   # Config NextAuth
-│   ├── activity-log.ts           # logActivity + catalogue d’actions
-│   ├── validations/              # Schémas Zod
-│   ├── receipt/
-│   │   ├── pdf-generator.ts      # Génération PDF ticket
-│   │   └── thermal-printer.ts    # Commandes ESC/POS
-│   └── utils.ts
-│
-├── prisma/
-│   ├── schema.prisma             # Modèle de données
-│   └── migrations/
-│
-└── types/                        # Types TypeScript globaux
-    └── index.ts
+aerispay/                              # Racine du dépôt
+├── docker-compose.yml                 # Dev : MySQL + phpMyAdmin + app
+├── docker-compose.prod.yml            # Prod : image buildée + MySQL
+├── DOCKER.md                          # Guide conteneurisation
+├── ARCHITECTURE_MVP.md                # Ce fichier
+├── CLAUDE.md                          # Consignes agents IA
+├── ROADMAP.md
+├── CONVENTIONS.md
+├── TODO.md
+├── SPECS/
+│   ├── AUTH.md
+│   ├── STOCK.md
+│   ├── CAISSE.md
+│   ├── IMPRESSION.md
+│   ├── PERIPHERIQUES.md
+│   ├── MULTI_ORGANISATION.md
+│   └── ACTIVITY_LOG.md
+└── web/                               # Artefacts applicatifs
+    ├── Dockerfile                     # Image production Next.js (standalone)
+    ├── development.env.example        # Exemple variables dev
+    ├── production.env.example         # Exemple variables prod
+    └── app/                           # Application Next.js (npm/npx depuis ici)
+        ├── app/                       # App Router Next.js
+        │   ├── (auth)/                # Pages auth (pas d’inscription publique)
+        │   │   └── login/
+        │   ├── (dashboard)/           # Layout principal avec sidebar
+        │   │   ├── layout.tsx
+        │   │   ├── page.tsx           # Dashboard / KPIs
+        │   │   ├── users/             # ADMIN : gestion des comptes
+        │   │   │   ├── page.tsx
+        │   │   │   └── nouveau/
+        │   │   ├── activity-logs/     # ADMIN + MANAGER : journal d’audit
+        │   │   │   └── page.tsx
+        │   │   ├── stock/             # Module Stock
+        │   │   │   ├── page.tsx
+        │   │   │   ├── [id]/page.tsx
+        │   │   │   ├── nouveau/page.tsx
+        │   │   │   ├── categories/
+        │   │   │   └── mouvements/
+        │   │   └── caisse/            # Module Caisse
+        │   │       ├── page.tsx       # Interface POS
+        │   │       ├── sessions/
+        │   │       ├── ventes/
+        │   │       └── tickets/[id]/
+        │   └── api/                   # API Routes
+        │       ├── auth/[...nextauth]/
+        │       ├── users/             # CRUD utilisateurs (réservé ADMIN)
+        │       ├── activity-logs/     # GET liste (ADMIN + MANAGER)
+        │       ├── produits/
+        │       ├── categories/
+        │       ├── stock/mouvements/
+        │       ├── stock/alertes/
+        │       ├── caisse/sessions/
+        │       ├── ventes/
+        │       ├── ventes/[id]/annuler/
+        │       ├── tickets/[id]/pdf/
+        │       ├── tickets/[id]/print/
+        │       ├── cash-drawer/open/
+        │       └── dashboard/kpis/
+        ├── components/                # Composants réutilisables
+        │   ├── ui/                    # shadcn/ui — ne pas modifier
+        │   ├── stock/
+        │   │   ├── ProductCard.tsx
+        │   │   ├── ProductForm.tsx
+        │   │   ├── StockAlertBadge.tsx
+        │   │   └── MovementTable.tsx
+        │   ├── caisse/
+        │   │   ├── POSGrid.tsx
+        │   │   ├── Cart.tsx
+        │   │   ├── PaymentModal.tsx
+        │   │   └── ReceiptPreview.tsx
+        │   ├── users/
+        │   │   ├── UserForm.tsx
+        │   │   └── UsersTable.tsx
+        │   ├── activity-logs/
+        │   │   └── ActivityLogTable.tsx
+        │   └── shared/
+        │       ├── Navbar.tsx
+        │       ├── Sidebar.tsx
+        │       └── KPICard.tsx
+        ├── hooks/                     # TanStack Query hooks (ex. useProduits.ts)
+        ├── store/                     # Zustand stores (ex. cartStore.ts)
+        ├── lib/                       # Utilitaires & logique serveur
+        │   ├── db.ts                  # Client Prisma singleton
+        │   ├── auth.ts                # Config NextAuth
+        │   ├── activity-log.ts        # logActivity + catalogue d’actions
+        │   ├── validations/           # Schémas Zod
+        │   ├── receipt/
+        │   │   ├── pdf-generator.ts
+        │   │   └── thermal-printer.ts
+        │   └── utils.ts
+        ├── prisma/
+        │   ├── schema.prisma          # Modèle de données
+        │   └── migrations/
+        └── types/
+            └── index.ts
 ```
 
 ---
@@ -565,7 +585,7 @@ Caissier → Interface POS
 | GET | `/api/ventes` | Historique ventes |
 | POST | `/api/ventes` | Créer une vente |
 | GET | `/api/ventes/[id]` | Détail vente |
-| PUT | `/api/ventes/[id]/annuler` | Annuler vente |
+| POST | `/api/ventes/[id]/annuler` | Annuler vente (action, pas une mise à jour de ressource) |
 | GET | `/api/tickets/[id]/pdf` | Générer PDF ticket |
 | POST | `/api/tickets/[id]/print` | Imprimer ticket thermique |
 | POST | `/api/cash-drawer/open` | Ouvrir tiroir-caisse configuré |

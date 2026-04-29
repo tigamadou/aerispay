@@ -40,106 +40,113 @@ Linting      : ESLint + Prettier
 
 ## 3. Structure du Projet (à respecter absolument)
 
+> **Règle absolue :** le code applicatif Next.js/Prisma vit sous **`web/app/`**. Les fichiers Docker Compose et la documentation sont à la **racine du dépôt**. Les chemins de fichiers dans les tickets sont relatifs à `web/app/` sauf mention contraire.
+
 ```
-aerispay/
-├── app/
-│   ├── (auth)/
-│   │   └── login/page.tsx
-│   ├── (dashboard)/
-│   │   ├── layout.tsx           ← sidebar + navbar
-│   │   ├── page.tsx             ← dashboard KPIs
-│   │   ├── users/               ← ADMIN uniquement : liste + création de comptes
-│   │   │   ├── page.tsx
-│   │   │   └── nouveau/page.tsx
-│   │   ├── activity-logs/       ← ADMIN + MANAGER : journal d’audit
-│   │   │   └── page.tsx
-│   │   ├── stock/
-│   │   │   ├── page.tsx
-│   │   │   ├── [id]/page.tsx
-│   │   │   ├── nouveau/page.tsx
-│   │   │   ├── categories/page.tsx
-│   │   │   └── mouvements/page.tsx
-│   │   └── caisse/
-│   │       ├── page.tsx         ← interface POS principale
-│   │       ├── sessions/page.tsx
-│   │       ├── ventes/page.tsx
-│   │       └── tickets/[id]/page.tsx
-│   └── api/
-│       ├── auth/[...nextauth]/route.ts
-│       ├── users/route.ts       ← GET liste / POST création (ADMIN uniquement)
-│       ├── users/[id]/route.ts  ← GET / PUT / désactivation (ADMIN uniquement)
-│       ├── activity-logs/route.ts ← GET liste paginée (ADMIN + MANAGER)
-│       ├── produits/route.ts
-│       ├── produits/[id]/route.ts
-│       ├── categories/route.ts
-│       ├── stock/mouvements/route.ts
-│       ├── stock/alertes/route.ts
-│       ├── caisse/sessions/route.ts
-│       ├── caisse/sessions/[id]/route.ts
-│       ├── ventes/route.ts
-│       ├── ventes/[id]/route.ts
-│       ├── ventes/[id]/annuler/route.ts
-│       ├── tickets/[id]/pdf/route.ts
-│       ├── tickets/[id]/print/route.ts   ← impression thermique ESC/POS
-│       ├── cash-drawer/open/route.ts        ← tiroir-caisse
-│       └── dashboard/kpis/route.ts
-├── components/
-│   ├── ui/                      ← shadcn/ui uniquement, ne pas modifier
-│   ├── stock/
-│   │   ├── ProductCard.tsx
-│   │   ├── ProductForm.tsx
-│   │   ├── StockAlertBadge.tsx
-│   │   └── MovementTable.tsx
-│   ├── caisse/
-│   │   ├── POSGrid.tsx
-│   │   ├── Cart.tsx
-│   │   ├── PaymentModal.tsx
-│   │   └── ReceiptPreview.tsx
-│   ├── users/                   ← ADMIN — gestion des comptes
-│   │   ├── UserForm.tsx
-│   │   └── UsersTable.tsx
-│   ├── activity-logs/
-│   │   └── ActivityLogTable.tsx
-│   └── shared/
-│       ├── Navbar.tsx
-│       ├── Sidebar.tsx
-│       ├── KPICard.tsx
-│       └── DataTable.tsx
-├── lib/
-│   ├── db.ts                    ← singleton Prisma client
-│   ├── auth.ts                  ← config NextAuth
-│   ├── activity-log.ts        ← logActivity + constantes d’actions
-│   ├── validations/
-│   │   ├── produit.ts
-│   │   ├── vente.ts
-│   │   └── session.ts
-│   ├── receipt/
-│   │   ├── pdf-generator.ts
-│   │   └── thermal-printer.ts
-│   └── utils.ts
-├── prisma/
-│   ├── schema.prisma
-│   └── seed.ts
-├── types/
-│   └── index.ts
-├── docker/
-│   └── env/                    ← exemples d’environnement Docker
-├── docker-compose.yml
-├── docker-compose.prod.yml
-├── Dockerfile
+aerispay/                              ← racine du dépôt (docker compose, docs)
+├── docker-compose.yml                 ← Dev : MySQL + phpMyAdmin + app
+├── docker-compose.prod.yml            ← Prod : image buildée + MySQL
 ├── DOCKER.md
-├── CLAUDE.md                    ← ce fichier
+├── CLAUDE.md                          ← ce fichier
 ├── ROADMAP.md
+├── ARCHITECTURE_MVP.md
 ├── CONVENTIONS.md
 ├── TODO.md
-└── SPECS/
-    ├── AUTH.md
-    ├── STOCK.md
-    ├── CAISSE.md
-    ├── IMPRESSION.md
-    ├── PERIPHERIQUES.md        ← périphériques caisse (web vs serveur, ordre, Docker)
-    ├── MULTI_ORGANISATION.md   ← multi-magasins, local + sauvegarde ; rôles groupe/PDV → SPECS/AUTH.md
-    └── ACTIVITY_LOG.md
+├── SPECS/
+│   ├── AUTH.md
+│   ├── STOCK.md
+│   ├── CAISSE.md
+│   ├── IMPRESSION.md
+│   ├── PERIPHERIQUES.md               ← périphériques caisse (web vs serveur, ordre, Docker)
+│   ├── MULTI_ORGANISATION.md          ← multi-magasins, local + sauvegarde ; rôles groupe/PDV → SPECS/AUTH.md
+│   └── ACTIVITY_LOG.md
+└── web/                               ← artefacts applicatifs
+    ├── Dockerfile                     ← Image production Next.js (standalone)
+    ├── development.env.example        ← Exemple variables développement (copier vers .env racine)
+    ├── production.env.example         ← Exemple variables production
+    └── app/                           ← Application Next.js — npm/npx/prisma depuis ici
+        ├── app/
+        │   ├── (auth)/
+        │   │   └── login/page.tsx
+        │   ├── (dashboard)/
+        │   │   ├── layout.tsx         ← sidebar + navbar
+        │   │   ├── page.tsx           ← dashboard KPIs
+        │   │   ├── users/             ← ADMIN uniquement : liste + création de comptes
+        │   │   │   ├── page.tsx
+        │   │   │   └── nouveau/page.tsx
+        │   │   ├── activity-logs/     ← ADMIN + MANAGER : journal d’audit
+        │   │   │   └── page.tsx
+        │   │   ├── stock/
+        │   │   │   ├── page.tsx
+        │   │   │   ├── [id]/page.tsx
+        │   │   │   ├── nouveau/page.tsx
+        │   │   │   ├── categories/page.tsx
+        │   │   │   └── mouvements/page.tsx
+        │   │   └── caisse/
+        │   │       ├── page.tsx       ← interface POS principale
+        │   │       ├── sessions/page.tsx
+        │   │       ├── ventes/page.tsx
+        │   │       └── tickets/[id]/page.tsx
+        │   └── api/
+        │       ├── auth/[...nextauth]/route.ts
+        │       ├── users/route.ts       ← GET liste / POST création (ADMIN uniquement)
+        │       ├── users/[id]/route.ts  ← GET / PUT / désactivation (ADMIN uniquement)
+        │       ├── activity-logs/route.ts ← GET liste paginée (ADMIN + MANAGER)
+        │       ├── produits/route.ts
+        │       ├── produits/[id]/route.ts
+        │       ├── categories/route.ts
+        │       ├── stock/mouvements/route.ts
+        │       ├── stock/alertes/route.ts
+        │       ├── caisse/sessions/route.ts
+        │       ├── caisse/sessions/[id]/route.ts
+        │       ├── ventes/route.ts
+        │       ├── ventes/[id]/route.ts
+        │       ├── ventes/[id]/annuler/route.ts
+        │       ├── tickets/[id]/pdf/route.ts
+        │       ├── tickets/[id]/print/route.ts   ← impression thermique ESC/POS
+        │       ├── cash-drawer/open/route.ts      ← tiroir-caisse
+        │       └── dashboard/kpis/route.ts
+        ├── components/
+        │   ├── ui/                    ← shadcn/ui uniquement, ne pas modifier
+        │   ├── stock/
+        │   │   ├── ProductCard.tsx
+        │   │   ├── ProductForm.tsx
+        │   │   ├── StockAlertBadge.tsx
+        │   │   └── MovementTable.tsx
+        │   ├── caisse/
+        │   │   ├── POSGrid.tsx
+        │   │   ├── Cart.tsx
+        │   │   ├── PaymentModal.tsx
+        │   │   └── ReceiptPreview.tsx
+        │   ├── users/                 ← ADMIN — gestion des comptes
+        │   │   ├── UserForm.tsx
+        │   │   └── UsersTable.tsx
+        │   ├── activity-logs/
+        │   │   └── ActivityLogTable.tsx
+        │   └── shared/
+        │       ├── Navbar.tsx
+        │       ├── Sidebar.tsx
+        │       ├── KPICard.tsx
+        │       └── DataTable.tsx
+        ├── hooks/                     ← TanStack Query hooks personnalisés (ex. useProduits.ts)
+        ├── store/                     ← Zustand stores (ex. cartStore.ts)
+        ├── lib/
+        │   ├── db.ts                  ← singleton Prisma client
+        │   ├── auth.ts                ← config NextAuth
+        │   ├── activity-log.ts        ← logActivity + constantes d’actions
+        │   ├── validations/
+        │   │   ├── produit.ts
+        │   │   ├── vente.ts
+        │   │   └── session.ts
+        │   ├── receipt/
+        │   │   ├── pdf-generator.ts
+        │   │   └── thermal-printer.ts
+        │   └── utils.ts
+        ├── prisma/
+        │   ├── schema.prisma
+        │   └── seed.ts
+        └── types/
+            └── index.ts
 ```
 
 ---
@@ -147,7 +154,8 @@ aerispay/
 ## 4. Règles Impératives pour les Agents
 
 ### 4.1 Avant de coder
-- Toujours lire `CONVENTIONS.md` avant d'écrire du code
+- Toujours lire `CONVENTIONS.md` avant d’écrire du code
+- Toujours lire `ARCHITECTURE_MVP.md` pour le schéma Prisma de référence et la liste des endpoints
 - Toujours lire la spec du module concerné dans `SPECS/`
 - Pour toute **action métier sensible** (CRUD critique, caisse, auth) : consulter `SPECS/ACTIVITY_LOG.md` et appeler `logActivity` lorsque c’est prévu
 - Pour l’impression ticket, le tiroir-caisse et la douchette : consulter `SPECS/PERIPHERIQUES.md` en plus de `SPECS/CAISSE.md` et `SPECS/IMPRESSION.md`
@@ -225,9 +233,9 @@ export async function POST(req: Request) {
 ## 5. Variables d'Environnement Requises
 
 ```env
-# .env.local (développement)
+# web/app/.env.local (développement — lancement Next.js sur l’hôte)
 # Avec `docker compose up` (voir docker-compose.yml), utiliser l’hôte : localhost:3306
-# Exemple d’alignement : docker/env/development.env.example
+# Exemple complet : web/development.env.example (copier vers .env à la racine pour Docker Compose)
 DATABASE_URL="mysql://user:password@localhost:3306/aerispay"
 NEXTAUTH_SECRET="<générer avec: openssl rand -base64 32>"
 NEXTAUTH_URL="http://localhost:3000"
@@ -237,7 +245,7 @@ NEXT_PUBLIC_APP_NAME="AerisPay"
 NEXT_PUBLIC_APP_VERSION="1.0.0"
 ```
 
-En **production (image Docker)**, `DATABASE_URL` pointe vers le service Compose `db` (hostname `db`, port `3306`), pas `localhost` — voir `docker/env/production.env.example` et `DOCKER.md`.
+En **production (image Docker)**, `DATABASE_URL` pointe vers le service Compose `db` (hostname `db`, port `3306`), pas `localhost` — voir `web/production.env.example` et `DOCKER.md`.
 
 ---
 

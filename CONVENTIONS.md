@@ -158,6 +158,19 @@ Danger        → red-600
 
 ---
 
+## 3.1 Répertoires `hooks/` et `store/`
+
+Le projet utilise deux répertoires à la racine de `web/app/` pour l'état et les données async :
+
+| Répertoire | Contenu | Exemple |
+|---|---|---|
+| `hooks/` | Hooks TanStack Query (un fichier par ressource) | `hooks/useProduits.ts`, `hooks/useVentes.ts` |
+| `store/` | Stores Zustand (un fichier par domaine UI) | `store/cartStore.ts` |
+
+Ces répertoires doivent être créés dès le SETUP-01 et référencés dans l'alias `@/*`.
+
+---
+
 ## 4. Gestion d'État
 
 ### TanStack Query — Fetching de données
@@ -244,6 +257,33 @@ toast.error('Stock insuffisant pour effectuer la vente')
 // Loading
 const toastId = toast.loading('Création en cours...')
 toast.dismiss(toastId)
+```
+
+---
+
+## 5.1 Nommage des champs Prisma vs API
+
+Le schéma Prisma (défini dans `ARCHITECTURE_MVP.md`) utilise des **noms de champs en français** (`nom`, `codeBarres`, `stockActuel`, `prixAchat`, `motDePasse`, `actif`, `ouvertureAt`, etc.) pour l'alignement sur le domaine métier en base de données.
+
+Les **schémas Zod** et les **réponses API JSON** exposent des noms en **anglais** (`name`, `barcode`, `currentStock`, `purchasePrice`, `passwordHash`, `active`, `openedAt`, etc.) conformément à la convention code (§8).
+
+**Règle :** toujours mapper explicitement dans la couche API/DTO. Exemple :
+
+```ts
+// ✅ Mapping Prisma (FR) → DTO (EN) dans l'API Route
+const produit = await prisma.produit.findUnique({ where: { id } })
+return Response.json({
+  data: {
+    id: produit.id,
+    name: produit.nom,
+    barcode: produit.codeBarres,
+    currentStock: produit.stockActuel,
+    salePrice: produit.prixVente,
+  }
+})
+
+// ❌ Ne jamais retourner les champs Prisma bruts directement si les noms diffèrent
+return Response.json({ data: produit })  // exposerait `nom`, `prixVente`, etc.
 ```
 
 ---
@@ -350,7 +390,7 @@ export function genererNumeroVente(sequence: number): string {
 
 // Référence produit auto
 export function genererReference(): string {
-  return `PRD-${Math.random().toString(36).substr(2, 5).toUpperCase()}`
+  return `PRD-${Math.random().toString(36).substring(2, 7).toUpperCase()}`
 }
 // → "PRD-X4K2M"
 ```

@@ -65,6 +65,7 @@ Interface point de vente intuitive permettant à un caissier de réaliser des ve
 - Format : `VTE-{YYYY}-{NNNNN}` (ex: `VTE-2026-00042`)
 - Numéro séquentiel basé sur l'année fiscale
 - Généré côté serveur lors de la création de la vente (champ `number`)
+- **Attention aux doublons en charge concurrente** : ne pas générer le numéro via `count() + 1` (race condition). Utiliser une table de séquence dédiée avec `SELECT ... FOR UPDATE`, ou un champ `AUTO_INCREMENT` MySQL dans une table `SaleSequence` par année. Cette table est créée dans la migration `init` et incrémentée à l'intérieur de la transaction Prisma de création de vente.
 
 ### Calculs
 ```
