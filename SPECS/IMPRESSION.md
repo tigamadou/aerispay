@@ -1,5 +1,7 @@
 # Spec — Module Impression des Tickets
 
+> **Implémentation matérielle (ordre des appels, Docker, douchette)** : voir `SPECS/PERIPHERIQUES.md`.
+
 ## Objectif
 Générer des tickets de caisse normalisés en PDF, les envoyer à une imprimante thermique POS et piloter le tiroir-caisse lorsque le matériel le permet.
 

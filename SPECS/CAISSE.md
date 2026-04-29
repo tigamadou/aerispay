@@ -145,7 +145,7 @@ La barre de recherche doit rester compatible douchette : focus rapide, scan comp
    - Affichage "Monnaie à rendre : X FCFA" en temps réel
 4. Si MOBILE_MONEY / CARD :
    - Champ référence transaction (optionnel)
-5. Bouton "Valider" → `POST /api/sales`
+5. Bouton "Valider" → `POST /api/ventes` (aligné sur les routes API du projet, voir `CLAUDE.md` et `SPECS/PERIPHERIQUES.md`)
 6. Succès → modal ticket + bouton imprimer + réinitialisation panier
 7. Si paiement CASH et tiroir activé → ouverture du tiroir-caisse après validation serveur
 

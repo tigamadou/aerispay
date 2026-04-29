@@ -80,6 +80,8 @@ aerispay/
 │       ├── ventes/[id]/route.ts
 │       ├── ventes/[id]/annuler/route.ts
 │       ├── tickets/[id]/pdf/route.ts
+│       ├── tickets/[id]/print/route.ts   ← impression thermique ESC/POS
+│       ├── cash-drawer/open/route.ts        ← tiroir-caisse
 │       └── dashboard/kpis/route.ts
 ├── components/
 │   ├── ui/                      ← shadcn/ui uniquement, ne pas modifier
@@ -135,6 +137,7 @@ aerispay/
     ├── STOCK.md
     ├── CAISSE.md
     ├── IMPRESSION.md
+    ├── PERIPHERIQUES.md        ← périphériques caisse (web vs serveur, ordre, Docker)
     └── ACTIVITY_LOG.md
 ```
 
@@ -146,6 +149,7 @@ aerispay/
 - Toujours lire `CONVENTIONS.md` avant d'écrire du code
 - Toujours lire la spec du module concerné dans `SPECS/`
 - Pour toute **action métier sensible** (CRUD critique, caisse, auth) : consulter `SPECS/ACTIVITY_LOG.md` et appeler `logActivity` lorsque c’est prévu
+- Pour l’impression ticket, le tiroir-caisse et la douchette : consulter `SPECS/PERIPHERIQUES.md` en plus de `SPECS/CAISSE.md` et `SPECS/IMPRESSION.md`
 - Vérifier `TODO.md` pour savoir quelle tâche est en cours
 - Appliquer le **TDD obligatoire** : écrire d’abord les tests qui décrivent le comportement attendu, les voir échouer si possible, puis implémenter le code minimal pour les faire passer
 - Ne jamais modifier les fichiers dans `components/ui/` (shadcn)

@@ -24,6 +24,7 @@ Les fichiers Compose sont maintenant à la **racine du dépôt**. Le `Dockerfile
 - **Douchette code-barres** : les lecteurs USB/HID en mode clavier fonctionnent côté navigateur sans accès spécial au conteneur. Le POS doit traiter le scan comme une saisie clavier rapide terminée par `Enter`.
 - **Tiroir-caisse** : mode recommandé via l’imprimante ticket (port RJ11/RJ12) avec impulsion ESC/POS. Un tiroir USB/série direct nécessite d’exposer le device au conteneur et n’est pas portable sur Docker Desktop macOS.
 - **USB / série dans Docker** : éviter en développement macOS si possible ; utiliser une imprimante réseau ou lancer l’intégration matérielle sur l’hôte lorsque l’accès device est requis.
+- Détails d’ordre d’appel API, mocks TDD et alignement des routes : **`SPECS/PERIPHERIQUES.md`**.
 
 ## Développement local
 

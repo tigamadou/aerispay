@@ -11,7 +11,7 @@ Permettre la gestion complète du catalogue produits et le suivi en temps réel 
 | Field | Type | Règles |
 |---|---|---|
 | `reference` | String unique | Auto-générée format `PRD-XXXXX` ou saisie manuelle |
-| `barcode` | String unique? | Code-barres scanné par douchette, optionnel mais unique si renseigné |
+| `barcode` | String unique? | Code-barres (douchette) ; optionnel mais unique si renseigné. En base Prisma, mappage possible sur un champ `codeBarres` (ou équivalent) — l’API peut exposer `barcode` en JSON ; aligner schéma Zod et DTO. |
 | `name` | String | Requis, min 2 chars |
 | `description` | String? | Optionnel |
 | `image` | String? | URL, optionnel MVP |
