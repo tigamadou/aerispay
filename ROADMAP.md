@@ -25,6 +25,9 @@ Phase 4 — Dashboard & Rapports (Semaine 7)
 
 Phase 5 — Qualité & Déploiement (Semaine 8)
   └─ Tests, optimisations, mise en production
+
+Phase 6+ — Multi-organisation (jalons)
+  └─ Voir `SPECS/MULTI_ORGANISATION.md` (multi-PDV, base locale, sauvegarde en ligne, accès distants)
 ```
 
 ---
@@ -356,10 +359,12 @@ Ces fonctionnalités sont **hors scope MVP** mais documentées pour la roadmap f
 - Bilan comptable + Compte de résultat
 - Déclarations TVA automatisées
 
-### v4.0 — Multi-boutiques
-- Gestion multi-points de vente
-- Stock centralisé + transferts inter-boutiques
-- Reporting consolidé
+### v4.0 — Multi-boutiques & gouvernance de structure
+- Spec de référence : `SPECS/MULTI_ORGANISATION.md` (structure, magasins, **multi-caisses**, **multi-caissiers**, base **locale** par site, **sauvegarde en ligne**, **accès distants** sécurisés).
+- Gestion multi-points de vente (scopage `organisation` / `magasin` si base unique, ou un déploiement par site avec fédération reporting).
+- Stock : centralisé ou par magasin, transferts inter-boutiques si stock central
+- Reporting consolidé (synthèse groupe + détail par PDV) ; alimentation possible par exports ou copie d’analyse
+- Tâches de sauvegarde (dump chiffré, rétention) + durcissement des accès lecture à distance
 
 ---
 

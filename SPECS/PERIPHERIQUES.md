@@ -1,6 +1,6 @@
 # Spec — Périphériques de caisse (implémentation)
 
-> Ce document consolide le **plan d’implémentation** des imprimantes tickets ESC/POS, de la douchette code-barres et du tiroir-caisse. Il complète `SPECS/CAISSE.md` et `SPECS/IMPRESSION.md`.
+> Ce document consolide le **plan d’implémentation** des imprimantes tickets ESC/POS, de la douchette code-barres et du tiroir-caisse. Il complète `SPECS/CAISSE.md` et `SPECS/IMPRESSION.md`. Pour **plusieurs postes de caisse** au sein d’un même magasin (config par terminal) et le modèle **structure / magasins** : `SPECS/MULTI_ORGANISATION.md`.
 
 ## Objectif
 

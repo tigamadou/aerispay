@@ -1,5 +1,7 @@
 # Spec — Module Gestion de Caisse (POS)
 
+> **Multi-magasins, multi-postes, base locale, sauvegarde & accès distant** (vision groupe) : `SPECS/MULTI_ORGANISATION.md`. **Rôles** (groupe **vs** point de vente, caissiers) : `SPECS/AUTH.md`.
+
 ## Objectif
 Interface point de vente intuitive permettant à un caissier de réaliser des ventes rapides avec encaissement multi-modes, génération de tickets et compatibilité matériel de caisse : imprimante ticket, douchette lecteur de code-barres et tiroir-caisse.
 

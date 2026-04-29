@@ -7,7 +7,7 @@
 
 ## 1. Contexte du Projet
 
-**AerisPay** est une application web de caisse enregistreuse et de gestion commerciale destinée aux petits et moyens commerces. Le MVP couvre deux modules fondamentaux :
+**AerisPay** est une application web de caisse enregistreuse et de gestion commerciale destinée aux petits et moyens commerces. La **cible long terme** inclut le déploiement par **plusieurs points de vente** (même **structure** / groupe), le **multi-caissiers** et le **multi-postes** (plusieurs caisses par magasin), une **base de données locale** en magasin, et des **sauvegardes en ligne** + **accès distants** contrôlés — voir `SPECS/MULTI_ORGANISATION.md`. Les **utilisateurs** se répartissent en **deux niveaux** (groupe vs point de vente) : au **PDV** l’équipe compte surtout des **caissiers** ; rôles et matrices : `SPECS/AUTH.md`. Le MVP couvre deux modules fondamentaux :
 
 - **Gestion de Stock** : produits, catégories, mouvements, alertes de rupture
 - **Gestion de Caisse (POS)** : interface point de vente, ventes, paiements, tickets, douchette code-barres, imprimante ticket et tiroir-caisse
@@ -138,6 +138,7 @@ aerispay/
     ├── CAISSE.md
     ├── IMPRESSION.md
     ├── PERIPHERIQUES.md        ← périphériques caisse (web vs serveur, ordre, Docker)
+    ├── MULTI_ORGANISATION.md   ← multi-magasins, local + sauvegarde ; rôles groupe/PDV → SPECS/AUTH.md
     └── ACTIVITY_LOG.md
 ```
 
@@ -150,6 +151,8 @@ aerispay/
 - Toujours lire la spec du module concerné dans `SPECS/`
 - Pour toute **action métier sensible** (CRUD critique, caisse, auth) : consulter `SPECS/ACTIVITY_LOG.md` et appeler `logActivity` lorsque c’est prévu
 - Pour l’impression ticket, le tiroir-caisse et la douchette : consulter `SPECS/PERIPHERIQUES.md` en plus de `SPECS/CAISSE.md` et `SPECS/IMPRESSION.md`
+- Pour le déploiement multi-sites, sauvegarde en ligne et accès distant (sans implémenter avant d’avoir relu la spec) : `SPECS/MULTI_ORGANISATION.md`
+- Pour rôles utilisateurs (groupe **vs** point de vente, caissiers, administrateur local) : `SPECS/AUTH.md`
 - Vérifier `TODO.md` pour savoir quelle tâche est en cours
 - Appliquer le **TDD obligatoire** : écrire d’abord les tests qui décrivent le comportement attendu, les voir échouer si possible, puis implémenter le code minimal pour les faire passer
 - Ne jamais modifier les fichiers dans `components/ui/` (shadcn)

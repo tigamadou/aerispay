@@ -377,7 +377,7 @@ const errorMessage = 'Le stock est insuffisant pour effectuer cette vente.'
 
 - Toute opération listée ou analogue dans `SPECS/ACTIVITY_LOG.md` doit déclencher un **`logActivity`** côté serveur après succès (ou échec d’authentification pertinent), via `lib/activity-log.ts`.
 - Ne jamais stocker mots de passe, tokens ni secrets dans `metadata` (JSON).
-- `GET /api/activity-logs` : réservé `ADMIN` et `MANAGER` ; pas d’exposition des logs à un `CAISSIER`.
+- `GET /api/activity-logs` : réservé `ADMIN` et `MANAGER` **(niveau point de vente, MVP)** ; pas d’exposition des logs à un `CAISSIER` — rôles détaillés dans `SPECS/AUTH.md`.
 
 ---
 
@@ -396,6 +396,10 @@ const errorMessage = 'Le stock est insuffisant pour effectuer cette vente.'
 - Fichiers Compose : `docker-compose.yml` (développement) et `docker-compose.prod.yml` (production) — ne pas les fusionner.
 - Noms d’exemples d’environnement : `web/development.env.example` et `web/production.env.example` ; ne jamais committer de secrets.
 - Détails opérationnels (ports, volumes, commandes) : `DOCKER.md`.
+
+### 11.1 Multi-magasin (cible)
+
+Lorsque le modèle `organisation` / `magasin` sera en base, **toute requête** Prisma sur du métier (produits, ventes, sessions) devra appliquer un **filtrage explicite** sur le contexte (éviter les fuites inter-sites). Les noms d’`id` de contexte pourront reposer sur des variables d’environnement par déploiement (cf. `SPECS/MULTI_ORGANISATION.md`).
 
 ---
 

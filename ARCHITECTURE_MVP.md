@@ -30,6 +30,16 @@ AerisPay MVP est une application web de caisse enregistreuse et de gestion comme
 └─────────────────────────────────────────────────┘
 ```
 
+### 1.1 Cible produit : structure, magasins, local & cloud (hors scope MVP complet)
+
+En **objectif** (détaillé dans `SPECS/MULTI_ORGANISATION.md`) :
+
+- Une **même structure** (groupe) peut déployer l’app sur **plusieurs points de vente** (supermarchés) : en pratique, **une base MySQL locale** par site est recommandée pour la **caisse** (latence, continuité si la liaison Internet tombe).
+- Chaque site peut avoir **plusieurs postes de caisse** (multi-terminaux) et **plusieurs caissiers** (sessions de caisse par opérateur) — le schéma MVP actuel est **mono-magasin implicite** ; l’évolution passera par des clés `organisation` / `magasin` / `poste` au fil de la roadmap.
+- **Sauvegarde en ligne** : copies chiffrées périodiques (ex. dump MySQL vers stockage objet) pour **reprise** et **contrôle** ; l’**accès à distance** (reporting, direction) doit passer par des **canaux applicatifs ou VPN** sécurisés, **pas** par une exposition directe de MySQL sur Internet.
+
+Cette section n’impose pas encore toutes les tables du schéma Prisma : elle fixe l’**alignement** produit / infra pour les sprints “multi-PDV”.
+
 ---
 
 ## 2. Stack Technique Recommandée
@@ -569,7 +579,9 @@ Caissier → Interface POS
 
 ## 8. Sécurité & Rôles
 
-| Fonctionnalité | ADMIN | MANAGER | CAISSIER |
+Les rôles `ADMIN`, `MANAGER` et `CAISSIER` en **MVP** sont des comptes **niveau point de vente** (un seul site par base). Détails, dénomination métier (administrateur local, gérant, caissier) et rôles **cible** pour le **niveau groupe** : `SPECS/AUTH.md`.
+
+| Fonctionnalité | `ADMIN` (admin. PDV) | `MANAGER` (gérant) | `CAISSIER` |
 |---|:---:|:---:|:---:|
 | Créer/modifier produits | ✅ | ✅ | ❌ |
 | Voir le stock | ✅ | ✅ | ✅ |
@@ -577,8 +589,10 @@ Caissier → Interface POS
 | Annuler une vente | ✅ | ✅ | ❌ |
 | Gérer les sessions | ✅ | ✅ | ✅ |
 | Voir les rapports | ✅ | ✅ | ❌ |
-| Gérer les utilisateurs | ✅ | ❌ | ❌ |
+| Gérer les utilisateurs **du site** | ✅ | ❌ | ❌ |
 | Consulter le journal d’activité | ✅ | ✅ | ❌ |
+
+*Les rôles de **niveau groupe** (ex. lecture consolidée multi-magasins) n’entrent qu’à l’évolution multi-organisation — voir `SPECS/MULTI_ORGANISATION.md`.*
 
 ---
 

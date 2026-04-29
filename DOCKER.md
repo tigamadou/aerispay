@@ -26,6 +26,8 @@ Les fichiers Compose sont maintenant à la **racine du dépôt**. Le `Dockerfile
 - **USB / série dans Docker** : éviter en développement macOS si possible ; utiliser une imprimante réseau ou lancer l’intégration matérielle sur l’hôte lorsque l’accès device est requis.
 - Détails d’ordre d’appel API, mocks TDD et alignement des routes : **`SPECS/PERIPHERIQUES.md`**.
 
+En **déploiement multi-supermarchés** (même groupe, plusieurs sites), l’objectif usuel est **une stack Compose (ou VM) par magasin**, chacun avec sa **propre** base MySQL locale sur le LAN — sauvegarde en ligne et accès distants : **`SPECS/MULTI_ORGANISATION.md`**.
+
 ## Développement local
 
 1. Configurer les variables. Lancer `docker compose` depuis la **racine du dépôt** afin que le fichier `.env` racine soit chargé et que le montage par défaut `./web/app:/app` pointe vers le projet Next.js.
