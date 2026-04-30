@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { hasPermission } from "@/lib/permissions";
+import { prisma } from "@/lib/db";
 import type { Role } from "@prisma/client";
 
 const roleLabel: Record<string, string> = {
@@ -21,6 +22,12 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   const canManageUsers = hasPermission(role, "users:manage");
   const canViewLogs = hasPermission(role, "activity_logs:consulter");
 
+  // Check if user has an open cash session (for sign-out flow)
+  const openSession = await prisma.caisseSession.findFirst({
+    where: { userId: session.user.id, statut: "OUVERTE" },
+    select: { id: true },
+  });
+
   return (
     <div className="min-h-svh flex flex-col">
       <header className="border-b border-zinc-200 bg-zinc-50/80 dark:border-zinc-800 dark:bg-zinc-950/80">
@@ -35,6 +42,9 @@ export default async function DashboardLayout({ children }: { children: ReactNod
               </Link>
               <Link href="/caisse" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
                 Caisse
+              </Link>
+              <Link href="/caisse/ventes" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
+                Ventes
               </Link>
               {canManageUsers && (
                 <Link href="/users" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
@@ -55,7 +65,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
                 ? ` — ${roleLabel[session.user.role] ?? session.user.role}`
                 : null}
             </span>
-            <SignOutButton />
+            <SignOutButton openSessionId={openSession?.id ?? null} />
           </div>
         </div>
       </header>

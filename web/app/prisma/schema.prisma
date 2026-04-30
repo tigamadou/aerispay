@@ -110,6 +110,8 @@ model CaisseSession {
   fermetureAt      DateTime?
   montantOuverture Decimal  @db.Decimal(10, 2)
   montantFermeture Decimal? @db.Decimal(10, 2)
+  soldeTheorique   Decimal? @db.Decimal(10, 2)
+  ecartCaisse      Decimal? @db.Decimal(10, 2)
   statut           StatutSession @default(OUVERTE)
   notes            String?
 

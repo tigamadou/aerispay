@@ -46,12 +46,6 @@ Cypress.Commands.add("loginAsCaissier", () => {
   loginWith("caissier", "caissier@aerispay.com", "Caissier@1234");
 });
 
-Cypress.Commands.add("resetDb", () => {
-  cy.request({ method: "POST", url: "/api/test/reset-db" }).then((res) => {
-    expect(res.status).to.eq(200);
-  });
-});
-
 export {};
 
 declare global {
@@ -60,7 +54,6 @@ declare global {
       loginAsAdmin(): Chainable<void>;
       loginAsManager(): Chainable<void>;
       loginAsCaissier(): Chainable<void>;
-      resetDb(): Chainable<void>;
     }
   }
 }

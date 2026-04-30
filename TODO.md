@@ -50,7 +50,7 @@ Ces éléments sont considérés **à jour** pour le MVP et les jalons v2+ docum
 
 ## En cours
 
-_Prêt à démarrer SETUP-04 (Layout principal)_
+_Phase 2 (Caisse / ventes) terminée — prêt pour Phase 3 (Impression & matériel avancé)_
 
 ---
 
@@ -74,9 +74,33 @@ _Prêt à démarrer SETUP-04 (Layout principal)_
 
 ---
 
-### SETUP-04 — Layout principal (dashboard)
-**Assigné à :** Agent  
-**Priorité :** Haute  
+### ~~SETUP-04 — Layout principal (dashboard)~~ ✅
+- [x] Navigation conditionnelle par rôle (Stock, Caisse, Utilisateurs, Journal)
+- [x] Header avec identité utilisateur + déconnexion
+
+### ~~SETUP-05 — Seed de base de données~~ ✅
+- [x] 3 comptes (ADMIN, MANAGER, CAISSIER)
+- [x] 5 catégories + 19 produits (avec alertes stock et ruptures)
+
+---
+
+## Terminé — Phase 2 (Caisse / Ventes)
+
+- [x] **Sessions de caisse** : ouverture/fermeture, 1 session par caissier, ADMIN/MANAGER ferment les sessions d'autrui
+- [x] **Interface POS** `/caisse` : grille produits, recherche/scanner code-barres, panier Zustand, modale paiement multi-modes
+- [x] **Création de vente** `POST /api/ventes` : transaction atomique (vente + lignes + paiements + décrémentation stock + mouvements)
+- [x] **Annulation de vente** `POST /api/ventes/[id]/annuler` : ADMIN/MANAGER uniquement, restauration stock
+- [x] **Historique des ventes** `/caisse/ventes` : tableau paginé avec annulation
+- [x] **Tiroir-caisse** `POST /api/cash-drawer/open` : ESC/POS, fire-and-forget après paiement espèces
+- [x] **Impression ticket** `POST /api/tickets/[id]/print` : ESC/POS via node-thermal-printer
+- [x] **Zustand cart store** : items, remise, totaux calculés, persist sessionStorage
+- [x] **108 tests passent** (82 auth/users + 26 caisse)
+
+---
+
+### SETUP-04 — Layout principal (dashboard) (anciens critères)
+**Assigné à :** Agent
+**Priorité :** Haute
 **Dépend de :** SETUP-03  
 **Spec :** `SPECS/PAGES_MVP.md` §0 (sidebar : Utilisateurs si `ADMIN` ; Journal si `ADMIN` / `MANAGER`)
 

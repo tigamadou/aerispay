@@ -2,10 +2,14 @@
 # Usage : make <target>
 
 APP_DIR = web/app
+TEST_DB_URL = mysql://aerispay:aerispay@db:3306/aerispay_test
+TEST_DB_URL_HOST = mysql://aerispay:aerispay@localhost:3306/aerispay_test
+TEST_CONTAINER = aerispay-app-dev
+TEST_PORT = 3001
 
 ## -- Tests --
 
-.PHONY: ci test test-watch test-coverage test-e2e test-e2e-open
+.PHONY: ci test test-watch test-coverage test-e2e test-e2e-open test-db-reset test-db-setup
 
 ci: lint test test-e2e ## Run all CI checks (lint + unit tests + e2e)
 
@@ -18,11 +22,31 @@ test-watch: ## Run tests in watch mode
 test-coverage: ## Run tests with coverage report
 	cd $(APP_DIR) && npx vitest run --coverage
 
-test-e2e: ## Run Cypress e2e tests (headless)
-	cd $(APP_DIR) && npx cypress run
+test-db-setup: ## Create test database if not exists
+	docker exec aerispay-mysql-dev mysql -uroot -prootsecret -e \
+		"CREATE DATABASE IF NOT EXISTS aerispay_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; GRANT ALL PRIVILEGES ON aerispay_test.* TO 'aerispay'@'%'; FLUSH PRIVILEGES;" 2>/dev/null
 
-test-e2e-open: ## Open Cypress interactive runner
-	cd $(APP_DIR) && npx cypress open
+test-db-reset: test-db-setup ## Reset test database (push schema + seed)
+	docker exec -e DATABASE_URL="$(TEST_DB_URL)" $(TEST_CONTAINER) npx prisma db push --force-reset --skip-generate
+	docker exec -e DATABASE_URL="$(TEST_DB_URL)" $(TEST_CONTAINER) npx prisma db seed
+
+test-e2e: test-db-reset ## Run Cypress e2e tests on test database
+	@echo "Building app for e2e…"
+	@docker exec $(TEST_CONTAINER) npx next build
+	@echo "Starting test server on port $(TEST_PORT)…"
+	@docker exec -d -e DATABASE_URL="$(TEST_DB_URL)" -e NEXTAUTH_URL="http://localhost:$(TEST_PORT)" -e AUTH_SECRET="devsecret-change-me" $(TEST_CONTAINER) npx next start -H 0.0.0.0 -p $(TEST_PORT)
+	@cd $(APP_DIR) && npx wait-on http://localhost:$(TEST_PORT) --timeout 60000
+	-cd $(APP_DIR) && CYPRESS_BASE_URL=http://localhost:$(TEST_PORT) CYPRESS_DB_URL="$(TEST_DB_URL_HOST)" npx cypress run
+	@docker exec $(TEST_CONTAINER) sh -c 'kill $$(ps aux | grep "next start.*$(TEST_PORT)" | grep -v grep | awk "{print \$$2}") 2>/dev/null' || true
+
+test-e2e-open: test-db-reset ## Open Cypress interactive runner on test database
+	@echo "Building app for e2e…"
+	@docker exec $(TEST_CONTAINER) npx next build
+	@echo "Starting test server on port $(TEST_PORT)…"
+	@docker exec -d -e DATABASE_URL="$(TEST_DB_URL)" -e NEXTAUTH_URL="http://localhost:$(TEST_PORT)" -e AUTH_SECRET="devsecret-change-me" $(TEST_CONTAINER) npx next start -H 0.0.0.0 -p $(TEST_PORT)
+	@cd $(APP_DIR) && npx wait-on http://localhost:$(TEST_PORT) --timeout 60000
+	-cd $(APP_DIR) && CYPRESS_BASE_URL=http://localhost:$(TEST_PORT) CYPRESS_DB_URL="$(TEST_DB_URL_HOST)" npx cypress open
+	@docker exec $(TEST_CONTAINER) sh -c 'kill $$(ps aux | grep "next start.*$(TEST_PORT)" | grep -v grep | awk "{print \$$2}") 2>/dev/null' || true
 
 ## -- Dev --
 

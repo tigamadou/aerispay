@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import { UserForm } from "@/components/users/UserForm";
 import type { Metadata } from "next";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Modifier l'utilisateur",
 };

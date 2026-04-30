@@ -1,18 +1,9 @@
 /**
  * e2e — Gestion des utilisateurs (`/users`).
- * `cy.resetDb()` remet la base dans l'état seed (3 comptes)
- * avant et après chaque test. Aucune donnée de test ne persiste.
+ * La base de test est réinitialisée via `make test-db-reset` avant le run.
  */
 
 const uniqueEmail = () => `test-${Date.now()}@aerispay.com`;
-
-beforeEach(() => {
-  cy.resetDb();
-});
-
-afterEach(() => {
-  cy.resetDb();
-});
 
 describe("Gestion des utilisateurs — accès par rôle", () => {
   it("ADMIN voit le lien Utilisateurs dans la navigation", () => {
