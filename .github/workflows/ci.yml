@@ -47,7 +47,7 @@ jobs:
       - run: npm run test
 
   cypress-tests:
-    name: E2E Tests
+    name: Cypress Tests
     runs-on: ubuntu-latest
     defaults:
       run:
