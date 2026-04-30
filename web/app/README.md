@@ -1,47 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AerisPay (Next.js)
 
-## Getting Started
+Application de caisse et de gestion — point d’entrée : `src/app/`, Prisma dans `prisma/`.
 
-This app follows a mandatory TDD workflow. For every feature or bug fix, write the relevant tests first, then implement the behavior until those tests pass.
+## Développement
 
-The POS target hardware includes an ESC/POS receipt printer, a USB/HID barcode scanner in keyboard mode, and a cash drawer opened through the receipt printer pulse or a configured direct interface.
+### Avec Docker (recommandé)
 
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Run the test suite before marking a feature as done once the project test scripts are configured:
+À la **racine du dépôt** (pas dans `web/app`) : copier `web/development.env.example` → `.env`, puis :
 
 ```bash
-npm run test
-npm run test:e2e
+docker compose up -d
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Le conteneur `app` exécute `npm install` et `next dev` sur `0.0.0.0:3000`. `DATABASE_URL` reçoit automatiquement l’hôte **`db`** (MySQL du Compose). `NEXTAUTH_URL` / `NEXTAUTH_SECRET` / `AUTH_SECRET` : voir le service `app` dans `docker-compose.yml`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+**Premier usage après ajout / modification du schéma Prisma** :
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+docker compose exec app npx prisma migrate dev --name init
+docker compose exec app npx prisma db seed
+```
 
-## Learn More
+(Comptes par défaut du seed : `SPECS/AUTH` / `prisma/seed.ts` — ex. `admin@aerispay.com` si `SEED_ADMIN_*` non définis.)
 
-To learn more about Next.js, take a look at the following resources:
+### Sans Docker (hôte)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Depuis `web/app/` : créer `/.env.local` avec `DATABASE_URL=mysql://...localhost:PORT/...` et lancer `npm run dev` après `npx prisma migrate dev`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Scripts utiles
 
-## Deploy on Vercel
+| Script | Rôle |
+|--------|------|
+| `npm run dev` | Serveur de dev |
+| `npm run db:migrate` | `prisma migrate dev` |
+| `npm run db:seed` | `prisma db seed` |
+| `npm run db:generate` | `prisma generate` |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Documentation
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Racine du dépôt : `CLAUDE.md`, `ARCHITECTURE_MVP.md`, `SPECS/`, `DOCKER.md`.
+
+TDD, matériel POS, conventions : `../CLAUDE.md` (dépôt) et `CLAUDE.md` ici le cas échéant.
+
+---
+
+*Projet structuré selon le dépôt AerisPay (Compose à la racine, code dans `web/app/`).*
