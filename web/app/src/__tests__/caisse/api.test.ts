@@ -355,7 +355,7 @@ describe("Caisse error handling", () => {
     mockSession("ADMIN");
     (prisma.caisseSession.findMany as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
     const { GET } = await import("@/app/api/caisse/sessions/route");
-    const res = await GET(new Request("http://localhost/api/caisse/sessions"));
+    const res = await GET();
     expect(res.status).toBe(500);
   });
 

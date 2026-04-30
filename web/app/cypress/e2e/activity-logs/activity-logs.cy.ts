@@ -41,9 +41,16 @@ describe("Activity Logs", () => {
 
   describe("Auth logging", () => {
     it("logs AUTH_LOGIN_SUCCESS on successful login", () => {
-      // Login triggers AUTH_LOGIN_SUCCESS
-      cy.loginAsAdmin();
-      cy.visit("/");
+      // Force a fresh login (bypass cy.session cache) so the log is created
+      Cypress.session.clearAllSavedSessions();
+      const email = Cypress.env("ADMIN_EMAIL") as string;
+      const password = Cypress.env("ADMIN_PASSWORD") as string;
+      cy.visit("/login");
+      cy.get('[data-testid="login-email"]').clear().type(email);
+      cy.get('[data-testid="login-password"]').clear().type(password, { log: false });
+      cy.get('[data-testid="login-submit"]').click();
+      cy.location("pathname", { timeout: 30_000 }).should("eq", "/");
+
       cy.task("getRecentActivityLogs", { action: "AUTH_LOGIN_SUCCESS" }).then(
         (logs) => {
           const typedLogs = logs as Array<{ action: string; actorId: string | null }>;
@@ -60,7 +67,7 @@ describe("Activity Logs", () => {
       cy.get('[data-testid="login-password"]').clear().type("WrongPassword123");
       cy.get('[data-testid="login-submit"]').click();
       // Wait for login attempt to complete
-      cy.contains("Identifiants invalides", { timeout: 10_000 }).should("be.visible");
+      cy.contains("Email ou mot de passe incorrect", { timeout: 10_000 }).should("be.visible");
       cy.task("getRecentActivityLogs", { action: "AUTH_LOGIN_FAILED" }).then(
         (logs) => {
           const typedLogs = logs as Array<{ action: string; metadata: Record<string, unknown> | null }>;

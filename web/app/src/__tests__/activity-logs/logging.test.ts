@@ -199,7 +199,7 @@ describe("Cash drawer activity logging", () => {
     (openCashDrawer as ReturnType<typeof vi.fn>).mockResolvedValue({ success: true, message: "OK" });
 
     const { POST } = await import("@/app/api/cash-drawer/open/route");
-    const res = await POST(new Request("http://localhost/api/cash-drawer/open", { method: "POST" }));
+    const res = await POST();
     expect(res.status).toBe(200);
     expect(mockLogActivity).toHaveBeenCalledWith(
       expect.objectContaining({ action: "CASH_DRAWER_OPENED" })
@@ -212,7 +212,7 @@ describe("Cash drawer activity logging", () => {
     (openCashDrawer as ReturnType<typeof vi.fn>).mockResolvedValue({ success: false, message: "Printer offline" });
 
     const { POST } = await import("@/app/api/cash-drawer/open/route");
-    const res = await POST(new Request("http://localhost/api/cash-drawer/open", { method: "POST" }));
+    const res = await POST();
     expect(res.status).toBe(503);
     expect(mockLogActivity).toHaveBeenCalledWith(
       expect.objectContaining({ action: "CASH_DRAWER_OPEN_FAILED" })
