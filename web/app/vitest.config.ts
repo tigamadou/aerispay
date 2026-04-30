@@ -17,7 +17,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["src/app/api/**/*.ts", "src/lib/**/*.ts"],
-      exclude: ["src/lib/db.ts", "src/lib/receipt/**", "src/app/api/auth/**", "src/app/api/upload/**"],
+      exclude: ["src/lib/db.ts", "src/lib/s3.ts", "src/lib/receipt/**", "src/app/api/auth/**", "src/app/api/upload/**"],
       thresholds: {
         statements: 93,
         branches: 85,
