@@ -56,7 +56,7 @@ En **déploiement multi-supermarchés** (même groupe, plusieurs sites), l’obj
    docker compose exec app npx prisma migrate dev
    ```
 
-4. **phpMyAdmin** : <http://localhost:8080> (sauf si `PHPMYADMIN_PORT` a été modifié). Serveur : `db`, utilisateur / mot de passe : `MYSQL_USER` / `MYSQL_PASSWORD` (ou `root` / `MYSQL_ROOT_PASSWORD`).
+4. **phpMyAdmin** : ouvrir l’URL de l’UI (souvent **`http://localhost:8080/`** si le port est exposé, ou l’hôte Traefik du compose — la **racine** seule, pas `/dashboard`). En **développement**, le compose configure **`PMA_USER=root`** et **`PMA_PASSWORD=${MYSQL_ROOT_PASSWORD}`** : le mot de passe **root** MySQL vaut par défaut **`root`** (définir `MYSQL_ROOT_PASSWORD` dans le `.env` pour le changer). Compte applicatif classique : `MYSQL_USER` / `MYSQL_PASSWORD` (souvent `aerispay` / `aerispay`). **Ne pas** réutiliser `root` / `root` hors dev.
 
 5. **Option** : ne pas utiliser le service `app` et lancer Next **sur l’hôte** — exécuter seulement `db` + `phpmyadmin` n’est pas le fichier par défaut (vous pouvez retirer le service `app` ou utiliser [profiles](https://docs.docker.com/compose/profiles/)). Sinon : `docker compose up -d` depuis la racine, puis `cd web/app && npx prisma migrate dev && npm run dev` en local, avec `DATABASE_URL=...localhost:3306` dans `web/app/.env.local`.
 
@@ -107,9 +107,29 @@ En **déploiement multi-supermarchés** (même groupe, plusieurs sites), l’obj
 
 En **prod** l’image est buildée par `web/Dockerfile` avec le contexte `web/app`. En **dev** le conteneur `app` installe les deps (`npm install`), exécute `npx prisma generate` seulement si `prisma/schema.prisma` existe, puis `next dev` sur `0.0.0.0:3000`.
 
+## Application Next.js dans le conteneur `app`
+
+- **Base de données** : dans le conteneur, `DATABASE_URL` pointe vers l’hôte **`db`** (port `3306` interne), **pas** vers `localhost` (qui serait le conteneur lui-même). Ne pas surcharger `DATABASE_URL` dans `web/app/.env` avec `localhost` si l’app tourne **dans** Docker.
+- **NextAuth** : `NEXTAUTH_URL` doit rester l’URL **publique** telle que le navigateur l’utilise (ex. `http://localhost:3000` ou l’IP de la machine). Le compose duplique `NEXTAUTH_SECRET` vers `AUTH_SECRET` pour NextAuth v5.
+- **Première initialisation Prisma** (schéma prêt, conteneur `app` actif) :
+
+  ```bash
+  docker compose exec app npx prisma migrate dev --name init
+  docker compose exec app npx prisma db seed
+  ```
+
+  Puis recharger l’app si besoin. Les commandes s’exécutent **dans** `/app` (projet monté depuis `web/app`).
+
 ## Dépannage (service `app`)
 
 - **`package.json` introuvable dans `/app` (npm ENOENT)** : le montage du service `app` ne pointe pas vers le projet Next.js. Avec le compose racine, le défaut est `APP_BIND=./web/app`. Vérifier que `web/app/package.json` existe ou corriger `APP_BIND` dans le `.env` racine.
+- **Prisma : connexion refusée à `localhost:3306` depuis l’`app` Docker** : `DATABASE_URL` ne doit **pas** cibler `localhost` conteneur ; utiliser le service `db` (défaut imposé par le compose) ou lancer l’app sur l’hôte avec `localhost` dans `web/app/.env.local` uniquement.
+- **NextAuth : erreur de session / `Unexpected error`** : vérifier `NEXTAUTH_URL`, `AUTH_SECRET` / `NEXTAUTH_SECRET` identiques à ce que le navigateur et le serveur attendent.
+- **phpMyAdmin : page 404 ou « Not Found »** : l’UI est sur **`http://localhost:PORT/`** (souvent [http://localhost:8080](http://localhost:8080)) et **non** `http://localhost:8080/dashboard/`. Vérifier avec `docker compose ps` que le service `phpmyadmin` est `Up` et le port mappé (`0.0.0.0:8080->80/tcp`). Si le port est déjà pris, changer `PHPMYADMIN_PORT` dans le `.env` et relancer.
+- **Changement de `MYSQL_ROOT_PASSWORD` sans effet** : le mot de passe root est fixé **à la création** du volume MySQL. Pour repartir sur le défaut `root` / `root`, supprimer le volume nommé (ex. `aerispay_mysql_data_dev`) et relancer (données effacées).
+
+- **Prisma P3014 / P3004 / « shadow database »** : `prisma migrate dev` utilise une **shadow** ; l’utilisateur de `DATABASE_URL` n’a en général pas `CREATE DATABASE` (P3014) — le compose fournit `SHADOW_DATABASE_URL` avec **`root`**, pointant sur **`db:3306/…`** avec le **même nom de base** que l’app (`/aerispay`). L’URL shadow **ne doit pas** se terminer sans nom de base : le client MySQL se connecte alors souvent sur la base système **`mysql`**, d’où **P3004** (« the mysql database is a system database… »). **Hors Docker** : `SHADOW_DATABASE_URL=mysql://root:…@localhost:PORT/aerispay` dans `web/app/.env.local`. Recréer le conteneur `app` si besoin : `docker compose up -d --force-recreate app`. Alternative (proto seulement) : `npx prisma db push`.
+- **Prisma : OpenSSL** (`libssl` …) : l’image `node:…-slim` n’a parfois pas OpenSSL requis par les binaires Prisma — si erreurs, installer dans un Dockerfile d’`app` : `apt-get update && apt-get install -y openssl` (voir avertissement Prisma au `migrate`).
 
 ## Fichiers de référence
 

@@ -241,7 +241,7 @@ export async function POST(req: Request) {
 # Exemple complet : web/development.env.example (copier vers .env à la racine pour Docker Compose)
 DATABASE_URL="mysql://user:password@localhost:3306/aerispay"
 NEXTAUTH_SECRET="<générer avec: openssl rand -base64 32>"
-NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_URL="http://aerispay.localhost"
 
 # Optionnel pour production
 NEXT_PUBLIC_APP_NAME="AerisPay"

@@ -14,12 +14,28 @@
 # pour NEXTAUTH_SECRET, NEXTAUTH_URL, APP_BIND si besoin. Les identifiants MySQL servent aussi à l’`app`.
 
 services:
+  traefik:
+    image: traefik:v2.11
+    container_name: aerispay-traefik-dev
+    restart: unless-stopped
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "8081:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
   db:
     image: mysql:8.4
     container_name: aerispay-mysql-dev
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootsecret}
+      # Dev : défaut `root` (identique à phpMyAdmin / Prisma shadow) — **changer en prod**
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-aerispay}
       MYSQL_USER: ${MYSQL_USER:-aerispay}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-aerispay}
@@ -35,15 +51,22 @@ services:
       retries: 10
       start_period: 30s
 
+  # Interface web : http://localhost:${PHPMYADMIN_PORT:-8080}/  (pas de chemin /dashboard)
   phpmyadmin:
     image: phpmyadmin:5
     container_name: aerispay-phpmyadmin-dev
     restart: unless-stopped
-    ports:
-      - "${PHPMYADMIN_PORT:-8080}:80"
     environment:
       PMA_HOST: db
       PMA_PORT: 3306
+      # Accès par défaut : utilisateur `root` / mot de passe = `MYSQL_ROOT_PASSWORD` (défaut `root` en dev)
+      PMA_USER: root
+      PMA_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.phpmyadmin.rule=Host(`pma.aerispay.localhost`)"
+      - "traefik.http.routers.phpmyadmin.entrypoints=web"
+      - "traefik.http.services.phpmyadmin.loadbalancer.server.port=80"
     depends_on:
       db:
         condition: service_healthy
@@ -53,13 +76,23 @@ services:
     container_name: aerispay-app-dev
     working_dir: /app
     restart: unless-stopped
-    ports:
-      - "${APP_PORT:-3000}:3000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.app.rule=Host(`aerispay.localhost`)"
+      - "traefik.http.routers.app.entrypoints=web"
+      - "traefik.http.services.app.loadbalancer.server.port=3000"
     environment:
       NODE_ENV: development
+      # MySQL via le réseau Compose (hostname `db`, pas `localhost`)
       DATABASE_URL: mysql://${MYSQL_USER:-aerispay}:${MYSQL_PASSWORD:-aerispay}@db:3306/${MYSQL_DATABASE:-aerispay}
-      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      # Prisma `migrate dev` (shadow) : root + base **explicite** (pas d’URL sans chemin,
+      # sinon MySQL peut se connecter à la base système `mysql` → P3004)
+      SHADOW_DATABASE_URL: mysql://root:${MYSQL_ROOT_PASSWORD:-root}@db:3306/${MYSQL_DATABASE:-aerispay}
+      # URL vue par le navigateur (hôte) — cookies / NextAuth
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://aerispay.localhost}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-devsecret-change-me}
+      # NextAuth v5 lit souvent AUTH_SECRET — même valeur que ci-dessus
+      AUTH_SECRET: ${NEXTAUTH_SECRET:-devsecret-change-me}
       # Aide le file watching sur Docker Desktop (macOS / Windows)
       WATCHPACK_POLLING: "true"
       CHOKIDAR_USEPOLLING: "true"
