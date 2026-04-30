@@ -144,6 +144,62 @@ describe("GET /api/produits", () => {
     );
   });
 
+  it("filters by statut rupture", async () => {
+    mockSession("ADMIN");
+    (prisma.produit.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { ...mockProduit, stockActuel: 3, stockMinimum: 5 },
+      { ...mockProduit, id: "p2", stockActuel: 50, stockMinimum: 5 },
+    ]);
+    (prisma.produit.count as ReturnType<typeof vi.fn>).mockResolvedValue(2);
+    const res = await GET(new Request("http://localhost/api/produits?statut=rupture"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data).toHaveLength(1);
+  });
+
+  it("filters by statut epuise", async () => {
+    mockSession("ADMIN");
+    (prisma.produit.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { ...mockProduit, stockActuel: 0 },
+      { ...mockProduit, id: "p2", stockActuel: 10 },
+    ]);
+    (prisma.produit.count as ReturnType<typeof vi.fn>).mockResolvedValue(2);
+    const res = await GET(new Request("http://localhost/api/produits?statut=epuise"));
+    const body = await res.json();
+    expect(body.data).toHaveLength(1);
+  });
+
+  it("filters by statut normal", async () => {
+    mockSession("ADMIN");
+    (prisma.produit.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { ...mockProduit, stockActuel: 50, stockMinimum: 5 },
+    ]);
+    (prisma.produit.count as ReturnType<typeof vi.fn>).mockResolvedValue(1);
+    const res = await GET(new Request("http://localhost/api/produits?statut=normal"));
+    const body = await res.json();
+    expect(body.data).toHaveLength(1);
+  });
+
+  it("sorts by stock descending", async () => {
+    mockSession("ADMIN");
+    (prisma.produit.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prisma.produit.count as ReturnType<typeof vi.fn>).mockResolvedValue(0);
+    await GET(new Request("http://localhost/api/produits?tri=stock&ordre=desc"));
+    expect(prisma.produit.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { stockActuel: "desc" } })
+    );
+  });
+
+  it("sorts by prix ascending", async () => {
+    mockSession("ADMIN");
+    (prisma.produit.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prisma.produit.count as ReturnType<typeof vi.fn>).mockResolvedValue(0);
+    await GET(new Request("http://localhost/api/produits?tri=prix"));
+    expect(prisma.produit.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { prixVente: "asc" } })
+    );
+  });
+
   it("supports text search", async () => {
     mockSession("ADMIN");
     (prisma.produit.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
@@ -398,6 +454,51 @@ describe("PUT /api/produits/[id]", () => {
     expect(body.data.nom).toBe("Riz 10kg");
   });
 
+  it("returns 400 if prixVente <= prixAchat on update", async () => {
+    mockSession("ADMIN");
+    (prisma.produit.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockProduit);
+    const res = await PUT(
+      new Request("http://localhost/api/produits/prod-1", {
+        method: "PUT",
+        body: JSON.stringify({ prixVente: 100, prixAchat: 200 }),
+        headers: { "Content-Type": "application/json" },
+      }),
+      { params: Promise.resolve({ id: "prod-1" }) }
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 409 if barcode conflicts with another product", async () => {
+    mockSession("ADMIN");
+    (prisma.produit.findUnique as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(mockProduit)  // existing product
+      .mockResolvedValueOnce({ id: "prod-other", codeBarres: "CONFLICT" }); // barcode conflict
+    const res = await PUT(
+      new Request("http://localhost/api/produits/prod-1", {
+        method: "PUT",
+        body: JSON.stringify({ codeBarres: "CONFLICT" }),
+        headers: { "Content-Type": "application/json" },
+      }),
+      { params: Promise.resolve({ id: "prod-1" }) }
+    );
+    expect(res.status).toBe(409);
+  });
+
+  it("returns 500 on DB error", async () => {
+    mockSession("ADMIN");
+    (prisma.produit.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockProduit);
+    (prisma.produit.update as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
+    const res = await PUT(
+      new Request("http://localhost/api/produits/prod-1", {
+        method: "PUT",
+        body: JSON.stringify({ nom: "Nouveau nom" }),
+        headers: { "Content-Type": "application/json" },
+      }),
+      { params: Promise.resolve({ id: "prod-1" }) }
+    );
+    expect(res.status).toBe(500);
+  });
+
   it("can deactivate a product (soft delete)", async () => {
     mockSession("ADMIN");
     (prisma.produit.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockProduit);
@@ -459,5 +560,77 @@ describe("DELETE /api/produits/[id]", () => {
         data: { actif: false },
       })
     );
+  });
+
+  it("returns 404 if product not found", async () => {
+    mockSession("ADMIN");
+    (prisma.produit.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    const res = await DELETE(
+      new Request("http://localhost/api/produits/prod-999", { method: "DELETE" }),
+      { params: Promise.resolve({ id: "prod-999" }) }
+    );
+    expect(res.status).toBe(404);
+  });
+});
+
+// ─── Error paths (500) ──────────────────────────────
+
+describe("API error handling", () => {
+  it("GET /api/produits returns 500 on DB error", async () => {
+    mockSession("ADMIN");
+    (prisma.produit.findMany as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
+    (prisma.produit.count as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
+    const { GET } = await import("@/app/api/produits/route");
+    const res = await GET(new Request("http://localhost/api/produits"));
+    expect(res.status).toBe(500);
+  });
+
+  it("POST /api/produits returns 500 on DB error", async () => {
+    mockSession("ADMIN");
+    (prisma.categorie.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "cat-1" });
+    (prisma.produit.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (prisma.produit.create as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
+    const { POST } = await import("@/app/api/produits/route");
+    const res = await POST(new Request("http://localhost/api/produits", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nom: "Test", categorieId: "cat-1", prixAchat: 100, prixVente: 200 }),
+    }));
+    expect(res.status).toBe(500);
+  });
+
+  it("GET /api/produits/[id] returns 500 on DB error", async () => {
+    mockSession("ADMIN");
+    (prisma.produit.findUnique as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
+    const { GET } = await import("@/app/api/produits/[id]/route");
+    const res = await GET(
+      new Request("http://localhost/api/produits/prod-1"),
+      { params: Promise.resolve({ id: "prod-1" }) }
+    );
+    expect(res.status).toBe(500);
+  });
+
+  it("DELETE /api/produits/[id] returns 500 on DB error", async () => {
+    mockSession("ADMIN");
+    (prisma.produit.findUnique as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
+    const { DELETE } = await import("@/app/api/produits/[id]/route");
+    const res = await DELETE(
+      new Request("http://localhost/api/produits/prod-1", { method: "DELETE" }),
+      { params: Promise.resolve({ id: "prod-1" }) }
+    );
+    expect(res.status).toBe(500);
+  });
+
+  it("POST /api/produits returns 400 for invalid category", async () => {
+    mockSession("ADMIN");
+    (prisma.produit.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (prisma.categorie.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    const { POST } = await import("@/app/api/produits/route");
+    const res = await POST(new Request("http://localhost/api/produits", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nom: "Test", categorieId: "cat-bad", prixAchat: 100, prixVente: 200 }),
+    }));
+    expect(res.status).toBe(400);
   });
 });

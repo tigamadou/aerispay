@@ -31,7 +31,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   return (
     <div className="min-h-svh flex flex-col">
       <header className="border-b border-zinc-200 bg-zinc-50/80 dark:border-zinc-800 dark:bg-zinc-950/80">
-        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-4 px-4">
+        <div className="mx-auto flex h-14  items-center justify-between gap-4 px-4">
           <div className="flex items-center gap-6">
             <Link href="/" className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
               AerisPay

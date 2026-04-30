@@ -367,3 +367,53 @@ describe("PUT /api/users/[id]", () => {
     expect(body.data.actif).toBe(false);
   });
 });
+
+// ─── Error paths (500) ──────────────────────────────
+
+describe("Users error handling", () => {
+  it("GET /api/users returns 500 on DB error", async () => {
+    mockSession("ADMIN");
+    (prisma.user.findMany as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
+    const { GET } = await import("@/app/api/users/route");
+    const res = await GET(new Request("http://localhost/api/users"));
+    expect(res.status).toBe(500);
+  });
+
+  it("POST /api/users returns 500 on DB error", async () => {
+    mockSession("ADMIN");
+    (prisma.user.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (prisma.user.create as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
+    const { POST } = await import("@/app/api/users/route");
+    const res = await POST(new Request("http://localhost/api/users", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nom: "Test User", email: "test@x.com", motDePasse: "Secure12345", role: "CAISSIER" }),
+    }));
+    expect(res.status).toBe(500);
+  });
+
+  it("GET /api/users/[id] returns 500 on DB error", async () => {
+    mockSession("ADMIN");
+    (prisma.user.findUnique as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
+    const { GET } = await import("@/app/api/users/[id]/route");
+    const res = await GET(
+      new Request("http://localhost/api/users/u-1"),
+      { params: Promise.resolve({ id: "u-1" }) }
+    );
+    expect(res.status).toBe(500);
+  });
+
+  it("PUT /api/users/[id] returns 500 on DB error", async () => {
+    mockSession("ADMIN");
+    (prisma.user.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockUser);
+    (prisma.user.update as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
+    const { PUT } = await import("@/app/api/users/[id]/route");
+    const res = await PUT(
+      new Request("http://localhost/api/users/usr-1", {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nom: "Updated" }),
+      }),
+      { params: Promise.resolve({ id: "usr-1" }) }
+    );
+    expect(res.status).toBe(500);
+  });
+});

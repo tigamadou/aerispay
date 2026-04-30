@@ -293,4 +293,74 @@ describe("DELETE /api/categories/[id]", () => {
     );
     expect(res.status).toBe(200);
   });
+
+  it("returns 404 if category not found", async () => {
+    mockSession("ADMIN");
+    (prisma.categorie.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    const res = await DELETE(
+      new Request("http://localhost/api/categories/cat-999", { method: "DELETE" }),
+      { params: Promise.resolve({ id: "cat-999" }) }
+    );
+    expect(res.status).toBe(404);
+  });
+});
+
+// ─── Error paths (500) ──────────────────────────────
+
+describe("Categories error handling", () => {
+  it("GET /api/categories returns 500 on DB error", async () => {
+    mockSession("ADMIN");
+    (prisma.categorie.findMany as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
+    const { GET } = await import("@/app/api/categories/route");
+    const res = await GET(new Request("http://localhost/api/categories"));
+    expect(res.status).toBe(500);
+  });
+
+  it("POST /api/categories returns 500 on DB error", async () => {
+    mockSession("ADMIN");
+    (prisma.categorie.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (prisma.categorie.create as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
+    const { POST } = await import("@/app/api/categories/route");
+    const res = await POST(new Request("http://localhost/api/categories", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nom: "Test Cat" }),
+    }));
+    expect(res.status).toBe(500);
+  });
+
+  it("PUT returns 409 on duplicate name", async () => {
+    mockSession("ADMIN");
+    (prisma.categorie.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockCategorie);
+    (prisma.categorie.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "other", nom: "Dup" });
+    const { PUT } = await import("@/app/api/categories/[id]/route");
+    const res = await PUT(
+      new Request("http://localhost", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nom: "Dup" }) }),
+      { params: Promise.resolve({ id: "cat-1" }) }
+    );
+    expect(res.status).toBe(409);
+  });
+
+  it("PUT returns 500 on DB error", async () => {
+    mockSession("ADMIN");
+    (prisma.categorie.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockCategorie);
+    (prisma.categorie.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (prisma.categorie.update as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
+    const { PUT } = await import("@/app/api/categories/[id]/route");
+    const res = await PUT(
+      new Request("http://localhost", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nom: "Nouvelle Cat" }) }),
+      { params: Promise.resolve({ id: "cat-1" }) }
+    );
+    expect(res.status).toBe(500);
+  });
+
+  it("DELETE returns 500 on DB error", async () => {
+    mockSession("ADMIN");
+    (prisma.categorie.findUnique as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
+    const { DELETE } = await import("@/app/api/categories/[id]/route");
+    const res = await DELETE(
+      new Request("http://localhost", { method: "DELETE" }),
+      { params: Promise.resolve({ id: "cat-1" }) }
+    );
+    expect(res.status).toBe(500);
+  });
 });

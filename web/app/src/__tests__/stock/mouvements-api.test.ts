@@ -127,6 +127,24 @@ describe("GET /api/stock/mouvements", () => {
     );
   });
 
+  it("filters by date range", async () => {
+    mockSession("ADMIN");
+    (prisma.mouvementStock.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prisma.mouvementStock.count as ReturnType<typeof vi.fn>).mockResolvedValue(0);
+
+    await GET(new Request("http://localhost/api/stock/mouvements?dateDebut=2026-01-01&dateFin=2026-04-30"));
+    expect(prisma.mouvementStock.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          createdAt: expect.objectContaining({
+            gte: expect.any(Date),
+            lte: expect.any(Date),
+          }),
+        }),
+      })
+    );
+  });
+
   it("filters by type", async () => {
     mockSession("ADMIN");
     (prisma.mouvementStock.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
@@ -323,5 +341,66 @@ describe("GET /api/stock/alertes", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data).toHaveLength(1);
+  });
+});
+
+// ─── Error paths ────────────────────────────────────
+
+describe("Mouvements error handling", () => {
+  it("GET returns 500 on DB error", async () => {
+    mockSession("ADMIN");
+    (prisma.mouvementStock.findMany as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
+    const { GET } = await import("@/app/api/stock/mouvements/route");
+    const res = await GET(new Request("http://localhost/api/stock/mouvements"));
+    expect(res.status).toBe(500);
+  });
+
+  it("POST returns 500 on unexpected error", async () => {
+    mockSession("ADMIN");
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("Unexpected"));
+    const { POST } = await import("@/app/api/stock/mouvements/route");
+    const res = await POST(new Request("http://localhost/api/stock/mouvements", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ produitId: "prod-1", type: "ENTREE", quantite: 5 }),
+    }));
+    expect(res.status).toBe(500);
+  });
+
+  it("POST creates PERTE with valid motif", async () => {
+    mockSession("ADMIN");
+    const mvt = { id: "mvt-p", type: "PERTE", quantite: 2, quantiteAvant: 10, quantiteApres: 8,
+      produit: { id: "prod-1", nom: "Test", reference: "PRD-X" } };
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn: Function) => {
+      const tx = {
+        produit: { findUnique: vi.fn().mockResolvedValue({ ...mockProduit, stockActuel: 10 }), update: vi.fn() },
+        mouvementStock: { create: vi.fn().mockResolvedValue(mvt) },
+      };
+      return fn(tx);
+    });
+    const { POST } = await import("@/app/api/stock/mouvements/route");
+    const res = await POST(new Request("http://localhost/api/stock/mouvements", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ produitId: "prod-1", type: "PERTE", quantite: 2, motif: "Casse produit" }),
+    }));
+    expect(res.status).toBe(201);
+  });
+
+  it("POST creates AJUSTEMENT (sets absolute stock)", async () => {
+    mockSession("ADMIN");
+    const mvt = { id: "mvt-a", type: "AJUSTEMENT", quantite: 25, quantiteAvant: 50, quantiteApres: 25,
+      produit: { id: "prod-1", nom: "Test", reference: "PRD-X" } };
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn: Function) => {
+      const tx = {
+        produit: { findUnique: vi.fn().mockResolvedValue(mockProduit), update: vi.fn() },
+        mouvementStock: { create: vi.fn().mockResolvedValue(mvt) },
+      };
+      return fn(tx);
+    });
+    const { POST } = await import("@/app/api/stock/mouvements/route");
+    const res = await POST(new Request("http://localhost/api/stock/mouvements", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ produitId: "prod-1", type: "AJUSTEMENT", quantite: 25, motif: "Inventaire correction" }),
+    }));
+    expect(res.status).toBe(201);
   });
 });

@@ -153,4 +153,11 @@ describe("GET /api/activity-logs", () => {
       })
     );
   });
+
+  it("returns 500 on DB error", async () => {
+    mockSession("ADMIN");
+    (prisma.activityLog.findMany as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
+    const res = await GET(new Request("http://localhost/api/activity-logs"));
+    expect(res.status).toBe(500);
+  });
 });

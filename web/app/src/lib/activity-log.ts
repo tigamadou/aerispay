@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
 // ─── Action catalog (SCREAMING_SNAKE_CASE) ──────────
@@ -62,7 +63,10 @@ export async function logActivity(params: LogActivityParams): Promise<void> {
         actorId: params.actorId ?? null,
         entityType: params.entityType ?? null,
         entityId: params.entityId ?? null,
-        metadata: params.metadata ?? undefined,
+        metadata:
+          params.metadata === undefined
+            ? undefined
+            : (params.metadata as Prisma.InputJsonValue),
         ipAddress: params.ipAddress ?? null,
         userAgent: params.userAgent
           ? params.userAgent.slice(0, 512)

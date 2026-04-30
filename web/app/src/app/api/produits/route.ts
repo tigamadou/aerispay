@@ -1,10 +1,17 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireAuth, requireRole } from "@/lib/permissions";
 import { createProductSchema } from "@/lib/validations/produit";
 import { genererReference } from "@/lib/utils";
 import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
 
-function serializeProduit(p: Record<string, unknown>) {
+const produitListeInclude = {
+  categorie: { select: { id: true, nom: true, couleur: true } },
+} satisfies Prisma.ProduitInclude;
+
+type ProduitListeRow = Prisma.ProduitGetPayload<{ include: typeof produitListeInclude }>;
+
+function serializeProduit(p: ProduitListeRow) {
   return {
     ...p,
     prixAchat: Number(p.prixAchat),
@@ -71,7 +78,7 @@ export async function GET(req: Request) {
     const [produits, total] = await Promise.all([
       prisma.produit.findMany({
         where,
-        include: { categorie: { select: { id: true, nom: true, couleur: true } } },
+        include: produitListeInclude,
         skip: (page - 1) * pageSize,
         take: pageSize,
         orderBy,
@@ -84,22 +91,18 @@ export async function GET(req: Request) {
     // Post-filter for statut (comparing two columns not natively supported in Prisma where)
     if (statut === "rupture") {
       data = data.filter(
-        (p) =>
-          (p.stockActuel as number) <= (p.stockMinimum as number) &&
-          (p.stockActuel as number) > 0
+        (p) => p.stockActuel <= p.stockMinimum && p.stockActuel > 0
       );
     } else if (statut === "epuise") {
-      data = data.filter((p) => (p.stockActuel as number) === 0);
+      data = data.filter((p) => p.stockActuel === 0);
     } else if (statut === "alerte") {
       data = data.filter(
         (p) =>
-          (p.stockActuel as number) > (p.stockMinimum as number) &&
-          (p.stockActuel as number) <= 2 * (p.stockMinimum as number)
+          p.stockActuel > p.stockMinimum &&
+          p.stockActuel <= 2 * p.stockMinimum
       );
     } else if (statut === "normal") {
-      data = data.filter(
-        (p) => (p.stockActuel as number) > 2 * (p.stockMinimum as number)
-      );
+      data = data.filter((p) => p.stockActuel > 2 * p.stockMinimum);
     }
 
     return Response.json({ data, total, page, pageSize });
@@ -164,7 +167,7 @@ export async function POST(req: Request) {
         image: parsed.data.image ?? null,
         categorieId: parsed.data.categorieId,
       },
-      include: { categorie: { select: { id: true, nom: true, couleur: true } } },
+      include: produitListeInclude,
     });
 
     await logActivity({
