@@ -5,7 +5,9 @@ APP_DIR = web/app
 
 ## -- Tests --
 
-.PHONY: test test-watch test-coverage test-e2e test-e2e-open
+.PHONY: ci test test-watch test-coverage test-e2e test-e2e-open
+
+ci: lint test test-e2e ## Run all CI checks (lint + unit tests + e2e)
 
 test: ## Run unit tests (Vitest)
 	cd $(APP_DIR) && npx vitest run
@@ -24,13 +26,16 @@ test-e2e-open: ## Open Cypress interactive runner
 
 ## -- Dev --
 
-.PHONY: dev lint type-check
+.PHONY: dev lint lint-fix type-check
 
 dev: ## Start Next.js dev server
 	cd $(APP_DIR) && npm run dev
 
 lint: ## Run ESLint
 	cd $(APP_DIR) && npm run lint
+
+lint-fix: ## Run ESLint with auto-fix
+	cd $(APP_DIR) && npx eslint --fix .
 
 type-check: ## Run TypeScript type checking
 	cd $(APP_DIR) && npx tsc --noEmit
