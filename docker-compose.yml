@@ -64,7 +64,7 @@ services:
       PMA_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.phpmyadmin.rule=Host(`pma.aeryspay.localhost`)"
+      - "traefik.http.routers.phpmyadmin.rule=Host(`pma.aerispay.localhost`)"
       - "traefik.http.routers.phpmyadmin.entrypoints=web"
       - "traefik.http.services.phpmyadmin.loadbalancer.server.port=80"
     depends_on:
@@ -78,7 +78,7 @@ services:
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.app.rule=Host(`aeryspay.localhost`)"
+      - "traefik.http.routers.app.rule=Host(`aerispay.localhost`)"
       - "traefik.http.routers.app.entrypoints=web"
       - "traefik.http.services.app.loadbalancer.server.port=3000"
     environment:
@@ -89,7 +89,7 @@ services:
       # sinon MySQL peut se connecter à la base système `mysql` → P3004)
       SHADOW_DATABASE_URL: mysql://root:${MYSQL_ROOT_PASSWORD:-root}@db:3306/${MYSQL_DATABASE:-aerispay}
       # URL vue par le navigateur (hôte) — cookies / NextAuth
-      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://aeryspay.localhost}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://aerispay.localhost}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-devsecret-change-me}
       # NextAuth v5 lit souvent AUTH_SECRET — même valeur que ci-dessus
       AUTH_SECRET: ${NEXTAUTH_SECRET:-devsecret-change-me}

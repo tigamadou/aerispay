@@ -12,7 +12,7 @@ export default defineConfig({
   },
 
   e2e: {
-    baseUrl: process.env.CYPRESS_BASE_URL ?? "http://localhost:3000",
+    baseUrl: process.env.CYPRESS_BASE_URL ?? "http://aerispay.localhost",
     specPattern: "cypress/e2e/**/*.cy.{ts,tsx}",
     supportFile: "cypress/support/e2e.ts",
     defaultCommandTimeout: 15_000,
