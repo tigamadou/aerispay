@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/permissions";
 import { createMouvementSchema } from "@/lib/validations/mouvement";
 import type { TypeMouvement } from "@prisma/client";
+import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
 
 export async function GET(req: Request) {
   const result = await requireRole("ADMIN", "MANAGER");
@@ -117,6 +118,23 @@ export async function POST(req: Request) {
           produit: { select: { id: true, nom: true, reference: true } },
         },
       });
+    });
+
+    await logActivity({
+      action: ACTIONS.STOCK_MOVEMENT_CREATED,
+      actorId: result.user.id,
+      entityType: "StockMovement",
+      entityId: mouvement.id,
+      metadata: {
+        type,
+        quantite,
+        produitId,
+        produitNom: mouvement.produit.nom,
+        quantiteAvant: mouvement.quantiteAvant,
+        quantiteApres: mouvement.quantiteApres,
+      },
+      ipAddress: getClientIp(req),
+      userAgent: getClientUserAgent(req),
     });
 
     return Response.json({ data: mouvement }, { status: 201 });

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/permissions";
 import { updateUserSchema } from "@/lib/validations/user";
 import { hash } from "bcryptjs";
+import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
 
 const BCRYPT_ROUNDS = 12;
 
@@ -69,6 +70,20 @@ export async function PUT(
     const updated = await prisma.user.update({
       where: { id },
       data: updateData,
+    });
+
+    const action = parsed.data.actif === false && existing.actif
+      ? ACTIONS.USER_DEACTIVATED
+      : ACTIONS.USER_UPDATED;
+
+    await logActivity({
+      action,
+      actorId: result.user.id,
+      entityType: "User",
+      entityId: id,
+      metadata: { nom: updated.nom, changes: Object.keys(updateData) },
+      ipAddress: getClientIp(req),
+      userAgent: getClientUserAgent(req),
     });
 
     return Response.json({ data: sanitizeUser(updated) });

@@ -28,6 +28,9 @@ interface ProductsGridProps {
 export function ProductsGrid({ produits, total, page, pageSize, canManage }: ProductsGridProps) {
   const [toggling, setToggling] = useState<string | null>(null);
   const [items, setItems] = useState(produits);
+  const [quickEntry, setQuickEntry] = useState<string | null>(null);
+  const [quickQty, setQuickQty] = useState("");
+  const [quickLoading, setQuickLoading] = useState(false);
   const totalPages = Math.ceil(total / pageSize);
 
   async function toggleActive(id: string, currentActive: boolean) {
@@ -45,6 +48,30 @@ export function ProductsGrid({ produits, total, page, pageSize, canManage }: Pro
       }
     } finally {
       setToggling(null);
+    }
+  }
+
+  async function handleQuickEntry(produitId: string) {
+    const qty = parseInt(quickQty);
+    if (!qty || qty <= 0) return;
+    setQuickLoading(true);
+    try {
+      const res = await fetch("/api/stock/mouvements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ produitId, type: "ENTREE", quantite: qty }),
+      });
+      if (res.ok) {
+        setItems((prev) =>
+          prev.map((p) =>
+            p.id === produitId ? { ...p, stockActuel: p.stockActuel + qty } : p
+          )
+        );
+        setQuickEntry(null);
+        setQuickQty("");
+      }
+    } finally {
+      setQuickLoading(false);
     }
   }
 
@@ -127,19 +154,51 @@ export function ProductsGrid({ produits, total, page, pageSize, canManage }: Pro
                   </p>
                 </div>
                 {canManage && (
-                  <button
-                    onClick={() => toggleActive(produit.id, produit.actif)}
-                    disabled={toggling === produit.id}
-                    className="text-[11px] font-medium text-zinc-400 hover:text-zinc-700 disabled:opacity-50 dark:hover:text-zinc-300"
-                  >
-                    {toggling === produit.id
-                      ? "..."
-                      : produit.actif
-                        ? "Désactiver"
-                        : "Activer"}
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => { setQuickEntry(quickEntry === produit.id ? null : produit.id); setQuickQty(""); }}
+                      title="Entrée stock rapide"
+                      className="flex h-6 w-6 items-center justify-center rounded-md bg-green-100 text-green-700 text-xs font-bold hover:bg-green-200 dark:bg-green-900/30 dark:text-green-300 dark:hover:bg-green-900/50"
+                    >
+                      +
+                    </button>
+                    <button
+                      onClick={() => toggleActive(produit.id, produit.actif)}
+                      disabled={toggling === produit.id}
+                      className="text-[11px] font-medium text-zinc-400 hover:text-zinc-700 disabled:opacity-50 dark:hover:text-zinc-300"
+                    >
+                      {toggling === produit.id
+                        ? "..."
+                        : produit.actif
+                          ? "Désactiver"
+                          : "Activer"}
+                    </button>
+                  </div>
                 )}
               </div>
+
+              {/* Quick stock entry */}
+              {quickEntry === produit.id && canManage && (
+                <div className="mt-2 flex items-center gap-1 rounded-lg border border-green-200 bg-green-50 p-1.5 dark:border-green-800 dark:bg-green-900/20">
+                  <input
+                    type="number"
+                    min={1}
+                    placeholder="Qté"
+                    value={quickQty}
+                    onChange={(e) => setQuickQty(e.target.value)}
+                    className="w-16 rounded border border-green-300 bg-white px-2 py-1 text-xs text-zinc-900 dark:border-green-700 dark:bg-zinc-900 dark:text-zinc-100"
+                    autoFocus
+                    onKeyDown={(e) => { if (e.key === "Enter") handleQuickEntry(produit.id); if (e.key === "Escape") setQuickEntry(null); }}
+                  />
+                  <button
+                    onClick={() => handleQuickEntry(produit.id)}
+                    disabled={quickLoading || !quickQty}
+                    className="rounded bg-green-600 px-2 py-1 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                  >
+                    {quickLoading ? "..." : "OK"}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         ))}

@@ -69,7 +69,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-5xl flex-1 p-4">{children}</main>
+      <main className="mx-auto w-full  flex-1 p-4">{children}</main>
     </div>
   );
 }

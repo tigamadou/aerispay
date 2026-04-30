@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 interface ProduitOption {
@@ -27,7 +27,13 @@ export function MovementForm({ produits }: MovementFormProps) {
   const [success, setSuccess] = useState("");
   const [pending, setPending] = useState(false);
 
-  const [produitId, setProduitId] = useState(produits[0]?.id ?? "");
+  const [produitId, setProduitId] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [highlightIndex, setHighlightIndex] = useState(-1);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const [type, setType] = useState("ENTREE");
   const [quantite, setQuantite] = useState("");
   const [motif, setMotif] = useState("");
@@ -36,10 +42,61 @@ export function MovementForm({ produits }: MovementFormProps) {
   const selectedProduit = produits.find((p) => p.id === produitId);
   const needsMotif = type === "AJUSTEMENT" || type === "PERTE";
 
+  const filtered = searchQuery.trim()
+    ? produits.filter((p) => {
+        const q = searchQuery.toLowerCase();
+        return (
+          p.nom.toLowerCase().includes(q) ||
+          p.reference.toLowerCase().includes(q)
+        );
+      })
+    : produits;
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  function selectProduct(p: ProduitOption) {
+    setProduitId(p.id);
+    setSearchQuery(`${p.nom} (${p.reference})`);
+    setShowDropdown(false);
+    setHighlightIndex(-1);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (!showDropdown || filtered.length === 0) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightIndex((prev) => (prev < filtered.length - 1 ? prev + 1 : 0));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightIndex((prev) => (prev > 0 ? prev - 1 : filtered.length - 1));
+    } else if (e.key === "Enter" && highlightIndex >= 0) {
+      e.preventDefault();
+      selectProduct(filtered[highlightIndex]);
+    } else if (e.key === "Escape") {
+      setShowDropdown(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
     setSuccess("");
+
+    if (!produitId) {
+      setError("Veuillez sélectionner un produit");
+      return;
+    }
+
     setPending(true);
 
     try {
@@ -65,6 +122,8 @@ export function MovementForm({ produits }: MovementFormProps) {
       setQuantite("");
       setMotif("");
       setReference("");
+      setProduitId("");
+      setSearchQuery("");
       router.refresh();
     } catch {
       setError("Erreur de connexion au serveur");
@@ -95,17 +154,70 @@ export function MovementForm({ produits }: MovementFormProps) {
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
+        {/* Product autocomplete */}
         <div className="space-y-1.5">
-          <label htmlFor="produitId" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          <label htmlFor="produit-search" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
             Produit
           </label>
-          <select id="produitId" required value={produitId} onChange={(e) => setProduitId(e.target.value)} className={inputClasses}>
-            {produits.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nom} ({p.reference}) — Stock: {p.stockActuel}
-              </option>
-            ))}
-          </select>
+          <div className="relative" ref={dropdownRef}>
+            <input
+              ref={inputRef}
+              id="produit-search"
+              type="text"
+              required
+              autoComplete="off"
+              placeholder="Rechercher par nom ou référence..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setProduitId("");
+                setShowDropdown(true);
+                setHighlightIndex(-1);
+              }}
+              onFocus={() => setShowDropdown(true)}
+              onKeyDown={handleKeyDown}
+              className={inputClasses}
+            />
+            {showDropdown && filtered.length > 0 && (
+              <div className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+                {filtered.slice(0, 20).map((p, i) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => selectProduct(p)}
+                    className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors ${
+                      i === highlightIndex
+                        ? "bg-indigo-50 text-indigo-900 dark:bg-indigo-900/30 dark:text-indigo-200"
+                        : "text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    } ${p.id === produitId ? "font-medium" : ""}`}
+                  >
+                    <span>
+                      {p.nom}{" "}
+                      <span className="text-xs text-zinc-400">({p.reference})</span>
+                    </span>
+                    <span className="ml-2 shrink-0 text-xs text-zinc-400">
+                      Stock: {p.stockActuel}
+                    </span>
+                  </button>
+                ))}
+                {filtered.length > 20 && (
+                  <p className="px-3 py-2 text-xs text-zinc-400">
+                    +{filtered.length - 20} résultats — affinez la recherche
+                  </p>
+                )}
+              </div>
+            )}
+            {showDropdown && searchQuery.trim() && filtered.length === 0 && (
+              <div className="absolute z-20 mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-3 text-sm text-zinc-400 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+                Aucun produit trouvé
+              </div>
+            )}
+          </div>
+          {selectedProduit && (
+            <p className="text-xs text-zinc-500">
+              Stock actuel : <span className="font-medium">{selectedProduit.stockActuel}</span>
+            </p>
+          )}
         </div>
 
         <div className="space-y-1.5">
@@ -175,7 +287,7 @@ export function MovementForm({ produits }: MovementFormProps) {
 
       <button
         type="submit"
-        disabled={pending}
+        disabled={pending || !produitId}
         className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
       >
         {pending ? "Enregistrement..." : "Enregistrer le mouvement"}

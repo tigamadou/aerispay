@@ -186,6 +186,30 @@ export default async function StockPage({ searchParams }: StockPageProps) {
             <option value="false">Inactif</option>
           </select>
         </div>
+        <div className="space-y-1">
+          <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400">Tri</label>
+          <select
+            name="tri"
+            defaultValue={params.tri ?? "nom"}
+            className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+          >
+            <option value="nom">Nom</option>
+            <option value="stock">Stock</option>
+            <option value="prix">Prix</option>
+            <option value="createdAt">Date</option>
+          </select>
+        </div>
+        <div className="space-y-1">
+          <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400">Ordre</label>
+          <select
+            name="ordre"
+            defaultValue={params.ordre ?? "asc"}
+            className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+          >
+            <option value="asc">Croissant</option>
+            <option value="desc">Décroissant</option>
+          </select>
+        </div>
         <button
           type="submit"
           className="rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"

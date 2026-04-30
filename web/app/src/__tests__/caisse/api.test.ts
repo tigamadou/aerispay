@@ -42,6 +42,9 @@ vi.mock("@/auth", () => ({
 
 vi.mock("@/lib/activity-log", () => ({
   logActivity: vi.fn(),
+  ACTIONS: { CASH_SESSION_OPENED: "CASH_SESSION_OPENED", CASH_SESSION_CLOSED: "CASH_SESSION_CLOSED" },
+  getClientIp: vi.fn(),
+  getClientUserAgent: vi.fn(),
 }));
 
 import { prisma } from "@/lib/db";

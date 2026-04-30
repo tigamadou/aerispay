@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/permissions";
 import { updateCategorieSchema } from "@/lib/validations/categorie";
+import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
 
 export async function PUT(
   req: Request,
@@ -50,6 +51,16 @@ export async function PUT(
       include: { _count: { select: { produits: true } } },
     });
 
+    await logActivity({
+      action: ACTIONS.CATEGORY_UPDATED,
+      actorId: result.user.id,
+      entityType: "Category",
+      entityId: id,
+      metadata: updateData,
+      ipAddress: getClientIp(req),
+      userAgent: getClientUserAgent(req),
+    });
+
     return Response.json({ data: updated });
   } catch (error) {
     console.error(`[PUT /api/categories/${id}]`, error);
@@ -86,6 +97,16 @@ export async function DELETE(
     }
 
     await prisma.categorie.delete({ where: { id } });
+
+    await logActivity({
+      action: ACTIONS.CATEGORY_DELETED,
+      actorId: result.user.id,
+      entityType: "Category",
+      entityId: id,
+      metadata: { nom: existing.nom },
+      ipAddress: getClientIp(_req),
+      userAgent: getClientUserAgent(_req),
+    });
 
     return Response.json({ message: "Catégorie supprimée" });
   } catch (error) {

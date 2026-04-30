@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { requireAuth, requireRole } from "@/lib/permissions";
 import { createProductSchema } from "@/lib/validations/produit";
 import { genererReference } from "@/lib/utils";
+import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
 
 function serializeProduit(p: Record<string, unknown>) {
   return {
@@ -164,6 +165,16 @@ export async function POST(req: Request) {
         categorieId: parsed.data.categorieId,
       },
       include: { categorie: { select: { id: true, nom: true, couleur: true } } },
+    });
+
+    await logActivity({
+      action: ACTIONS.PRODUCT_CREATED,
+      actorId: result.user.id,
+      entityType: "Product",
+      entityId: produit.id,
+      metadata: { nom: produit.nom, reference: produit.reference },
+      ipAddress: getClientIp(req),
+      userAgent: getClientUserAgent(req),
     });
 
     return Response.json({ data: serializeProduit(produit) }, { status: 201 });

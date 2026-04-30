@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { requireAuth, requireRole } from "@/lib/permissions";
 import { updateProductSchema } from "@/lib/validations/produit";
+import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
 
 function serializeProduit(p: Record<string, unknown>) {
   return {
@@ -110,6 +111,16 @@ export async function PUT(
       include: { categorie: { select: { id: true, nom: true, couleur: true } } },
     });
 
+    await logActivity({
+      action: ACTIONS.PRODUCT_UPDATED,
+      actorId: result.user.id,
+      entityType: "Product",
+      entityId: id,
+      metadata: updateData,
+      ipAddress: getClientIp(req),
+      userAgent: getClientUserAgent(req),
+    });
+
     return Response.json({ data: serializeProduit(updated) });
   } catch (error) {
     console.error(`[PUT /api/produits/${id}]`, error);
@@ -135,6 +146,16 @@ export async function DELETE(
     const updated = await prisma.produit.update({
       where: { id },
       data: { actif: false },
+    });
+
+    await logActivity({
+      action: ACTIONS.PRODUCT_DEACTIVATED,
+      actorId: result.user.id,
+      entityType: "Product",
+      entityId: id,
+      metadata: { nom: existing.nom, reference: existing.reference },
+      ipAddress: getClientIp(_req),
+      userAgent: getClientUserAgent(_req),
     });
 
     return Response.json({

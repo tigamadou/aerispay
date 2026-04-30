@@ -63,6 +63,29 @@ export default defineConfig({
           }
           return null;
         },
+        async getRecentActivityLogs(params: { action?: string; limit?: number }) {
+          const prisma = getPrismaPlugin();
+          const logs = await prisma.activityLog.findMany({
+            where: params.action ? { action: params.action } : undefined,
+            orderBy: { createdAt: "desc" },
+            take: params.limit ?? 5,
+            include: { actor: { select: { id: true, nom: true, email: true } } },
+          });
+          return logs.map((l) => ({
+            id: l.id,
+            action: l.action,
+            entityType: l.entityType,
+            entityId: l.entityId,
+            actorId: l.actorId,
+            actorEmail: l.actor?.email ?? null,
+            metadata: l.metadata,
+            createdAt: l.createdAt.toISOString(),
+          }));
+        },
+        async clearActivityLogs(_: null) {
+          await getPrismaPlugin().activityLog.deleteMany({});
+          return null;
+        },
         async closeOpenSessions(email: string) {
           const prisma = getPrismaPlugin();
           const user = await prisma.user.findFirst({ where: { email } });

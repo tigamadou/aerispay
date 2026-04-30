@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { requireAuth, requireRole } from "@/lib/permissions";
 import { createCategorieSchema } from "@/lib/validations/categorie";
+import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
 
 export async function GET(_req: Request) {
   const result = await requireAuth();
@@ -51,6 +52,16 @@ export async function POST(req: Request) {
         couleur: parsed.data.couleur ?? null,
       },
       include: { _count: { select: { produits: true } } },
+    });
+
+    await logActivity({
+      action: ACTIONS.CATEGORY_CREATED,
+      actorId: result.user.id,
+      entityType: "Category",
+      entityId: categorie.id,
+      metadata: { nom: categorie.nom },
+      ipAddress: getClientIp(req),
+      userAgent: getClientUserAgent(req),
     });
 
     return Response.json({ data: categorie }, { status: 201 });

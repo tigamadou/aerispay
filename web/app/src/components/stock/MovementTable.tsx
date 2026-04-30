@@ -30,6 +30,31 @@ const typeLabels: Record<string, { label: string; classes: string }> = {
   PERTE: { label: "Perte", classes: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" },
 };
 
+function exportCsv(mouvements: MouvementRow[]) {
+  const header = "Date;Produit;Référence produit;Type;Quantité;Avant;Après;Motif;Référence";
+  const rows = mouvements.map((m) =>
+    [
+      formatDateTime(m.createdAt),
+      m.produit.nom,
+      m.produit.reference,
+      typeLabels[m.type]?.label ?? m.type,
+      m.quantite,
+      m.quantiteAvant,
+      m.quantiteApres,
+      m.motif ?? "",
+      m.reference ?? "",
+    ].join(";")
+  );
+  const csv = [header, ...rows].join("\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `mouvements-stock-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export function MovementTable({ mouvements, total, page, pageSize }: MovementTableProps) {
   const totalPages = Math.ceil(total / pageSize);
 
@@ -42,6 +67,16 @@ export function MovementTable({ mouvements, total, page, pageSize }: MovementTab
 
   return (
     <div className="space-y-4">
+      {mouvements.length > 0 && (
+        <div className="flex justify-end">
+          <button
+            onClick={() => exportCsv(mouvements)}
+            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            Exporter CSV
+          </button>
+        </div>
+      )}
       <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
         <table className="w-full text-sm">
           <thead className="bg-zinc-50 dark:bg-zinc-900 text-left text-zinc-500 dark:text-zinc-400">

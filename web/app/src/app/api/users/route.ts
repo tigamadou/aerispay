@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/permissions";
 import { createUserSchema } from "@/lib/validations/user";
 import { hash } from "bcryptjs";
+import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
 
 const BCRYPT_ROUNDS = 12;
 
@@ -74,6 +75,16 @@ export async function POST(req: Request) {
         motDePasse: hashedPassword,
         role: parsed.data.role,
       },
+    });
+
+    await logActivity({
+      action: ACTIONS.USER_CREATED,
+      actorId: result.user.id,
+      entityType: "User",
+      entityId: user.id,
+      metadata: { nom: user.nom, email: user.email, role: user.role },
+      ipAddress: getClientIp(req),
+      userAgent: getClientUserAgent(req),
     });
 
     return Response.json({ data: sanitizeUser(user) }, { status: 201 });

@@ -23,6 +23,13 @@ vi.mock("@/auth", () => ({
   auth: vi.fn(),
 }));
 
+vi.mock("@/lib/activity-log", () => ({
+  logActivity: vi.fn(),
+  ACTIONS: { USER_CREATED: "USER_CREATED", USER_UPDATED: "USER_UPDATED", USER_DEACTIVATED: "USER_DEACTIVATED" },
+  getClientIp: vi.fn(),
+  getClientUserAgent: vi.fn(),
+}));
+
 import { prisma } from "@/lib/db";
 import { auth } from "@/auth";
 import { hash } from "bcryptjs";

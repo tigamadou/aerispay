@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { requireAuth, hasRole } from "@/lib/permissions";
 import { createVenteSchema } from "@/lib/validations/vente";
 import { Prisma } from "@prisma/client";
+import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
 
 function genererNumeroVente(sequence: number): string {
   return `VTE-${new Date().getFullYear()}-${String(sequence).padStart(5, "0")}`;
@@ -215,6 +216,16 @@ export async function POST(req: Request) {
       }
 
       return newVente;
+    });
+
+    await logActivity({
+      action: ACTIONS.SALE_COMPLETED,
+      actorId: result.user.id,
+      entityType: "Sale",
+      entityId: vente.id,
+      metadata: { numero: vente.numero, total: Number(vente.total), lignes: vente.lignes.length },
+      ipAddress: getClientIp(req),
+      userAgent: getClientUserAgent(req),
     });
 
     return Response.json({ data: vente }, { status: 201 });
