@@ -40,6 +40,7 @@ export function LoginForm() {
 
   return (
     <form
+      data-testid="login-form"
       onSubmit={onSubmit}
       className="flex w-full max-w-sm flex-col gap-4 rounded-lg border border-zinc-200 bg-white p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
     >
@@ -53,6 +54,7 @@ export function LoginForm() {
         </label>
         <input
           id="email"
+          data-testid="login-email"
           name="email"
           type="email"
           autoComplete="email"
@@ -71,6 +73,7 @@ export function LoginForm() {
         </label>
         <input
           id="password"
+          data-testid="login-password"
           name="password"
           type="password"
           autoComplete="current-password"
@@ -81,12 +84,17 @@ export function LoginForm() {
         />
       </div>
       {error ? (
-        <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+        <p
+          className="text-sm text-red-600 dark:text-red-400"
+          data-testid="login-error"
+          role="alert"
+        >
           {error}
         </p>
       ) : null}
       <button
         type="submit"
+        data-testid="login-submit"
         disabled={pending}
         className="rounded-md bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
       >
