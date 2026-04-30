@@ -13,6 +13,7 @@ export const createProductSchema = z
     stockMinimum: z.number().int().min(0).default(5),
     stockMaximum: z.number().int().positive().optional(),
     description: z.string().optional(),
+    image: z.string().url().optional(),
   })
   .refine((d) => d.prixVente > d.prixAchat, {
     message: "Le prix de vente doit être supérieur au prix d'achat",
@@ -31,6 +32,7 @@ export const updateProductSchema = z
     stockMinimum: z.number().int().min(0).optional(),
     stockMaximum: z.number().int().positive().nullable().optional(),
     description: z.string().nullable().optional(),
+    image: z.string().url().nullable().optional(),
     actif: z.boolean().optional(),
   })
   .refine(

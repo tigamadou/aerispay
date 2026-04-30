@@ -160,6 +160,7 @@ export async function POST(req: Request) {
         unite: parsed.data.unite,
         stockMinimum: parsed.data.stockMinimum,
         stockMaximum: parsed.data.stockMaximum ?? null,
+        image: parsed.data.image ?? null,
         categorieId: parsed.data.categorieId,
       },
       include: { categorie: { select: { id: true, nom: true, couleur: true } } },

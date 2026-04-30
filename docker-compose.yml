@@ -72,6 +72,54 @@ services:
       db:
         condition: service_healthy
 
+  # MinIO — stockage objet S3-compatible (images produits, sauvegardes…)
+  # Console : http://minio.aerispay.localhost/  (login: minioadmin / minioadmin)
+  # API S3  : http://s3.aerispay.localhost/     (endpoint pour le SDK)
+  minio:
+    image: minio/minio:latest
+    container_name: aerispay-minio-dev
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data_dev:/data
+    labels:
+      - "traefik.enable=true"
+      # Console UI
+      - "traefik.http.routers.minio-console.rule=Host(`minio.aerispay.localhost`)"
+      - "traefik.http.routers.minio-console.entrypoints=web"
+      - "traefik.http.routers.minio-console.service=minio-console"
+      - "traefik.http.services.minio-console.loadbalancer.server.port=9001"
+      # S3 API
+      - "traefik.http.routers.minio-api.rule=Host(`s3.aerispay.localhost`)"
+      - "traefik.http.routers.minio-api.entrypoints=web"
+      - "traefik.http.routers.minio-api.service=minio-api"
+      - "traefik.http.services.minio-api.loadbalancer.server.port=9000"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Crée automatiquement le bucket par défaut au démarrage
+  minio-init:
+    image: minio/mc:latest
+    container_name: aerispay-minio-init-dev
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      sh -c "
+        mc alias set local http://minio:9000 $${MINIO_ROOT_USER:-minioadmin} $${MINIO_ROOT_PASSWORD:-minioadmin} &&
+        mc mb --ignore-existing local/$${S3_BUCKET:-aerispay} &&
+        mc anonymous set download local/$${S3_BUCKET:-aerispay}/public &&
+        echo 'Bucket ready'
+      "
+    restart: "no"
+
   app:
     image: node:20-bookworm-slim
     container_name: aerispay-app-dev
@@ -96,6 +144,14 @@ services:
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-devsecret-change-me}
       # NextAuth v5 lit souvent AUTH_SECRET — même valeur que ci-dessus
       AUTH_SECRET: ${NEXTAUTH_SECRET:-devsecret-change-me}
+      # MinIO / S3
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      S3_BUCKET: ${S3_BUCKET:-aerispay}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      # URL publique des fichiers (via Traefik)
+      S3_PUBLIC_URL: http://s3.aerispay.localhost/${S3_BUCKET:-aerispay}
       # Aide le file watching sur Docker Desktop (macOS / Windows)
       WATCHPACK_POLLING: "true"
       CHOKIDAR_USEPOLLING: "true"
@@ -113,6 +169,8 @@ volumes:
     name: aerispay_mysql_data_dev
   app_node_modules:
     name: aerispay_app_node_modules_dev
+  minio_data_dev:
+    name: aerispay_minio_data_dev
 
 networks:
   default:

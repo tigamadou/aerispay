@@ -158,6 +158,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
               stockMinimum: produit.stockMinimum,
               stockMaximum: produit.stockMaximum,
               description: produit.description,
+              image: produit.image,
               actif: produit.actif,
             }}
           />

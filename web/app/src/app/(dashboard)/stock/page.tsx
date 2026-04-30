@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { ProductsTable } from "@/components/stock/ProductsTable";
+import { ProductsGrid } from "@/components/stock/ProductsGrid";
 import { hasPermission } from "@/lib/permissions";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -81,6 +81,7 @@ export default async function StockPage({ searchParams }: StockPageProps) {
     id: p.id,
     reference: p.reference,
     nom: p.nom,
+    image: p.image,
     prixVente: Number(p.prixVente),
     stockActuel: p.stockActuel,
     stockMinimum: p.stockMinimum,
@@ -193,7 +194,7 @@ export default async function StockPage({ searchParams }: StockPageProps) {
         </button>
       </form>
 
-      <ProductsTable
+      <ProductsGrid
         produits={serialized}
         total={total}
         page={page}

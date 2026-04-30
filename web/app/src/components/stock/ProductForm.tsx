@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 interface CategorieOption {
@@ -23,14 +23,17 @@ interface ProductFormProps {
     stockMinimum: number;
     stockMaximum: number | null;
     description: string | null;
+    image: string | null;
     actif: boolean;
   };
 }
 
 export function ProductForm({ mode, categories, initialData }: ProductFormProps) {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const [nom, setNom] = useState(initialData?.nom ?? "");
   const [codeBarres, setCodeBarres] = useState(initialData?.codeBarres ?? "");
@@ -42,11 +45,39 @@ export function ProductForm({ mode, categories, initialData }: ProductFormProps)
   const [stockMinimum, setStockMinimum] = useState(initialData?.stockMinimum?.toString() ?? "5");
   const [stockMaximum, setStockMaximum] = useState(initialData?.stockMaximum?.toString() ?? "");
   const [description, setDescription] = useState(initialData?.description ?? "");
+  const [imageUrl, setImageUrl] = useState(initialData?.image ?? "");
   const [actif, setActif] = useState(initialData?.actif ?? true);
 
   const achat = parseFloat(prixAchat) || 0;
   const vente = parseFloat(prixVente) || 0;
   const marge = vente > 0 ? ((vente - achat) / vente) * 100 : 0;
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    setError("");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error ?? "Erreur lors de l'upload");
+        return;
+      }
+
+      const { data } = await res.json();
+      setImageUrl(data.url);
+    } catch {
+      setError("Erreur de connexion au serveur");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -70,6 +101,8 @@ export function ProductForm({ mode, categories, initialData }: ProductFormProps)
 
       if (codeBarres) body.codeBarres = codeBarres;
       if (stockMaximum) body.stockMaximum = parseInt(stockMaximum);
+      if (imageUrl) body.image = imageUrl;
+      else if (mode === "edit" && !imageUrl && initialData?.image) body.image = null;
       if (mode === "edit") body.actif = actif;
 
       const res = await fetch(url, {
@@ -103,6 +136,54 @@ export function ProductForm({ mode, categories, initialData }: ProductFormProps)
           {error}
         </div>
       )}
+
+      {/* Image */}
+      <fieldset className="space-y-4">
+        <legend className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          Image du produit
+        </legend>
+        <div className="flex items-start gap-4">
+          <div
+            className="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-zinc-300 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 cursor-pointer"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {imageUrl ? (
+              <img src={imageUrl} alt="Aperçu" className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-xs text-zinc-400 text-center px-2">
+                {uploading ? "Upload..." : "Cliquer pour ajouter"}
+              </span>
+            )}
+          </div>
+          <div className="space-y-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/avif"
+              onChange={handleImageUpload}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            >
+              {uploading ? "Upload en cours..." : "Choisir une image"}
+            </button>
+            {imageUrl && (
+              <button
+                type="button"
+                onClick={() => setImageUrl("")}
+                className="ml-2 text-xs text-red-500 hover:text-red-700"
+              >
+                Supprimer
+              </button>
+            )}
+            <p className="text-xs text-zinc-400">JPEG, PNG, WebP ou AVIF. Max 5 Mo.</p>
+          </div>
+        </div>
+      </fieldset>
 
       {/* Informations */}
       <fieldset className="space-y-4">
@@ -308,7 +389,7 @@ export function ProductForm({ mode, categories, initialData }: ProductFormProps)
       <div className="flex gap-3 pt-2">
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || uploading}
           className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
         >
           {pending

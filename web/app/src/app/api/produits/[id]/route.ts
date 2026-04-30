@@ -101,6 +101,7 @@ export async function PUT(
     if (parsed.data.stockMinimum !== undefined) updateData.stockMinimum = parsed.data.stockMinimum;
     if (parsed.data.stockMaximum !== undefined) updateData.stockMaximum = parsed.data.stockMaximum;
     if (parsed.data.description !== undefined) updateData.description = parsed.data.description;
+    if (parsed.data.image !== undefined) updateData.image = parsed.data.image;
     if (parsed.data.actif !== undefined) updateData.actif = parsed.data.actif;
 
     const updated = await prisma.produit.update({
