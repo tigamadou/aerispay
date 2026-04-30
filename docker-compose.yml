@@ -60,6 +60,9 @@ services:
       NODE_ENV: development
       # MySQL via le réseau Compose (hostname `db`, pas `localhost`)
       DATABASE_URL: mysql://${MYSQL_USER:-aerispay}:${MYSQL_PASSWORD:-aerispay}@db:3306/${MYSQL_DATABASE:-aerispay}
+      # Prisma `migrate dev` (shadow) : root + base **explicite** (pas d’URL sans chemin,
+      # sinon MySQL peut se connecter à la base système `mysql` → P3004)
+      SHADOW_DATABASE_URL: mysql://root:${MYSQL_ROOT_PASSWORD:-rootsecret}@db:3306/${MYSQL_DATABASE:-aerispay}
       # URL vue par le navigateur (hôte) — cookies / NextAuth
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-devsecret-change-me}

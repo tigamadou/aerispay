@@ -6,6 +6,9 @@ generator client {
 datasource db {
   provider = "mysql"
   url      = env("DATABASE_URL")
+  // `prisma migrate dev` : utilisateur avec droit CREATE DATABASE (souvent `root` en local).
+  // L’utilisateur app (`aerispay`) n’a en général pas ce droit → P3014 sans shadow.
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
 // ─── UTILISATEURS & AUTH ────────────────────────────
