@@ -2,6 +2,8 @@ import { SignOutButton } from "@/components/dashboard/SignOutButton";
 import { auth } from "@/auth";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { hasPermission } from "@/lib/permissions";
+import type { Role } from "@prisma/client";
 
 const roleLabel: Record<string, string> = {
   ADMIN: "Administrateur",
@@ -15,6 +17,10 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     return null;
   }
 
+  const role = session.user.role as Role;
+  const canManageUsers = hasPermission(role, "users:manage");
+  const canViewLogs = hasPermission(role, "activity_logs:consulter");
+
   return (
     <div className="min-h-svh flex flex-col">
       <header className="border-b border-zinc-200 bg-zinc-50/80 dark:border-zinc-800 dark:bg-zinc-950/80">
@@ -23,9 +29,23 @@ export default async function DashboardLayout({ children }: { children: ReactNod
             <Link href="/" className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
               AerisPay
             </Link>
-            <nav className="flex items-center gap-3 text-sm text-zinc-600 dark:text-zinc-400" aria-label="Navigation principale">
-              <span className="text-zinc-500">Stock</span>
-              <span className="text-zinc-500">Caisse</span>
+            <nav className="flex items-center gap-3 text-sm" aria-label="Navigation principale">
+              <Link href="/stock" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
+                Stock
+              </Link>
+              <Link href="/caisse" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
+                Caisse
+              </Link>
+              {canManageUsers && (
+                <Link href="/users" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
+                  Utilisateurs
+                </Link>
+              )}
+              {canViewLogs && (
+                <Link href="/activity-logs" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
+                  Journal
+                </Link>
+              )}
             </nav>
           </div>
           <div className="flex items-center gap-3 text-sm">

@@ -5,30 +5,52 @@ const prisma = new PrismaClient();
 
 const ROUNDS = 12;
 
+const SEED_USERS = [
+  {
+    email: process.env.SEED_ADMIN_EMAIL ?? "admin@aerispay.com",
+    password: process.env.SEED_ADMIN_PASSWORD ?? "Admin@1234",
+    nom: "Administrateur",
+    role: Role.ADMIN,
+  },
+  {
+    email: "gerant@aerispay.com",
+    password: "Gerant@1234",
+    nom: "Marie Diallo",
+    role: Role.MANAGER,
+  },
+  {
+    email: "caissier@aerispay.com",
+    password: "Caissier@1234",
+    nom: "Moussa Traoré",
+    role: Role.CAISSIER,
+  },
+];
+
 async function main() {
-  const adminEmail = process.env.SEED_ADMIN_EMAIL ?? "admin@aerispay.com";
-  const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? "Admin@1234";
+  for (const user of SEED_USERS) {
+    const hash = await bcrypt.hash(user.password, ROUNDS);
 
-  const hash = await bcrypt.hash(adminPassword, ROUNDS);
+    await prisma.user.upsert({
+      where: { email: user.email },
+      create: {
+        email: user.email,
+        nom: user.nom,
+        motDePasse: hash,
+        role: user.role,
+        actif: true,
+      },
+      update: {
+        nom: user.nom,
+        motDePasse: hash,
+        role: user.role,
+        actif: true,
+      },
+    });
 
-  await prisma.user.upsert({
-    where: { email: adminEmail },
-    create: {
-      email: adminEmail,
-      nom: "Administrateur",
-      motDePasse: hash,
-      role: Role.ADMIN,
-      actif: true,
-    },
-    update: {
-      nom: "Administrateur",
-      motDePasse: hash,
-      role: Role.ADMIN,
-      actif: true,
-    },
-  });
+    console.log(`  ✓ ${user.email} (${user.role})`);
+  }
 
-  console.log(`Seed OK — compte admin : ${adminEmail} (rôle ADMIN)`);
+  console.log(`\nSeed OK — ${SEED_USERS.length} comptes créés/mis à jour`);
 }
 
 main()
