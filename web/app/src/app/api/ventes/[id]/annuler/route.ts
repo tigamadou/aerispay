@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/permissions";
+import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
 
 export async function POST(
   _req: Request,
@@ -62,6 +63,16 @@ export async function POST(
       }
 
       return cancelled;
+    });
+
+    await logActivity({
+      action: ACTIONS.SALE_CANCELLED,
+      actorId: result.user.id,
+      entityType: "Sale",
+      entityId: id,
+      metadata: { numero: vente.numero, total: Number(vente.total) },
+      ipAddress: getClientIp(_req),
+      userAgent: getClientUserAgent(_req),
     });
 
     return Response.json({ data: updated });

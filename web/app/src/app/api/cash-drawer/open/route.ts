@@ -1,5 +1,6 @@
 import { requireAuth } from "@/lib/permissions";
 import { openCashDrawer } from "@/lib/receipt/thermal-printer";
+import { logActivity, ACTIONS } from "@/lib/activity-log";
 
 export async function POST() {
   const result = await requireAuth();
@@ -7,6 +8,12 @@ export async function POST() {
 
   try {
     const drawerResult = await openCashDrawer();
+
+    await logActivity({
+      action: drawerResult.success ? ACTIONS.CASH_DRAWER_OPENED : ACTIONS.CASH_DRAWER_OPEN_FAILED,
+      actorId: result.user.id,
+      metadata: { success: drawerResult.success, message: drawerResult.message },
+    });
 
     if (!drawerResult.success) {
       return Response.json(

@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
 import { prisma } from "@/lib/db";
+import { logActivity, ACTIONS } from "@/lib/activity-log";
 import type { Role } from "@prisma/client";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -28,15 +29,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        const user = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+        const normalizedEmail = email.trim().toLowerCase();
+        const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+
         if (!user || !user.actif) {
+          await logActivity({
+            action: ACTIONS.AUTH_LOGIN_FAILED,
+            metadata: { reason: !user ? "unknown_email" : "inactive_account", email: normalizedEmail },
+          });
           return null;
         }
 
         const valid = await compare(password, user.motDePasse);
         if (!valid) {
+          await logActivity({
+            action: ACTIONS.AUTH_LOGIN_FAILED,
+            actorId: user.id,
+            metadata: { reason: "invalid_password" },
+          });
           return null;
         }
+
+        await logActivity({
+          action: ACTIONS.AUTH_LOGIN_SUCCESS,
+          actorId: user.id,
+          entityType: "User",
+          entityId: user.id,
+        });
 
         return {
           id: user.id,
@@ -47,6 +66,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
   ],
+  events: {
+    async signOut(message) {
+      const token = "token" in message ? message.token : null;
+      await logActivity({
+        action: ACTIONS.AUTH_LOGOUT,
+        actorId: (token?.id as string) ?? null,
+      });
+    },
+  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {

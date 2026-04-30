@@ -42,6 +42,9 @@ vi.mock("@/auth", () => ({
 
 vi.mock("@/lib/activity-log", () => ({
   logActivity: vi.fn(),
+  ACTIONS: { CASH_SESSION_OPENED: "CASH_SESSION_OPENED", CASH_SESSION_CLOSED: "CASH_SESSION_CLOSED" },
+  getClientIp: vi.fn(),
+  getClientUserAgent: vi.fn(),
 }));
 
 import { prisma } from "@/lib/db";
@@ -342,5 +345,29 @@ describe("PUT /api/caisse/sessions/[id]", () => {
       { params: Promise.resolve({ id: "session-999" }) }
     );
     expect(res.status).toBe(404);
+  });
+});
+
+// ─── Error paths ────────────────────────────────────
+
+describe("Caisse error handling", () => {
+  it("GET /api/caisse/sessions returns 500 on DB error", async () => {
+    mockSession("ADMIN");
+    (prisma.caisseSession.findMany as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
+    const { GET } = await import("@/app/api/caisse/sessions/route");
+    const res = await GET();
+    expect(res.status).toBe(500);
+  });
+
+  it("POST /api/caisse/sessions returns 500 on DB error", async () => {
+    mockSession("CAISSIER");
+    (prisma.caisseSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (prisma.caisseSession.create as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
+    const { POST } = await import("@/app/api/caisse/sessions/route");
+    const res = await POST(new Request("http://localhost/api/caisse/sessions", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ montantOuverture: 50000 }),
+    }));
+    expect(res.status).toBe(500);
   });
 });

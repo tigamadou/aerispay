@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/permissions";
 import { hasRole } from "@/lib/permissions";
 import { closeSessionSchema } from "@/lib/validations/session";
+import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
 
 async function computeSoldeTheorique(sessionId: string, montantOuverture: number): Promise<number> {
   // Total espèces encaissées (paiements ESPECES des ventes VALIDEE de cette session)
@@ -133,6 +134,21 @@ export async function PUT(
         notes: parsed.data.notes,
       },
       include: { user: { select: { id: true, nom: true, email: true } } },
+    });
+
+    await logActivity({
+      action: ACTIONS.CASH_SESSION_CLOSED,
+      actorId: result.user.id,
+      entityType: "CashSession",
+      entityId: id,
+      metadata: {
+        montantFermeture: parsed.data.montantFermeture,
+        soldeTheorique,
+        ecartCaisse,
+        closedByOwner: session.userId === result.user.id,
+      },
+      ipAddress: getClientIp(req),
+      userAgent: getClientUserAgent(req),
     });
 
     return Response.json({

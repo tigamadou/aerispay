@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { requireAuth, requireRole } from "@/lib/permissions";
 import { openSessionSchema } from "@/lib/validations/session";
+import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
 
 export async function GET() {
   const result = await requireAuth();
@@ -50,6 +51,16 @@ export async function POST(req: Request) {
         userId: result.user.id,
       },
       include: { user: { select: { id: true, nom: true, email: true } } },
+    });
+
+    await logActivity({
+      action: ACTIONS.CASH_SESSION_OPENED,
+      actorId: result.user.id,
+      entityType: "CashSession",
+      entityId: session.id,
+      metadata: { montantOuverture: Number(session.montantOuverture) },
+      ipAddress: getClientIp(req),
+      userAgent: getClientUserAgent(req),
     });
 
     return Response.json({ data: session }, { status: 201 });

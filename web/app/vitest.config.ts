@@ -14,5 +14,16 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/__tests__/setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
+    coverage: {
+      provider: "v8",
+      include: ["src/app/api/**/*.ts", "src/lib/**/*.ts"],
+      exclude: ["src/lib/db.ts", "src/lib/s3.ts", "src/lib/receipt/**", "src/app/api/auth/**", "src/app/api/upload/**"],
+      thresholds: {
+        statements: 93,
+        branches: 85,
+        functions: 85,
+        lines: 95,
+      },
+    },
   },
 });

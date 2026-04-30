@@ -37,6 +37,13 @@ vi.mock("@/auth", () => ({
   auth: vi.fn(),
 }));
 
+vi.mock("@/lib/activity-log", () => ({
+  logActivity: vi.fn(),
+  ACTIONS: { SALE_COMPLETED: "SALE_COMPLETED", SALE_CANCELLED: "SALE_CANCELLED" },
+  getClientIp: vi.fn(),
+  getClientUserAgent: vi.fn(),
+}));
+
 import { prisma } from "@/lib/db";
 import { auth } from "@/auth";
 
@@ -521,5 +528,47 @@ describe("POST /api/ventes/[id]/annuler", () => {
       { params: Promise.resolve({ id: "vente-1" }) }
     );
     expect(res.status).toBe(422);
+  });
+
+  it("executes transaction: cancels sale + restores stock + creates RETOUR movements", async () => {
+    mockSession("ADMIN");
+    (prisma.vente.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockVente);
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn: Function) => {
+      const tx = {
+        vente: {
+          update: vi.fn().mockResolvedValue({
+            ...mockVente,
+            statut: "ANNULEE",
+            lignes: mockVente.lignes.map((l) => ({
+              ...l,
+              produit: { id: l.produitId, nom: "Savon", stockActuel: 50 },
+            })),
+            paiements: mockVente.paiements,
+            caissier: { id: "user-1", nom: "Test" },
+          }),
+        },
+        produit: { update: vi.fn() },
+        mouvementStock: { create: vi.fn() },
+      };
+      return fn(tx);
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/ventes/vente-1/annuler", { method: "POST" }),
+      { params: Promise.resolve({ id: "vente-1" }) }
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.statut).toBe("ANNULEE");
+  });
+
+  it("returns 500 on unexpected error", async () => {
+    mockSession("ADMIN");
+    (prisma.vente.findUnique as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
+    const res = await POST(
+      new Request("http://localhost/api/ventes/vente-1/annuler", { method: "POST" }),
+      { params: Promise.resolve({ id: "vente-1" }) }
+    );
+    expect(res.status).toBe(500);
   });
 });
