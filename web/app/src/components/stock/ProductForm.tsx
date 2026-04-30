@@ -11,6 +11,7 @@ interface CategorieOption {
 interface ProductFormProps {
   mode: "create" | "edit";
   categories: CategorieOption[];
+  isAdmin?: boolean;
   initialData?: {
     id: string;
     nom: string;
@@ -28,7 +29,7 @@ interface ProductFormProps {
   };
 }
 
-export function ProductForm({ mode, categories, initialData }: ProductFormProps) {
+export function ProductForm({ mode, categories, isAdmin = false, initialData }: ProductFormProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
@@ -292,22 +293,24 @@ export function ProductForm({ mode, categories, initialData }: ProductFormProps)
           Prix & TVA
         </legend>
 
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="space-y-1.5">
-            <label htmlFor="prixAchat" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Prix d'achat (FCFA)
-            </label>
-            <input
-              id="prixAchat"
-              type="number"
-              required
-              min={1}
-              step="any"
-              value={prixAchat}
-              onChange={(e) => setPrixAchat(e.target.value)}
-              className={inputClasses}
-            />
-          </div>
+        <div className={`grid gap-4 ${isAdmin ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+          {isAdmin && (
+            <div className="space-y-1.5">
+              <label htmlFor="prixAchat" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Prix d{"'"}achat (FCFA)
+              </label>
+              <input
+                id="prixAchat"
+                type="number"
+                required
+                min={1}
+                step="any"
+                value={prixAchat}
+                onChange={(e) => setPrixAchat(e.target.value)}
+                className={inputClasses}
+              />
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <label htmlFor="prixVente" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
@@ -342,7 +345,7 @@ export function ProductForm({ mode, categories, initialData }: ProductFormProps)
           </div>
         </div>
 
-        {achat > 0 && vente > 0 && (
+        {isAdmin && achat > 0 && vente > 0 && (
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
             Marge brute : <span className={marge > 0 ? "text-green-600 font-medium" : "text-red-600 font-medium"}>{marge.toFixed(1)}%</span>
           </p>

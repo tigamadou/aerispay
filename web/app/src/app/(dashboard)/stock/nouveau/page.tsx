@@ -34,7 +34,7 @@ export default async function NewProductPage() {
         </p>
       </div>
 
-      <ProductForm mode="create" categories={categories} />
+      <ProductForm mode="create" categories={categories} isAdmin={session.user.role === "ADMIN"} />
     </div>
   );
 }

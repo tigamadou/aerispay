@@ -58,6 +58,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
       })
     : [];
 
+  const isAdmin = role === "ADMIN";
   const marge =
     Number(produit.prixVente) > 0
       ? ((Number(produit.prixVente) - Number(produit.prixAchat)) / Number(produit.prixVente)) * 100
@@ -79,7 +80,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
       </div>
 
       {/* Info summary */}
-      <div className="grid gap-4 sm:grid-cols-4">
+      <div className={`grid gap-4 ${isAdmin ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
         <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
           <p className="text-xs text-zinc-500 dark:text-zinc-400">Stock actuel</p>
           <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{produit.stockActuel}</p>
@@ -88,13 +89,15 @@ export default async function ProductPage({ params }: ProductPageProps) {
         <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
           <p className="text-xs text-zinc-500 dark:text-zinc-400">Prix de vente</p>
           <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{formatMontant(Number(produit.prixVente))}</p>
-          <p className="text-xs text-zinc-400">Achat: {formatMontant(Number(produit.prixAchat))}</p>
+          {isAdmin && <p className="text-xs text-zinc-400">Achat: {formatMontant(Number(produit.prixAchat))}</p>}
         </div>
-        <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">Marge brute</p>
-          <p className={`text-2xl font-bold ${marge > 0 ? "text-green-600" : "text-red-600"}`}>{marge.toFixed(1)}%</p>
-          <p className="text-xs text-zinc-400">TVA: {Number(produit.tva)}%</p>
-        </div>
+        {isAdmin && (
+          <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">Marge brute</p>
+            <p className={`text-2xl font-bold ${marge > 0 ? "text-green-600" : "text-red-600"}`}>{marge.toFixed(1)}%</p>
+            <p className="text-xs text-zinc-400">TVA: {Number(produit.tva)}%</p>
+          </div>
+        )}
         <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
           <p className="text-xs text-zinc-500 dark:text-zinc-400">Catégorie</p>
           <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{produit.categorie.nom}</p>
@@ -146,6 +149,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
           <ProductForm
             mode="edit"
             categories={categories}
+            isAdmin={isAdmin}
             initialData={{
               id: produit.id,
               nom: produit.nom,
