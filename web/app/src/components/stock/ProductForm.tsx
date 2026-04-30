@@ -79,6 +79,21 @@ export function ProductForm({ mode, categories, initialData }: ProductFormProps)
     }
   }
 
+  async function handleImageDelete() {
+    if (!imageUrl) return;
+    setError("");
+    try {
+      await fetch("/api/upload", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: imageUrl }),
+      });
+    } catch {
+      // S3 delete failure is non-blocking
+    }
+    setImageUrl("");
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
@@ -174,7 +189,7 @@ export function ProductForm({ mode, categories, initialData }: ProductFormProps)
             {imageUrl && (
               <button
                 type="button"
-                onClick={() => setImageUrl("")}
+                onClick={handleImageDelete}
                 className="ml-2 text-xs text-red-500 hover:text-red-700"
               >
                 Supprimer
