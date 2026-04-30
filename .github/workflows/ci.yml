@@ -4,8 +4,8 @@ on:
   pull_request
 
 jobs:
-  lint:
-    name: ESLint
+  eslint:
+    name: Run ESLint
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -46,8 +46,8 @@ jobs:
 
       - run: npm run test
 
-  e2e-tests:
-    name: E2E Tests
+  cypress-tests:
+    name: Cypress Tests
     runs-on: ubuntu-latest
     defaults:
       run:

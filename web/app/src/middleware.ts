@@ -5,9 +5,9 @@ export default auth((req) => {
   const { nextUrl } = req;
   const isLoggedIn = !!req.auth;
   const isLogin = nextUrl.pathname === "/login";
-  const isApiAuth = nextUrl.pathname.startsWith("/api/auth");
+  const isApi = nextUrl.pathname.startsWith("/api/");
 
-  if (isApiAuth) {
+  if (isApi) {
     return NextResponse.next();
   }
 
