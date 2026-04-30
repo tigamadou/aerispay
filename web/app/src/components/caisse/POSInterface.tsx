@@ -24,7 +24,7 @@ interface SaleResult {
 // ─── Helpers ─────────────────────────────────────────
 
 function formatMontant(amount: number): string {
-  return `${new Intl.NumberFormat("fr-FR").format(Math.round(amount))} FCFA`;
+  return `${new Intl.NumberFormat("fr-FR").format(Math.round(amount)).replace(/\u202F/g, " ")} FCFA`;
 }
 
 // ─── POSInterface ────────────────────────────────────

@@ -8,7 +8,7 @@ interface SignOutButtonProps {
 }
 
 function formatFCFA(n: number): string {
-  return `${new Intl.NumberFormat("fr-FR").format(Math.round(n))} FCFA`;
+  return `${new Intl.NumberFormat("fr-FR").format(Math.round(n)).replace(/\u202F/g, " ")} FCFA`;
 }
 
 export function SignOutButton({ openSessionId }: SignOutButtonProps) {

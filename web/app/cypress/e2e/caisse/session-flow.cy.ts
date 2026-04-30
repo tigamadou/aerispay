@@ -5,6 +5,7 @@
 
 describe("Session de caisse — flux complet", () => {
   beforeEach(() => {
+    cy.closeOpenSessions("caissier@aerispay.com");
     cy.loginAsCaissier();
   });
 
@@ -94,6 +95,7 @@ describe("Session de caisse — flux complet", () => {
 
 describe("Déconnexion avec session ouverte", () => {
   it("force la clôture avant déconnexion", () => {
+    cy.closeOpenSessions("caissier@aerispay.com");
     cy.loginAsCaissier();
 
     // Open a session

@@ -103,7 +103,7 @@ services:
       - ${APP_BIND:-./web/app}:/app
       - app_node_modules:/app/node_modules
     command: >
-      sh -c "npm install && if [ -f prisma/schema.prisma ]; then npx prisma generate; fi && exec npm run dev -- -H 0.0.0.0 -p 3000"
+      sh -c "apt-get update -y && apt-get install -y openssl procps && npm install && if [ -f prisma/schema.prisma ]; then npx prisma generate; fi && exec npm run dev -- -H 0.0.0.0 -p 3000"
     depends_on:
       db:
         condition: service_healthy

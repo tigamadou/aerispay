@@ -46,6 +46,10 @@ Cypress.Commands.add("loginAsCaissier", () => {
   loginWith("caissier", "caissier@aerispay.com", "Caissier@1234");
 });
 
+Cypress.Commands.add("closeOpenSessions", (email: string) => {
+  cy.task("closeOpenSessions", email);
+});
+
 export {};
 
 declare global {
@@ -54,6 +58,7 @@ declare global {
       loginAsAdmin(): Chainable<void>;
       loginAsManager(): Chainable<void>;
       loginAsCaissier(): Chainable<void>;
+      closeOpenSessions(email: string): Chainable<void>;
     }
   }
 }

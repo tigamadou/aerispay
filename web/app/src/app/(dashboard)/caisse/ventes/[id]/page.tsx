@@ -18,7 +18,7 @@ interface VenteDetailPageProps {
 }
 
 function fmt(montant: number | string | { toString(): string }): string {
-  return `${new Intl.NumberFormat("fr-FR").format(Math.round(Number(montant)))} FCFA`;
+  return `${new Intl.NumberFormat("fr-FR").format(Math.round(Number(montant))).replace(/\u202F/g, " ")} FCFA`;
 }
 
 function fmtDate(date: Date | string): string {

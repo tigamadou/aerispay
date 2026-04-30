@@ -26,7 +26,8 @@ interface SessionManagerProps {
 
 function formatFCFA(value: string | number): string {
   const num = typeof value === "string" ? parseFloat(value) : value;
-  return `${new Intl.NumberFormat("fr-FR").format(num)} FCFA`;
+  // Replace narrow no-break space (U+202F) with regular space for consistent rendering
+  return `${new Intl.NumberFormat("fr-FR").format(num).replace(/\u202F/g, " ")} FCFA`;
 }
 
 function formatDateTime(iso: string): string {
@@ -237,6 +238,7 @@ export function SessionManager({ initialSession }: SessionManagerProps) {
             <dd
               data-testid="session-ouverture-at"
               className="mt-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100"
+              suppressHydrationWarning
             >
               {formatDateTime(session.ouvertureAt)}
             </dd>

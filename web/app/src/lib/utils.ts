@@ -11,7 +11,7 @@ export function cn(...inputs: (string | undefined | null | false)[]): string {
  * No decimals — FCFA is an integer currency.
  */
 export function formatMontant(montant: number, devise = "FCFA"): string {
-  return `${new Intl.NumberFormat("fr-FR").format(Math.round(Number(montant)))} ${devise}`;
+  return `${new Intl.NumberFormat("fr-FR").format(Math.round(Number(montant))).replace(/\u202F/g, " ")} ${devise}`;
 }
 
 /**

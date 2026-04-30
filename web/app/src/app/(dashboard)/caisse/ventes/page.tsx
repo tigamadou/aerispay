@@ -25,7 +25,7 @@ interface VentesPageProps {
 }
 
 function fmt(montant: number | string | { toString(): string }): string {
-  return `${new Intl.NumberFormat("fr-FR").format(Math.round(Number(montant)))} FCFA`;
+  return `${new Intl.NumberFormat("fr-FR").format(Math.round(Number(montant))).replace(/\u202F/g, " ")} FCFA`;
 }
 
 const statutLabel: Record<string, { text: string; className: string }> = {

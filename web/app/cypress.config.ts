@@ -47,6 +47,32 @@ export default defineConfig({
           }
           return p.id;
         },
+        async cleanVentesForUser(email: string) {
+          const prisma = getPrismaPlugin();
+          const user = await prisma.user.findFirst({ where: { email } });
+          if (!user) return null;
+          const sessions = await prisma.caisseSession.findMany({
+            where: { userId: user.id },
+            select: { id: true },
+          });
+          const sessionIds = sessions.map((s) => s.id);
+          if (sessionIds.length > 0) {
+            await prisma.paiement.deleteMany({ where: { vente: { sessionId: { in: sessionIds } } } });
+            await prisma.ligneVente.deleteMany({ where: { vente: { sessionId: { in: sessionIds } } } });
+            await prisma.vente.deleteMany({ where: { sessionId: { in: sessionIds } } });
+          }
+          return null;
+        },
+        async closeOpenSessions(email: string) {
+          const prisma = getPrismaPlugin();
+          const user = await prisma.user.findFirst({ where: { email } });
+          if (!user) return null;
+          await prisma.caisseSession.updateMany({
+            where: { userId: user.id, statut: "OUVERTE" },
+            data: { statut: "FERMEE", fermetureAt: new Date(), montantFermeture: 0 },
+          });
+          return null;
+        },
       });
       on("after:run", async () => {
         if (prismaPlugin) {

@@ -11,6 +11,8 @@ describe("Ventes — UI & navigation", () => {
   });
 
   it("CAISSIER : page Mes ventes vide sans historique", () => {
+    cy.task("cleanVentesForUser", "caissier@aerispay.com");
+    cy.closeOpenSessions("caissier@aerispay.com");
     cy.loginAsCaissier();
     cy.visit("/caisse/ventes");
     cy.contains("h1", "Mes ventes").should("be.visible");
@@ -19,6 +21,7 @@ describe("Ventes — UI & navigation", () => {
   });
 
   it("CAISSIER : affiche une vente créée et le détail", () => {
+    cy.closeOpenSessions("caissier@aerispay.com");
     cy.loginAsCaissier();
     cy.request("POST", "/api/caisse/sessions", { montantOuverture: 50_000 }).then((r1) => {
       expect(r1.status).to.eq(201);
@@ -63,11 +66,11 @@ describe("Ventes — API", () => {
   });
 
   it("GET /api/ventes renvoie 401 sans session", () => {
-    cy.clearCookies();
-    cy.request({ url: "/api/ventes", failOnStatusCode: false }).its("status").should("eq", 401);
+    cy.request({ url: "/api/ventes", failOnStatusCode: false, headers: { cookie: "" } }).its("status").should("eq", 401);
   });
 
   it("POST /api/ventes/:id/annuler renvoie 403 pour un CAISSIER", () => {
+    cy.closeOpenSessions("caissier@aerispay.com");
     cy.loginAsCaissier();
     cy.request("POST", "/api/caisse/sessions", { montantOuverture: 50_000 }).then((r1) => {
       const sessionId = r1.body.data.id as string;
@@ -96,6 +99,7 @@ describe("Ventes — API", () => {
 
 describe("Ventes — annulation (MANAGER)", () => {
   it("peut annuler une vente validée depuis la liste", () => {
+    cy.closeOpenSessions("caissier@aerispay.com");
     cy.loginAsCaissier();
     cy.request("POST", "/api/caisse/sessions", { montantOuverture: 50_000 }).then((r1) => {
       const sessionId = r1.body.data.id as string;
