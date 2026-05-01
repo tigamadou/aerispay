@@ -62,7 +62,13 @@ export async function GET(req: Request) {
       ...(isCaissier ? { userId: result.user.id } : {}),
     };
 
-    const [salesAgg, cashAgg, openSession] = await Promise.all([
+    const sessionWhere = {
+      statut: "FERMEE" as const,
+      fermetureAt: dateRange,
+      ...(isCaissier ? { userId: result.user.id } : {}),
+    };
+
+    const [salesAgg, cashAgg, openSession, closedSessions] = await Promise.all([
       prisma.vente.aggregate({
         where: venteWhere,
         _sum: { total: true },
@@ -79,6 +85,10 @@ export async function GET(req: Request) {
         where: { userId: result.user.id, statut: "OUVERTE" },
         select: { id: true, ouvertureAt: true, montantOuverture: true },
       }),
+      prisma.caisseSession.findMany({
+        where: sessionWhere,
+        select: { id: true, ecartCaisse: true, userId: true },
+      }),
     ]);
 
     const revenue = Number(salesAgg._sum.total ?? 0);
@@ -86,6 +96,21 @@ export async function GET(req: Request) {
     const averageBasket = salesCount > 0 ? Math.round(revenue / salesCount) : 0;
     const cashTotal = Number(cashAgg._sum.montant ?? 0);
     const nonCashTotal = Math.max(0, revenue - cashTotal);
+
+    // Cash discrepancy KPIs
+    let totalExcedent = 0;
+    let totalManquant = 0;
+    let discrepancyCount = 0;
+    for (const s of closedSessions) {
+      const ecart = Number(s.ecartCaisse ?? 0);
+      if (ecart > 0) {
+        totalExcedent += ecart;
+        discrepancyCount++;
+      } else if (ecart < 0) {
+        totalManquant += Math.abs(ecart);
+        discrepancyCount++;
+      }
+    }
 
     // Peripheral status
     const printerConfig = getPrinterConfig();
@@ -108,6 +133,12 @@ export async function GET(req: Request) {
               montantOuverture: Number(openSession.montantOuverture),
             }
           : null,
+        cashDiscrepancy: {
+          sessionsCount: closedSessions.length,
+          discrepancyCount,
+          totalExcedent,
+          totalManquant,
+        },
         peripherals: {
           printer: {
             enabled: printerConfig.enabled,

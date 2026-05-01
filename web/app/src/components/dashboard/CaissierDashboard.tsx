@@ -16,6 +16,12 @@ interface KpiData {
   cashTotal: number;
   nonCashTotal: number;
   openSession: { id: string; ouvertureAt: string; montantOuverture: number } | null;
+  cashDiscrepancy: {
+    sessionsCount: number;
+    discrepancyCount: number;
+    totalExcedent: number;
+    totalManquant: number;
+  };
   peripherals: {
     printer: { enabled: boolean; type: string; interface: string };
     cashDrawer: { enabled: boolean; mode: string };
@@ -210,6 +216,38 @@ export function CaissierDashboard({ userName }: CaissierDashboardProps) {
                   </p>
                 </div>
                 <SessionChrono startedAt={data.openSession.ouvertureAt} />
+              </div>
+            </div>
+          )}
+
+          {/* Cash discrepancy */}
+          {data.cashDiscrepancy.sessionsCount > 0 && (
+            <div>
+              <h2 className="mb-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                Ecarts de caisse
+              </h2>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Sessions fermées</p>
+                  <p className="mt-0.5 text-lg font-bold text-zinc-900 dark:text-zinc-100">{data.cashDiscrepancy.sessionsCount}</p>
+                  <p className="text-xs text-zinc-400">
+                    {data.cashDiscrepancy.discrepancyCount > 0
+                      ? `${data.cashDiscrepancy.discrepancyCount} avec écart`
+                      : "Aucun écart"}
+                  </p>
+                </div>
+                {data.cashDiscrepancy.totalExcedent > 0 && (
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-900/10">
+                    <p className="text-xs text-blue-600 dark:text-blue-400">Excédent</p>
+                    <p className="mt-0.5 text-lg font-bold text-blue-700 dark:text-blue-300">+{formatMontant(data.cashDiscrepancy.totalExcedent)}</p>
+                  </div>
+                )}
+                {data.cashDiscrepancy.totalManquant > 0 && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/10">
+                    <p className="text-xs text-red-600 dark:text-red-400">Manquant</p>
+                    <p className="mt-0.5 text-lg font-bold text-red-700 dark:text-red-300">-{formatMontant(data.cashDiscrepancy.totalManquant)}</p>
+                  </div>
+                )}
               </div>
             </div>
           )}

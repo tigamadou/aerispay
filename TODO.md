@@ -1,11 +1,11 @@
-# AerisPay — TODO & suivi d’itération
+# AerisPay — TODO & suivi d'itération
 
-> **Aligné sur :** `ROADMAP.md` **document v1.1.0** · Cible release code **MVP 1.0.0** (Phases 0–5)  
-> **Phase code en cours :** Phase 0 — Fondations
-> **Dernière mise à jour :** 30 avril 2026
-> **Prochain ticket :** SETUP-04  
-> **Contexte :** infrastructure Docker (Compose **à la racine**) ; code applicatif dans **`web/app/`** (voir `CLAUDE.md`).  
-> **Méthodologie :** **TDD obligatoire** — tests avant implémentation.  
+> **Aligné sur :** `ROADMAP.md` **document v1.1.0** · Cible release code **MVP 1.0.0** (Phases 0–5)
+> **Phase code en cours :** Phase 5 — Qualité & Déploiement
+> **Dernière mise à jour :** 1 mai 2026
+> **Prochain ticket :** PRINT-04 (QR code ticket) ou DASH-03 (rapport session PDF)
+> **Contexte :** infrastructure Docker (Compose **à la racine**) ; code applicatif dans **`web/app/`** (voir `CLAUDE.md`).
+> **Méthodologie :** **TDD obligatoire** — tests avant implémentation.
 > **Matériel cible :** `SPECS/PERIPHERIQUES.md` · **Écrans / règles :** `SPECS/PAGES_MVP.md` · **Rôles :** `SPECS/AUTH.md`
 
 ---
@@ -14,7 +14,7 @@
 
 | Élément | Version | Rôle |
 |---------|---------|------|
-| **Documentation** (`SPECS/`, `ROADMAP`, `TODO`, `ARCHITECTURE_MVP`…) | **1.1.0** | Spécifications stabilisées pour l’implémentation MVP. |
+| **Documentation** (`SPECS/`, `ROADMAP`, `TODO`, `ARCHITECTURE_MVP`…) | **1.1.0** | Spécifications stabilisées pour l'implémentation MVP. |
 | **Application (code)** | **→ 1.0.0** (à taguer) | Objectif : fin de Phase 5 (Qualité & déploiement). |
 | **Produit > MVP** | **2.x+** | Multi-org, etc. : `SPECS/MULTI_ORGANISATION.md` |
 
@@ -30,7 +30,7 @@
 
 **Règles :** `docker compose` depuis la **racine** ; `npm` / `npx` / Prisma depuis **`web/app/`** ; chemins de tickets côté code = relatifs à **`web/app/`** sauf mention inverse.
 
-**TDD :** chaque ticket = tests d’abord (Vitest / RTL / Playwright selon le périmètre).
+**TDD :** chaque ticket = tests d'abord (Vitest / RTL / Playwright selon le périmètre).
 
 ---
 
@@ -38,122 +38,141 @@
 
 Ces éléments sont considérés **à jour** pour le MVP et les jalons v2+ documentés — les évolutions se font par **nouvelle version** de spec (`ROADMAP` / champs *Version* en tête de fichier) :
 
-- [x] `ARCHITECTURE_MVP.md` — schéma, endpoints, rôles §8  
-- [x] `SPECS/` — STOCK, CAISSE, AUTH (2 niveaux groupe/PDV), IMPRESSION, ACTIVITY_LOG, PERIPHERIQUES, **MULTI_ORGANISATION**, **PAGES_MVP**, **DASHBOARD** (KPI)  
-- [x] `CLAUDE.md`, `CONVENTIONS.md`, `DOCKER.md`  
-- [x] Stack Docker (Compose racine, app sous `web/app/`)  
+- [x] `ARCHITECTURE_MVP.md` — schéma, endpoints, rôles §8
+- [x] `SPECS/` — STOCK, CAISSE, AUTH (2 niveaux groupe/PDV), IMPRESSION, ACTIVITY_LOG, PERIPHERIQUES, **MULTI_ORGANISATION**, **PAGES_MVP**, **DASHBOARD** (KPI)
+- [x] `CLAUDE.md`, `CONVENTIONS.md`, `DOCKER.md`
+- [x] Stack Docker (Compose racine, app sous `web/app/`)
 - [x] `ROADMAP.md` v1.1.0 (versionnement + phases **1.0.0** / backlog **2.x+**)
 
-> Toute modification de spec hors ticket explicite : incrémenter le **versionnement document** (ex. 1.1.0 → 1.2.0) dans l’en-tête du fichier concerné et `ROADMAP` si besoin.
+> Toute modification de spec hors ticket explicite : incrémenter le **versionnement document** (ex. 1.1.0 → 1.2.0) dans l'en-tête du fichier concerné et `ROADMAP` si besoin.
 
 ---
 
 ## En cours
 
-_Phase 2 (Caisse / ventes) terminée — prêt pour Phase 3 (Impression & matériel avancé)_
+_Phases 0–4 terminées — reste quelques tickets Phase 3/4 mineurs + Phase 5 (Qualité & Déploiement)_
 
 ---
 
-## À faire — Phase 0 (Fondations) — cible **MVP 1.0.0**
+## Terminé — Phase 0 (Fondations)
 
-### ~~SETUP-00 — Prérequis : Docker (stack locale)~~ ✅
-
-### ~~SETUP-01 — Initialisation du projet Next.js dans `web/app/`~~ ✅
-
-### ~~SETUP-02 — Configuration Prisma + MySQL~~ ✅
-
-### ~~SETUP-03 — Authentification NextAuth.js v5~~ ✅
-- [x] Login / logout ; session avec rôle ; protection routes
-- [x] Seul `ADMIN` gère les comptes (403 sinon)
-- [x] Tests auth / permissions (82 tests passent)
-- [x] API Routes : `GET/POST /api/users`, `GET/PUT /api/users/[id]` — ADMIN only
-- [x] Pages : `/users` (liste), `/users/nouveau` (création), `/users/[id]` (édition)
-- [x] Rôles & permissions : `lib/permissions.ts` (hasPermission, hasRole, requireAuth, requireRole)
-- [x] Navigation conditionnelle par rôle dans le layout dashboard
-- [x] Seed : 3 comptes (ADMIN, MANAGER, CAISSIER)
+- [x] **SETUP-00** — Docker (stack locale MySQL + phpMyAdmin)
+- [x] **SETUP-01** — Initialisation Next.js 14 dans `web/app/`
+- [x] **SETUP-02** — Configuration Prisma + MySQL (schéma complet, migrations)
+- [x] **SETUP-03** — Authentification NextAuth.js v5
+  - [x] Login / logout ; session avec rôle ; protection routes
+  - [x] Seul `ADMIN` gère les comptes (403 sinon)
+  - [x] API Routes : `GET/POST /api/users`, `GET/PUT/DELETE /api/users/[id]` — ADMIN only
+  - [x] Pages : `/users` (liste), `/users/nouveau` (création), `/users/[id]` (édition)
+  - [x] Rôles & permissions : `lib/permissions.ts` (hasPermission, hasRole, requireAuth, requireRole)
+  - [x] Navigation conditionnelle par rôle dans le layout dashboard
+  - [x] Seed : 3 comptes (ADMIN, MANAGER, CAISSIER)
+- [x] **SETUP-04** — Layout principal (dashboard)
+  - [x] Navigation conditionnelle par rôle (Stock, Caisse, Utilisateurs, Journal, Parametres, Taxes)
+  - [x] Header avec identité utilisateur + déconnexion
+- [x] **SETUP-05** — Seed de base de données
+  - [x] 3 comptes (ADMIN, MANAGER, CAISSIER)
+  - [x] 5 catégories + 19 produits (avec alertes stock et ruptures)
+- [x] **SETUP-06** — Compatibilité matériel caisse
+  - [x] Abstractions serveur (thermal-printer.ts, cash-drawer)
+  - [x] Config env `PRINTER_*` / `CASH_DRAWER_*`
+  - [x] Tests automatisables (mocks)
 
 ---
 
-### ~~SETUP-04 — Layout principal (dashboard)~~ ✅
-- [x] Navigation conditionnelle par rôle (Stock, Caisse, Utilisateurs, Journal)
-- [x] Header avec identité utilisateur + déconnexion
+## Terminé — Phase 1 (Stock)
 
-### ~~SETUP-05 — Seed de base de données~~ ✅
-- [x] 3 comptes (ADMIN, MANAGER, CAISSIER)
-- [x] 5 catégories + 19 produits (avec alertes stock et ruptures)
+- [x] **STOCK-API-01** — `GET/POST /api/produits` (liste paginée, filtres, création)
+- [x] **STOCK-API-02** — `GET/PUT/DELETE /api/produits/[id]`
+- [x] **STOCK-API-03** — `GET/POST /api/categories` + `GET/PUT/DELETE /api/categories/[id]`
+- [x] **STOCK-API-04** — `GET/POST /api/stock/mouvements` (ENTREE, SORTIE, AJUSTEMENT, RETOUR, PERTE)
+- [x] **STOCK-API-05** — `GET /api/stock/alertes`
+- [x] **STOCK-UI-01** — Page liste produits `/stock` (grille + tableau, recherche, filtres, pagination)
+- [x] **STOCK-UI-02** — Formulaire création/édition `/stock/nouveau`, `/stock/[id]`
+- [x] **STOCK-UI-03** — Page catégories `/stock/categories`
+- [x] **STOCK-UI-04** — Page mouvements `/stock/mouvements` (filtres, détails)
+- [x] **STOCK-UI-05** — Widget alertes sur le dashboard
 
 ---
 
 ## Terminé — Phase 2 (Caisse / Ventes)
 
-- [x] **Sessions de caisse** : ouverture/fermeture, 1 session par caissier, ADMIN/MANAGER ferment les sessions d'autrui
-- [x] **Interface POS** `/caisse` : grille produits, recherche/scanner code-barres, panier Zustand, modale paiement multi-modes
-- [x] **Création de vente** `POST /api/ventes` : transaction atomique (vente + lignes + paiements + décrémentation stock + mouvements)
-- [x] **Annulation de vente** `POST /api/ventes/[id]/annuler` : ADMIN/MANAGER uniquement, restauration stock
-- [x] **Historique des ventes** `/caisse/ventes` : tableau paginé avec annulation
-- [x] **Tiroir-caisse** `POST /api/cash-drawer/open` : ESC/POS, fire-and-forget après paiement espèces
-- [x] **Impression ticket** `POST /api/tickets/[id]/print` : ESC/POS via node-thermal-printer
-- [x] **Zustand cart store** : items, remise, totaux calculés, persist sessionStorage
-- [x] **108 tests passent** (82 auth/users + 26 caisse)
+- [x] **CAISSE-API-01** — `GET/POST /api/caisse/sessions` (ouverture session, activity log)
+- [x] **CAISSE-API-02** — `GET/PUT /api/caisse/sessions/[id]` (fermeture session)
+- [x] **CAISSE-UI-01** — Page sessions `/caisse/sessions`
+- [x] **CAISSE-UI-02** — Interface POS `/caisse` (grille produits, recherche/scanner code-barres, filtre catégorie)
+- [x] **CAISSE-UI-03** — Composant Cart (Zustand store avec remise, taxes, persist sessionStorage)
+- [x] **CAISSE-UI-04** — PaymentModal (multi-modes : especes, carte, mobile money, cheque, virement)
+- [x] **CAISSE-API-03** — `POST /api/ventes` (transaction atomique : vente + lignes + paiements + stock + mouvements)
+- [x] **CAISSE-API-04** — `GET /api/ventes`, `GET /api/ventes/[id]`
+- [x] **CAISSE-API-05** — `POST /api/ventes/[id]/annuler` (ADMIN/MANAGER, restauration stock)
+- [x] **CAISSE-UI-05** — Page historique `/caisse/ventes` + détail `/caisse/ventes/[id]`
 
 ---
 
-### SETUP-04 — Layout principal (dashboard) (anciens critères)
-**Assigné à :** Agent
-**Priorité :** Haute
-**Dépend de :** SETUP-03  
-**Spec :** `SPECS/PAGES_MVP.md` §0 (sidebar : Utilisateurs si `ADMIN` ; Journal si `ADMIN` / `MANAGER`)
+## Terminé — Phase 3 (Impression & matériel)
 
-**Fichiers :** `app/(dashboard)/layout.tsx`, `components/shared/Sidebar.tsx`, `Navbar.tsx`, `KPICard.tsx`, `app/(dashboard)/page.tsx` (accueil minimal).
+- [x] **PRINT-01** — `lib/receipt/pdf-generator.tsx` (en-tête commerce, RCCM/NIF, lignes, taxes, paiements, pied de page)
+- [x] **PRINT-02** — `GET /api/tickets/[id]/pdf` (téléchargement PDF avec activity log)
+- [x] **PRINT-03** — Page `/caisse/tickets/[id]` (prévisualisation ticket HTML)
+- [x] **PRINT-05** — `lib/receipt/thermal-printer.ts` (config env, fallback gracieux, tiroir-caisse)
+- [x] **PRINT-06** — `POST /api/tickets/[id]/print` (impression thermique avec activity log)
+- [x] **PRINT-07** — `TicketActions.tsx` (boutons impression PDF / thermique post-vente)
+- [x] **PRINT-08** — `POST /api/cash-drawer/open` (impulsion ESC/POS)
 
-**Critères d'acceptation :**
-- [ ] Navigation conditionnelle par rôle ; responsive  
-- [ ] Bienvenue + déconnexion
+### Reste Phase 3
 
----
-
-### SETUP-05 — Seed de base de données
-**Assigné à :** Agent  
-**Priorité :** Haute  
-**Dépend de :** SETUP-02  
-**Spec :** `SPECS/AUTH.md` (rôles) · `SPECS/STOCK.md` (données de test)
-
-**Données :** 1 compte `ADMIN`, 1 `MANAGER`, 1 `CAISSIER` ; 5 catégories ; 20 produits (certains en alerte) ; codes-barres sur une partie des produits.
-
-**Critère :** `npx prisma db seed` OK ; les 3 comptes se connectent.
+- [ ] **PRINT-04** — QR code sur ticket (mentionné dans specs, non implémenté)
+- [ ] **POS-HW-01** — Validation matériel (checklist manuelle + tests terrain)
+- [ ] **thermal-printer `printReceipt()`** — le stub existe mais le contenu du reçu n'est pas construit depuis les données de vente
 
 ---
 
-### SETUP-06 — Compatibilité matériel caisse
-**Assigné à :** Agent  
-**Priorité :** Haute (peut suivre un premier jet de caisse)  
-**Dépend de :** SETUP-01 min.  
-**Specs :** `SPECS/PERIPHERIQUES.md` (principal), `SPECS/CAISSE.md`, `SPECS/IMPRESSION.md`, `SPECS/STOCK.md`
+## Terminé — Phase 4 (Dashboard & Rapports)
 
-**Instructions :** TDD d’abord (scan, print, tiroir) ; abstractions serveur ; erreurs matériel n’annulent pas une vente validée.
+- [x] **DASH-01** — `GET /api/dashboard/kpis` (CA, nombre ventes, panier moyen, especes vs autre, alertes stock, status périphériques)
+- [x] **DASH-02** — Page dashboard `/` (cartes KPI, alertes stock, top 5 stock bas ; vue CAISSIER allégée)
+- [x] **LOG-01** — Modèle `ActivityLog` + `logActivity()` (45+ types d'actions, capture IP/user-agent)
+- [x] **LOG-02** — Instrumentation `logActivity` (auth, users, stock, caisse, tickets, taxes, parametres)
+- [x] **LOG-03** — `GET /api/activity-logs` + page `/activity-logs` + détail `/activity-logs/[id]` (filtres, pagination, badges actions, IP pour ADMIN)
 
-**Critères d'acceptation :** alignés `PERIPHERIQUES` + `IMPRESSION` (imprimante réseau, tiroir, douchette HID, messages d’erreur, tests automatisables).
+### Reste Phase 4
+
+- [ ] **DASH-03** — Rapport journalier session (PDF)
+- [ ] **DASH-04** — Export inventaire CSV
 
 ---
 
-## Phases 1–5 (rappel)
+## Extra (hors roadmap initiale, déjà implémenté)
 
-Ordre et identifiants de tickets : **voir `ROADMAP.md`** (STOCK-*, CAISSE-*, PRINT-*, DASH-*, LOG-*, QA-*, DEPLOY-*). Chaque lot doit respecter `PAGES_MVP` + spec module.
+- [x] **Taxes** — Modèle `Taxe`, CRUD API (`/api/taxes`), page `/taxes`, intégration POS + PDF
+- [x] **Parametres** — Modèle `Parametres`, API (`/api/parametres`), page `/parametres` (nom, adresse, RCCM, NIF, logo)
+- [x] **Upload** — `POST /api/upload` (images produits/logo)
+- [x] **Validations Zod** — 8 schemas (produit, vente, session, mouvement, categorie, parametres, taxe, user)
 
-| Phase | Contenu synthétique | Version cible |
-|--------|----------------------|---------------|
-| 1 | Stock | 1.0.0 |
-| 2 | Caisse / ventes | 1.0.0 |
-| 3 | Impression & matériel | 1.0.0 |
-| 4 | Dashboard, activity logs | 1.0.0 |
-| 5 | Qualité, déploiement, **tag v1.0.0** | 1.0.0 release |
+---
+
+## A faire — Phase 5 (Qualité & Déploiement) — cible **MVP 1.0.0**
+
+- [ ] **QA-01** — Vitest API — couverture >= 80 % (27 fichiers de tests existants, à compléter)
+- [ ] **QA-02** — RTL — composants critiques (Cart, PaymentModal, ProductForm, POSInterface)
+- [ ] **QA-03** — Cypress e2e — compléter les parcours (7 specs existants : login, users, sessions, ventes, tickets, activity-logs, taxes)
+- [ ] **QA-04** — TDD : traçabilité tests <-> features
+- [ ] **QA-05** — Lighthouse >= 90
+- [ ] **QA-06** — Relecture sécurité (OWASP)
+- [ ] **DEPLOY-01** — `docker-compose.prod.yml` + `web/Dockerfile` — `DOCKER.md`
+- [ ] **DEPLOY-02** — Variables production + secrets
+- [ ] **DEPLOY-03** — Cible d'hébergement (Vercel / VPS / autre)
+- [ ] **DEPLOY-04** — Monitoring (logs, uptime)
+
+**Lorsque Phase 5 est validée :** tag de release applicative **v1.0.0**.
 
 ---
 
 ## Rappel Docker (résumé)
 
-- **Dev :** `docker compose up -d` (racine) — cf. `DOCKER.md`.  
-- **Prod :** `docker compose -f docker-compose.prod.yml ...` ; build contexte `web/app/`, `web/Dockerfile`.  
+- **Dev :** `docker compose up -d` (racine) — cf. `DOCKER.md`.
+- **Prod :** `docker compose -f docker-compose.prod.yml ...` ; build contexte `web/app/`, `web/Dockerfile`.
 - **Imprimante :** préférence **réseau** ESC/POS en conteneur ; USB = complexe (voir `PERIPHERIQUES`).
 
 ---
@@ -163,22 +182,22 @@ Ordre et identifiants de tickets : **voir `ROADMAP.md`** (STOCK-*, CAISSE-*, PRI
 - [x] Architecture & roadmap versionnée (**doc 1.1.0** / cible app **1.0.0**)
 - [x] Specs MVP complètes + `PAGES_MVP` + `MULTI_ORGANISATION` + rôles `AUTH`
 - [x] Fichiers Compose + doc Docker alignés `web/app/`
-- [x] SETUP-00 à SETUP-03 : Docker, Next.js, Prisma, Auth, Users management, Rôles & permissions
+- [x] SETUP-00 à SETUP-06 : Docker, Next.js, Prisma, Auth, Users, Layout, Seed, Matériel
 - [x] CI GitHub Actions (lint + unit tests + e2e)
 
 ---
 
 ## Instructions agent (raccourci)
 
-1. Lire `CLAUDE.md`  
-2. Coder dans **`web/app/`**  
-3. Docker / DB : racine puis `web/app/` pour Prisma & Next  
-4. **Premier ticket ouvert** : SETUP-00 → … (ordre `ROADMAP` / section ci-dessus)  
-5. Spec : module + `PAGES_MVP` si UI  
-6. **Tests d’abord**  
-7. `CONVENTIONS.md`  
-8. Cocher la tâche, passer au ticket suivant  
+1. Lire `CLAUDE.md`
+2. Coder dans **`web/app/`**
+3. Docker / DB : racine puis `web/app/` pour Prisma & Next
+4. **Premier ticket ouvert** : voir section "Reste Phase 3/4" ou "Phase 5"
+5. Spec : module + `PAGES_MVP` si UI
+6. **Tests d'abord**
+7. `CONVENTIONS.md`
+8. Cocher la tâche, passer au ticket suivant
 
 ---
 
-*TODO — **v1.1.0** — 29 avril 2026 · Cible **MVP 1.0.0** = fin Phase 5 (`ROADMAP.md`).*
+*TODO — **v1.1.0** — 1 mai 2026 · Cible **MVP 1.0.0** = fin Phase 5 (`ROADMAP.md`).*

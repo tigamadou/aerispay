@@ -6,7 +6,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     vente: { aggregate: vi.fn() },
     paiement: { aggregate: vi.fn() },
-    caisseSession: { findFirst: vi.fn() },
+    caisseSession: { findFirst: vi.fn(), findMany: vi.fn() },
   },
 }));
 
@@ -39,6 +39,36 @@ function mockAggregates() {
     statut: "OUVERTE",
     ouvertureAt: new Date("2026-04-23T08:00:00Z"),
   });
+  (prisma.caisseSession.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+}
+
+function mockClosedSessions() {
+  (prisma.caisseSession.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+    {
+      id: "s-closed-1",
+      ecartCaisse: new Decimal(500),
+      montantFermeture: new Decimal(10500),
+      soldeTheorique: new Decimal(10000),
+      userId: "user-1",
+      user: { nom: "Alice" },
+    },
+    {
+      id: "s-closed-2",
+      ecartCaisse: new Decimal(-200),
+      montantFermeture: new Decimal(9800),
+      soldeTheorique: new Decimal(10000),
+      userId: "user-2",
+      user: { nom: "Bob" },
+    },
+    {
+      id: "s-closed-3",
+      ecartCaisse: new Decimal(0),
+      montantFermeture: new Decimal(5000),
+      soldeTheorique: new Decimal(5000),
+      userId: "user-1",
+      user: { nom: "Alice" },
+    },
+  ]);
 }
 
 describe("GET /api/dashboard/kpis", () => {
@@ -161,5 +191,78 @@ describe("GET /api/dashboard/kpis", () => {
 
     expect(body.data).toHaveProperty("openSession");
     expect(body.data.openSession).toHaveProperty("id", "s-1");
+  });
+
+  it("returns cashDiscrepancy with aggregated écarts for ADMIN", async () => {
+    mockSession("ADMIN");
+    mockAggregates();
+    mockClosedSessions();
+
+    const res = await GET(new Request("http://localhost/api/dashboard/kpis"));
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body.data).toHaveProperty("cashDiscrepancy");
+    const cd = body.data.cashDiscrepancy;
+    expect(cd.sessionsCount).toBe(3);
+    expect(cd.discrepancyCount).toBe(2);
+    expect(cd.totalExcedent).toBe(500);
+    expect(cd.totalManquant).toBe(200);
+  });
+
+  it("returns cashDiscrepancy for MANAGER", async () => {
+    mockSession("MANAGER");
+    mockAggregates();
+    mockClosedSessions();
+
+    const res = await GET(new Request("http://localhost/api/dashboard/kpis"));
+    const body = await res.json();
+    expect(body.data).toHaveProperty("cashDiscrepancy");
+    expect(body.data.cashDiscrepancy.sessionsCount).toBe(3);
+  });
+
+  it("returns cashDiscrepancy scoped to own sessions for CAISSIER", async () => {
+    mockSession("CAISSIER", "caissier-1");
+    mockAggregates();
+    // For CAISSIER, findMany should be called with userId filter
+    (prisma.caisseSession.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        id: "s-own",
+        ecartCaisse: new Decimal(-150),
+        montantFermeture: new Decimal(4850),
+        soldeTheorique: new Decimal(5000),
+        userId: "caissier-1",
+        user: { nom: "Caissier" },
+      },
+    ]);
+
+    const res = await GET(new Request("http://localhost/api/dashboard/kpis"));
+    const body = await res.json();
+    expect(body.data.cashDiscrepancy.sessionsCount).toBe(1);
+    expect(body.data.cashDiscrepancy.discrepancyCount).toBe(1);
+    expect(body.data.cashDiscrepancy.totalManquant).toBe(150);
+    expect(body.data.cashDiscrepancy.totalExcedent).toBe(0);
+
+    // Verify findMany was called with userId filter
+    expect(prisma.caisseSession.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ userId: "caissier-1" }),
+      })
+    );
+  });
+
+  it("returns empty cashDiscrepancy when no sessions closed", async () => {
+    mockSession("ADMIN");
+    mockAggregates();
+    // mockAggregates already sets findMany to return []
+
+    const res = await GET(new Request("http://localhost/api/dashboard/kpis"));
+    const body = await res.json();
+    expect(body.data.cashDiscrepancy).toEqual({
+      sessionsCount: 0,
+      discrepancyCount: 0,
+      totalExcedent: 0,
+      totalManquant: 0,
+    });
   });
 });

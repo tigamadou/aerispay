@@ -2,7 +2,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { hasPermission } from "@/lib/permissions";
-import { formatMontant } from "@/lib/utils";
+import { cn, formatMontant } from "@/lib/utils";
 import Link from "next/link";
 import type { Role } from "@prisma/client";
 import { CaissierDashboard } from "@/components/dashboard/CaissierDashboard";
@@ -32,6 +32,7 @@ export default async function DashboardPage() {
     allActiveProducts,
     salesToday,
     cashToday,
+    closedSessionsToday,
   ] = await Promise.all([
     prisma.produit.findMany({
       where: { actif: true },
@@ -59,6 +60,17 @@ export default async function DashboardPage() {
       },
       _sum: { montant: true },
     }),
+    prisma.caisseSession.findMany({
+      where: {
+        statut: "FERMEE",
+        fermetureAt: { gte: startOfDay, lt: endOfDay },
+      },
+      select: {
+        id: true,
+        ecartCaisse: true,
+        user: { select: { nom: true } },
+      },
+    }),
   ]);
 
   const revenueDay = Number(salesToday._sum.total ?? 0);
@@ -66,6 +78,21 @@ export default async function DashboardPage() {
   const averageBasket = salesCount > 0 ? revenueDay / salesCount : 0;
   const cashTotal = Number(cashToday._sum.montant ?? 0);
   const nonCashTotal = revenueDay - cashTotal;
+
+  // Cash discrepancy KPIs
+  let totalExcedent = 0;
+  let totalManquant = 0;
+  let discrepancyCount = 0;
+  for (const s of closedSessionsToday) {
+    const ecart = Number(s.ecartCaisse ?? 0);
+    if (ecart > 0) {
+      totalExcedent += ecart;
+      discrepancyCount++;
+    } else if (ecart < 0) {
+      totalManquant += Math.abs(ecart);
+      discrepancyCount++;
+    }
+  }
 
   const alertProducts = allActiveProducts.filter(
     (p) => p.stockActuel > p.stockMinimum && p.stockActuel <= 2 * p.stockMinimum
@@ -111,6 +138,50 @@ export default async function DashboardPage() {
           </div>
         </Link>
       </div>
+
+      {/* Cash discrepancy */}
+      {closedSessionsToday.length > 0 && (
+        <div>
+          <h2 className="mb-3 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+            Ecarts de caisse du jour
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Sessions fermées</p>
+              <p className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-100">{closedSessionsToday.length}</p>
+              <p className="mt-0.5 text-xs text-zinc-400">
+                {discrepancyCount > 0 ? `${discrepancyCount} avec écart` : "Aucun écart"}
+              </p>
+            </div>
+            <div className={cn(
+              "rounded-xl border p-4",
+              totalExcedent > 0
+                ? "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/10"
+                : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
+            )}>
+              <p className={cn("text-xs font-medium", totalExcedent > 0 ? "text-blue-600 dark:text-blue-400" : "text-zinc-500 dark:text-zinc-400")}>
+                Excédent
+              </p>
+              <p className={cn("mt-1 text-2xl font-bold", totalExcedent > 0 ? "text-blue-700 dark:text-blue-300" : "text-zinc-900 dark:text-zinc-100")}>
+                +{formatMontant(totalExcedent)}
+              </p>
+            </div>
+            <div className={cn(
+              "rounded-xl border p-4",
+              totalManquant > 0
+                ? "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/10"
+                : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
+            )}>
+              <p className={cn("text-xs font-medium", totalManquant > 0 ? "text-red-600 dark:text-red-400" : "text-zinc-500 dark:text-zinc-400")}>
+                Manquant
+              </p>
+              <p className={cn("mt-1 text-2xl font-bold", totalManquant > 0 ? "text-red-700 dark:text-red-300" : "text-zinc-900 dark:text-zinc-100")}>
+                -{formatMontant(totalManquant)}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Top 5 lowest stock */}
       {top5Lowest.length > 0 && (
