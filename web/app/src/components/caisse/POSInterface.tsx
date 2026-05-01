@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useCartStore } from "@/store/cartStore";
 import { cn } from "@/lib/utils";
-import type { ProduitPOS, CategoriePOS } from "@/app/(dashboard)/caisse/page";
+import type { ProduitPOS, CategoriePOS, TaxePOS } from "@/app/(dashboard)/caisse/page";
 
 // ─── Types ───────────────────────────────────────────
 
@@ -12,6 +12,7 @@ interface POSInterfaceProps {
   categories: CategoriePOS[];
   sessionId: string;
   readOnly?: boolean;
+  taxes?: TaxePOS[];
 }
 
 type ModePaiement = "ESPECES" | "CARTE_BANCAIRE" | "MOBILE_MONEY";
@@ -30,7 +31,7 @@ function formatMontant(amount: number): string {
 
 // ─── POSInterface ────────────────────────────────────
 
-export function POSInterface({ produits, categories, sessionId, readOnly = false }: POSInterfaceProps) {
+export function POSInterface({ produits, categories, sessionId, readOnly = false, taxes = [] }: POSInterfaceProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategorie, setSelectedCategorie] = useState<string | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -45,12 +46,19 @@ export function POSInterface({ produits, categories, sessionId, readOnly = false
     remiseGlobale,
     typeRemise,
     setRemise,
+    setTaxes,
     clearCart,
     sousTotal,
     montantRemise,
-    montantTva,
+    detailTaxes,
+    montantTaxes,
     total,
   } = useCartStore();
+
+  // Initialize taxes from server config
+  useEffect(() => {
+    setTaxes(taxes);
+  }, [taxes, setTaxes]);
 
   // Keep search input focused for barcode scanner
   useEffect(() => {
@@ -84,7 +92,7 @@ export function POSInterface({ produits, categories, sessionId, readOnly = false
         (p) => p.codeBarres && p.codeBarres.toLowerCase() === query.toLowerCase() && p.actif && p.stockActuel > 0
       );
       if (byBarcode) {
-        addItem({ id: byBarcode.id, nom: byBarcode.nom, prixVente: byBarcode.prixVente, tva: byBarcode.tva });
+        addItem({ id: byBarcode.id, nom: byBarcode.nom, prixVente: byBarcode.prixVente });
         setSearchQuery("");
         setSearchMessage(null);
         return;
@@ -94,7 +102,7 @@ export function POSInterface({ produits, categories, sessionId, readOnly = false
         (p) => p.reference.toLowerCase() === query.toLowerCase() && p.actif && p.stockActuel > 0
       );
       if (byReference) {
-        addItem({ id: byReference.id, nom: byReference.nom, prixVente: byReference.prixVente, tva: byReference.tva });
+        addItem({ id: byReference.id, nom: byReference.nom, prixVente: byReference.prixVente });
         setSearchQuery("");
         setSearchMessage(null);
         return;
@@ -105,7 +113,7 @@ export function POSInterface({ produits, categories, sessionId, readOnly = false
         (p) => p.nom.toLowerCase().includes(query.toLowerCase()) && p.actif && p.stockActuel > 0
       );
       if (byName.length === 1) {
-        addItem({ id: byName[0].id, nom: byName[0].nom, prixVente: byName[0].prixVente, tva: byName[0].tva });
+        addItem({ id: byName[0].id, nom: byName[0].nom, prixVente: byName[0].prixVente });
         setSearchQuery("");
         setSearchMessage(null);
         return;
@@ -126,7 +134,7 @@ export function POSInterface({ produits, categories, sessionId, readOnly = false
   const handleProductClick = useCallback(
     (product: ProduitPOS) => {
       if (readOnly || !product.actif || product.stockActuel <= 0) return;
-      addItem({ id: product.id, nom: product.nom, prixVente: product.prixVente, tva: product.tva });
+      addItem({ id: product.id, nom: product.nom, prixVente: product.prixVente });
       setSearchMessage(null);
     },
     [readOnly, addItem]
@@ -135,7 +143,8 @@ export function POSInterface({ produits, categories, sessionId, readOnly = false
   const currentTotal = total();
   const currentSousTotal = sousTotal();
   const currentRemise = montantRemise();
-  const currentTva = montantTva();
+  const currentDetailTaxes = detailTaxes();
+  const currentTotalTaxes = montantTaxes();
 
   return (
     <>
@@ -406,11 +415,13 @@ export function POSInterface({ produits, categories, sessionId, readOnly = false
                   <span>-{formatMontant(currentRemise)}</span>
                 </div>
               )}
-              {currentTva > 0 && (
-                <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
-                  <span>TVA</span>
-                  <span>{formatMontant(currentTva)}</span>
-                </div>
+              {currentDetailTaxes.map((t) =>
+                t.montant > 0 ? (
+                  <div key={t.nom} className="flex justify-between text-zinc-600 dark:text-zinc-400">
+                    <span>{t.nom} ({t.taux}%)</span>
+                    <span>{formatMontant(t.montant)}</span>
+                  </div>
+                ) : null
               )}
               <div className="flex justify-between border-t border-zinc-200 pt-2 text-lg font-bold text-zinc-900 dark:border-zinc-600 dark:text-zinc-100">
                 <span>TOTAL</span>
@@ -493,7 +504,6 @@ function PaymentModal({ sessionId, totalAPayer, items, remise, onClose, onSucces
         produitId: item.produitId,
         quantite: item.quantite,
         prixUnitaire: item.prixUnitaire,
-        tva: item.tva,
         remise: item.remiseLigne,
       })),
       paiements: [

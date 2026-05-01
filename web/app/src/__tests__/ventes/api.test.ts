@@ -29,6 +29,7 @@ vi.mock("@/lib/db", () => ({
       create: vi.fn(),
       deleteMany: vi.fn(),
     },
+    taxe: { findMany: vi.fn().mockResolvedValue([]) },
     $transaction: vi.fn(),
   },
 }));

@@ -8,6 +8,7 @@ vi.mock("@/lib/db", () => ({
     vente: { findFirst: vi.fn(), create: vi.fn(), findMany: vi.fn(), count: vi.fn() },
     produit: { findUnique: vi.fn(), update: vi.fn() },
     mouvementStock: { create: vi.fn() },
+    taxe: { findMany: vi.fn().mockResolvedValue([]) },
     $transaction: vi.fn(),
   },
 }));
