@@ -518,6 +518,20 @@ function PaymentModal({ sessionId, totalAPayer, items, remise, onClose, onSucces
       };
       setSaleResult(sale);
 
+      // Auto-print receipt (fire-and-forget)
+      fetch(`/api/tickets/${sale.id}/print`, { method: "POST" })
+        .then(async (res) => {
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            console.error("[AUTO-PRINT] Echec impression ticket", { venteId: sale.id, status: res.status, error: body.error });
+            setPeripheralWarning("Echec de l'impression du ticket. La vente a bien ete enregistree.");
+          }
+        })
+        .catch((err) => {
+          console.error("[AUTO-PRINT] Erreur reseau impression ticket", { venteId: sale.id, error: err });
+          setPeripheralWarning("Impossible de communiquer avec l'imprimante. La vente a bien ete enregistree.");
+        });
+
       // If ESPECES, open the cash drawer (fire-and-forget)
       if (modePaiement === "ESPECES") {
         fetch("/api/cash-drawer/open", { method: "POST" }).catch(() => {
@@ -531,10 +545,36 @@ function PaymentModal({ sessionId, totalAPayer, items, remise, onClose, onSucces
     }
   };
 
+  const handleDownloadPdf = async (saleId: string) => {
+    try {
+      const res = await fetch(`/api/tickets/${saleId}/pdf`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        console.error("[PDF] Echec generation PDF", { venteId: saleId, status: res.status, error: body.error });
+        setPeripheralWarning("Echec de la generation du PDF. La vente a bien ete enregistree.");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+      // Revoke after a delay to allow the browser to load it
+      setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    } catch (err) {
+      console.error("[PDF] Erreur reseau generation PDF", { venteId: saleId, error: err });
+      setPeripheralWarning("Impossible de generer le PDF. La vente a bien ete enregistree.");
+    }
+  };
+
   const handlePrint = async (saleId: string) => {
     try {
-      await fetch(`/api/tickets/${saleId}/print`, { method: "POST" });
-    } catch {
+      const res = await fetch(`/api/tickets/${saleId}/print`, { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        console.error("[PRINT] Echec impression ticket", { venteId: saleId, status: res.status, error: body.error });
+        setPeripheralWarning("Echec de l'impression du ticket. La vente a bien ete enregistree.");
+      }
+    } catch (err) {
+      console.error("[PRINT] Erreur reseau impression ticket", { venteId: saleId, error: err });
       setPeripheralWarning("Impossible de communiquer avec l'imprimante. La vente a bien ete enregistree.");
     }
   };
@@ -572,14 +612,12 @@ function PaymentModal({ sessionId, totalAPayer, items, remise, onClose, onSucces
             )}
 
             <div className="flex flex-col gap-2 pt-2">
-              <a
-                href={`/api/tickets/${saleResult.id}/pdf`}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                onClick={() => handleDownloadPdf(saleResult.id)}
                 className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-700"
               >
                 Telecharger PDF
-              </a>
+              </button>
               <button
                 onClick={() => handlePrint(saleResult.id)}
                 className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-700"
