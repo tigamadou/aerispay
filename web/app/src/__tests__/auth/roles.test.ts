@@ -7,8 +7,8 @@ import type { Role } from "@prisma/client";
 type Permission =
   | "users:manage"
   | "stock:manage"
-  | "caisse:vendre"
-  | "caisse:gerer_session_autre"
+  | "comptoir:vendre"
+  | "comptoir:gerer_session_autre"
   | "ventes:annuler"
   | "activity_logs:consulter"
   | "rapports:consulter"
@@ -18,8 +18,8 @@ const ROLE_PERMISSIONS: Record<Role, Set<Permission>> = {
   ADMIN: new Set([
     "users:manage",
     "stock:manage",
-    "caisse:vendre",
-    "caisse:gerer_session_autre",
+    "comptoir:vendre",
+    "comptoir:gerer_session_autre",
     "ventes:annuler",
     "activity_logs:consulter",
     "rapports:consulter",
@@ -27,13 +27,13 @@ const ROLE_PERMISSIONS: Record<Role, Set<Permission>> = {
   ]),
   MANAGER: new Set([
     "stock:manage",
-    "caisse:vendre",
-    "caisse:gerer_session_autre",
+    "comptoir:vendre",
+    "comptoir:gerer_session_autre",
     "ventes:annuler",
     "activity_logs:consulter",
     "rapports:consulter",
   ]),
-  CAISSIER: new Set(["caisse:vendre"]),
+  CAISSIER: new Set(["comptoir:vendre"]),
 };
 
 function hasPermission(role: Role, permission: Permission): boolean {
@@ -55,11 +55,11 @@ describe("Auth — Role permissions (AUTH.md §3 matrix)", () => {
     });
 
     it("can sell", () => {
-      expect(hasPermission("ADMIN", "caisse:vendre")).toBe(true);
+      expect(hasPermission("ADMIN", "comptoir:vendre")).toBe(true);
     });
 
     it("can manage other operator sessions", () => {
-      expect(hasPermission("ADMIN", "caisse:gerer_session_autre")).toBe(true);
+      expect(hasPermission("ADMIN", "comptoir:gerer_session_autre")).toBe(true);
     });
 
     it("can cancel sales", () => {
@@ -89,11 +89,11 @@ describe("Auth — Role permissions (AUTH.md §3 matrix)", () => {
     });
 
     it("can sell", () => {
-      expect(hasPermission("MANAGER", "caisse:vendre")).toBe(true);
+      expect(hasPermission("MANAGER", "comptoir:vendre")).toBe(true);
     });
 
     it("can manage other operator sessions", () => {
-      expect(hasPermission("MANAGER", "caisse:gerer_session_autre")).toBe(true);
+      expect(hasPermission("MANAGER", "comptoir:gerer_session_autre")).toBe(true);
     });
 
     it("can cancel sales", () => {
@@ -123,11 +123,11 @@ describe("Auth — Role permissions (AUTH.md §3 matrix)", () => {
     });
 
     it("can sell", () => {
-      expect(hasPermission("CAISSIER", "caisse:vendre")).toBe(true);
+      expect(hasPermission("CAISSIER", "comptoir:vendre")).toBe(true);
     });
 
     it("cannot manage other operator sessions", () => {
-      expect(hasPermission("CAISSIER", "caisse:gerer_session_autre")).toBe(
+      expect(hasPermission("CAISSIER", "comptoir:gerer_session_autre")).toBe(
         false
       );
     });

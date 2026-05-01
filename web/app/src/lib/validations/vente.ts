@@ -9,7 +9,7 @@ const ligneVenteSchema = z.object({
 });
 
 const paiementSchema = z.object({
-  mode: z.enum(["ESPECES", "CARTE_BANCAIRE", "MOBILE_MONEY", "CHEQUE", "VIREMENT", "AUTRE"], {
+  mode: z.enum(["ESPECES", "MOBILE_MONEY"], {
     errorMap: () => ({ message: "Mode de paiement invalide" }),
   }),
   montant: z.number().positive("Le montant doit être > 0"),
@@ -17,7 +17,7 @@ const paiementSchema = z.object({
 });
 
 export const createVenteSchema = z.object({
-  sessionId: z.string().min(1, "Session de caisse requise"),
+  sessionId: z.string().min(1, "Session de comptoir requise"),
   lignes: z
     .array(ligneVenteSchema)
     .min(1, "Au moins un article requis"),

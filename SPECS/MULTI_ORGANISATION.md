@@ -1,7 +1,7 @@
 # Spec — Multi-organisation, multi-magasin, données locales & sauvegarde
 
 > Ce document décrit la **cible produit** pour : une structure (groupe) qui exploite **plusieurs supermarchés / points de vente**, avec **plusieurs postes de caisse** et **plusieurs caissiers** par site, **base de données locale** en magasin, et **sauvegarde en ligne** + **accès à distance** pour la direction ou le support.  
-> Le **MVP** actuel peut rester mono-site dans le schéma de données ; cette spec sert d’**alignement** pour les migrations futures et l’infrastructure. Elle complète `SPECS/CAISSE.md` (sessions, caissiers).
+> Le **MVP** actuel peut rester mono-site dans le schéma de données ; cette spec sert d’**alignement** pour les migrations futures et l’infrastructure. Elle complète `SPECS/COMPTOIR.md` (sessions, caissiers).
 
 ---
 
@@ -12,7 +12,7 @@
 | **Structure** (groupe, organisation) | L’entité légale ou le groupe de distribution qui regroupe **plusieurs magasins** sous la même gouvernance. |
 | **Point de vente (PDV) / magasin** | Un supermarché (ou agence) où l’app AerisPay est **installée** : une **instance applicative** et typiquement **une base MySQL dédiée** (données locales). |
 | **Caisse (poste de vente)** | Un **terminal** physique (PC, mini-PC) où tourne le navigateur POS : chaque poste a son **matériel** (imprimante, douchette) au sens de `SPECS/PERIPHERIQUES.md`. |
-| **Caissier** | Rôle `CAISSIER` au **niveau point de vente** (cœur de l’équipe de vente) — `SPECS/CAISSE.md` et `SPECS/AUTH.md`. |
+| **Caissier** | Rôle `CAISSIER` au **niveau point de vente** (cœur de l’équipe de vente) — `SPECS/COMPTOIR.md` et `SPECS/AUTH.md`. |
 | **Sauvegarde en ligne** | Copie chiffrée de la base (ou des exports métier) vers un **stockage distant** (cloud objet, autre hébergeur) pour reprise, audit ou consultation. |
 | **Accès à distance** | Accès autorisé aux **indicateurs / listes** (KPI, ventes, stock) **sans** nécessiter la présence physique, via un canal **sécurisé** (jamais une exposition directe de MySQL sur Internet). |
 
@@ -40,14 +40,14 @@ Source normative (matrices, gouvernance, évolution d’`enum`) : **`SPECS/AUTH.
 - Plusieurs **caisses** travaillent en **parallèle** le même jour, sur le **même stock logique** du magasin.
 - Règles cibles :
   - Chaque poste a un identifiant de **contexte** (futur modèle : `Caisse` ou `PosteCaisse` : code, **magasin** parent, libellé).
-  - Chaque `CaisseSession` est rattachée au **caissier** *et* au **poste / magasin** (selon schéma retenu) pour l’audit et le rapprochement de fonds.
-  - `SPECS/CAISSE.md` s’applique par caissier ; l’évolution consiste à **distinguer** les postes (numéro de caisse sur le ticket, rapports par poste).
+  - Chaque `ComptoirSession` est rattachée au **caissier** *et* au **poste / magasin** (selon schéma retenu) pour l’audit et le rapprochement de fonds.
+  - `SPECS/COMPTOIR.md` s’applique par caissier ; l’évolution consiste à **distinguer** les postes (numéro de caisse sur le ticket, rapports par poste).
 - Cohérence stock : toutes les ventes du même magasin **décrémentent** le **même** inventaire (stock central du PDV) ; pas de conflit si les ventes passent par la même base locale et des transactions Prisma.
 
 ### 2.3 Multi-caissiers (plusieurs utilisateurs)
 
 - Comportement cible : plusieurs **comptes** sur le **même magasin** : en **volume** surtout des **caissiers** ; complétés par un **gérant** (`MANAGER`) et un **administrateur local** (`ADMIN`) — modèle des rôles : `SPECS/AUTH.md` (deux niveaux : **groupe** vs **point de vente**).
-- Le modèle `User` + `CaisseSession` : voir `SPECS/CAISSE.md` (une session active par caissier).
+- Le modèle `User` + `ComptoirSession` : voir `SPECS/COMPTOIR.md` (une session active par caissier).
 - **Création des comptes** sur un point de vente : typiquement par l’`ADMIN` **de ce** magasin ; les comptes **groupe** (direction, lecture consolidée) relèvent de rôles transverses décrits dans `SPECS/AUTH.md` (phase post-MVP intégral).
 
 ### 2.4 Base de données **locale** par magasin
@@ -81,7 +81,7 @@ Source normative (matrices, gouvernance, évolution d’`enum`) : **`SPECS/AUTH.
 - **MVP** : le schéma `ARCHITECTURE_MVP.md` peut rester **mono-magasin implicite** (un déploiement = un site).
 - **Évolution** (à planifier) :
   - `Organisation` (structure) → `Magasin` (PDV) ;
-  - FK `magasinId` (ou `organisationId` seul si un seul site par base) sur `Produit`, `Vente`, `CaisseSession`, etc. ;
+  - FK `magasinId` (ou `organisationId` seul si un seul site par base) sur `Produit`, `Vente`, `ComptoirSession`, etc. ;
   - `PosteCaisse` (option) pour le multi-terminaux,
   - numérotation des ventes **par année fiscale et par magasin** si nécessaire (préfixe par code magasin) — à valider en comptabilité.  
 - Tant que **chaque site** a **sa propre base**, l’`id` de magasin peut tenir en **variable d’environnement** (`POINT_DE_VENTE_ID`, `MAGASIN_CODE`) pour l’impression de tickets et les exports.
@@ -107,7 +107,7 @@ Source normative (matrices, gouvernance, évolution d’`enum`) : **`SPECS/AUTH.
 
 - `SPECS/AUTH.md` — **deux niveaux** d’utilisateurs (groupe / point de vente), rôles, gouvernance de création de comptes.  
 - `ARCHITECTURE_MVP.md` — modèle de données, diagrammes.  
-- `SPECS/CAISSE.md` — sessions, caissiers, ventes.  
+- `SPECS/COMPTOIR.md` — sessions, caissiers, ventes.  
 - `DOCKER.md` — stack locale par site.  
 - `SPECS/ACTIVITY_LOG.md` — audit des accès distants / sauvegardes (actions à définir).  
 - `ROADMAP.md` — jalons d’implémentation multi-boutiques et sauvegarde.

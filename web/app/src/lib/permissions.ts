@@ -7,8 +7,8 @@ import { auth } from "@/auth";
 export type Permission =
   | "users:manage"
   | "stock:manage"
-  | "caisse:vendre"
-  | "caisse:gerer_session_autre"
+  | "comptoir:vendre"
+  | "comptoir:gerer_session_autre"
   | "ventes:annuler"
   | "activity_logs:consulter"
   | "rapports:consulter"
@@ -18,8 +18,8 @@ export const ROLE_PERMISSIONS: Record<Role, Set<Permission>> = {
   ADMIN: new Set([
     "users:manage",
     "stock:manage",
-    "caisse:vendre",
-    "caisse:gerer_session_autre",
+    "comptoir:vendre",
+    "comptoir:gerer_session_autre",
     "ventes:annuler",
     "activity_logs:consulter",
     "rapports:consulter",
@@ -27,13 +27,13 @@ export const ROLE_PERMISSIONS: Record<Role, Set<Permission>> = {
   ]),
   MANAGER: new Set([
     "stock:manage",
-    "caisse:vendre",
-    "caisse:gerer_session_autre",
+    "comptoir:vendre",
+    "comptoir:gerer_session_autre",
     "ventes:annuler",
     "activity_logs:consulter",
     "rapports:consulter",
   ]),
-  CAISSIER: new Set(["caisse:vendre"]),
+  CAISSIER: new Set(["comptoir:vendre"]),
 };
 
 export function hasPermission(role: Role, permission: Permission): boolean {

@@ -13,7 +13,7 @@ describe("Authentification — /login", () => {
     cy.visit("/login");
     cy.get('[data-testid="login-form"]').should("be.visible");
     cy.get("h1").contains("AerisPay");
-    cy.contains("Connexion à la caisse");
+    cy.contains("Connexion au comptoir");
     cy.get('[data-testid="login-email"]').should("be.visible");
     cy.get('[data-testid="login-password"]').should("be.visible");
     cy.get('[data-testid="login-submit"]').should("be.visible").and("contain", "Se connecter");

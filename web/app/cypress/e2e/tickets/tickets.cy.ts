@@ -1,5 +1,5 @@
 /**
- * e2e — Tickets & PDF : page `/caisse/tickets/[id]`, PDF API, taxes on ticket.
+ * e2e — Tickets & PDF : page `/comptoir/tickets/[id]`, PDF API, taxes on ticket.
  */
 
 /** Helper: create a sale via API and return { id, numero } */
@@ -24,7 +24,7 @@ describe("Ticket page — display", () => {
   before(() => {
     cy.closeOpenSessions("caissier@aerispay.com");
     cy.loginAsCaissier();
-    cy.request("POST", "/api/caisse/sessions", { montantOuverture: 50_000 }).then((r) => {
+    cy.request("POST", "/api/comptoir/sessions", { montantOuvertureCash: 50_000 }).then((r) => {
       const sessionId = r.body.data.id as string;
       cy.task<string>("getProduitIdByReference", "ALM-001").then((produitId) => {
         createSale(sessionId, produitId).then((vente) => {
@@ -37,7 +37,7 @@ describe("Ticket page — display", () => {
 
   it("displays ticket page with sale details", () => {
     cy.loginAsCaissier();
-    cy.visit(`/caisse/tickets/${venteId}`);
+    cy.visit(`/comptoir/tickets/${venteId}`);
 
     cy.contains("Ticket N°:").should("be.visible");
     cy.contains(venteNumero).should("be.visible");
@@ -49,7 +49,7 @@ describe("Ticket page — display", () => {
 
   it("displays business info from parametres", () => {
     cy.loginAsCaissier();
-    cy.visit(`/caisse/tickets/${venteId}`);
+    cy.visit(`/comptoir/tickets/${venteId}`);
 
     // The commerce name from seed is "Super Marche AerisPay"
     cy.contains("Super Marche AerisPay").should("be.visible");
@@ -57,15 +57,15 @@ describe("Ticket page — display", () => {
 
   it("shows Retour aux ventes link", () => {
     cy.loginAsCaissier();
-    cy.visit(`/caisse/tickets/${venteId}`);
+    cy.visit(`/comptoir/tickets/${venteId}`);
 
     cy.contains("a", "Retour aux ventes").should("be.visible").click();
-    cy.location("pathname").should("eq", "/caisse/ventes");
+    cy.location("pathname").should("eq", "/comptoir/ventes");
   });
 
   it("shows Telecharger PDF and Imprimer buttons", () => {
     cy.loginAsCaissier();
-    cy.visit(`/caisse/tickets/${venteId}`);
+    cy.visit(`/comptoir/tickets/${venteId}`);
 
     cy.contains("button", "Telecharger PDF").should("be.visible");
     cy.contains("button", "Imprimer").should("be.visible");
@@ -74,7 +74,7 @@ describe("Ticket page — display", () => {
   it("returns 404 for non-existent ticket", () => {
     cy.loginAsCaissier();
     cy.request({
-      url: "/caisse/tickets/nonexistent-id-12345",
+      url: "/comptoir/tickets/nonexistent-id-12345",
       failOnStatusCode: false,
     })
       .its("status")
@@ -101,7 +101,7 @@ describe("Ticket page — with taxes", () => {
     // Create a sale as caissier (taxes should be applied)
     cy.closeOpenSessions("caissier@aerispay.com");
     cy.loginAsCaissier();
-    cy.request("POST", "/api/caisse/sessions", { montantOuverture: 50_000 }).then((r) => {
+    cy.request("POST", "/api/comptoir/sessions", { montantOuvertureCash: 50_000 }).then((r) => {
       const sessionId = r.body.data.id as string;
       cy.task<string>("getProduitIdByReference", "ALM-001").then((produitId) => {
         createSale(sessionId, produitId, 2750, 5000).then((vente) => {
@@ -119,7 +119,7 @@ describe("Ticket page — with taxes", () => {
 
   it("displays individual tax lines on the ticket", () => {
     cy.loginAsCaissier();
-    cy.visit(`/caisse/tickets/${venteId}`);
+    cy.visit(`/comptoir/tickets/${venteId}`);
 
     cy.contains("TVA Ticket Test (18%)").should("be.visible");
     cy.contains("TOTAL TTC").should("be.visible");
@@ -132,7 +132,7 @@ describe("PDF API — /api/tickets/[id]/pdf", () => {
   before(() => {
     cy.closeOpenSessions("caissier@aerispay.com");
     cy.loginAsCaissier();
-    cy.request("POST", "/api/caisse/sessions", { montantOuverture: 50_000 }).then((r) => {
+    cy.request("POST", "/api/comptoir/sessions", { montantOuvertureCash: 50_000 }).then((r) => {
       const sessionId = r.body.data.id as string;
       cy.task<string>("getProduitIdByReference", "ALM-001").then((produitId) => {
         createSale(sessionId, produitId).then((vente) => {
@@ -233,7 +233,7 @@ describe("PDF API — with taxes in PDF", () => {
     // Create a sale with the tax active
     cy.closeOpenSessions("caissier@aerispay.com");
     cy.loginAsCaissier();
-    cy.request("POST", "/api/caisse/sessions", { montantOuverture: 50_000 }).then((r) => {
+    cy.request("POST", "/api/comptoir/sessions", { montantOuvertureCash: 50_000 }).then((r) => {
       const sessionId = r.body.data.id as string;
       cy.task<string>("getProduitIdByReference", "ALM-001").then((produitId) => {
         createSale(sessionId, produitId, 2750, 5000).then((vente) => {
@@ -270,7 +270,7 @@ describe("PDF API — with taxes in PDF", () => {
     });
 
     // Check the vente detail via the ticket page
-    cy.visit(`/caisse/tickets/${venteId}`);
+    cy.visit(`/comptoir/tickets/${venteId}`);
     cy.contains("AIB PDF Test (5%)").should("be.visible");
   });
 });
@@ -281,7 +281,7 @@ describe("Thermal print API — /api/tickets/[id]/print", () => {
   before(() => {
     cy.closeOpenSessions("caissier@aerispay.com");
     cy.loginAsCaissier();
-    cy.request("POST", "/api/caisse/sessions", { montantOuverture: 50_000 }).then((r) => {
+    cy.request("POST", "/api/comptoir/sessions", { montantOuvertureCash: 50_000 }).then((r) => {
       const sessionId = r.body.data.id as string;
       cy.task<string>("getProduitIdByReference", "ALM-001").then((produitId) => {
         createSale(sessionId, produitId).then((vente) => {

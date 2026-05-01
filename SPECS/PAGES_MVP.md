@@ -23,7 +23,7 @@
 |---|---|
 | **Rôle** | Shell du dashboard : sidebar, navbar, zone contenu. |
 | **Actions** | Afficher la navigation selon le rôle ; afficher l’utilisateur connecté ; déconnexion. |
-| **Règles** | Toute route sous `(dashboard)/` exige une **session valide** (middleware / layout). **Ne pas** afficher **Utilisateurs** si l’utilisateur n’est pas `ADMIN`. **Ne pas** afficher **Journal d’activité** si l’utilisateur n’est ni `ADMIN` ni `MANAGER`. Liens : Dashboard, Stock (sous-routes), Caisse (sous-routes), et les entrées conditionnelles ci-dessus. |
+| **Règles** | Toute route sous `(dashboard)/` exige une **session valide** (middleware / layout). **Ne pas** afficher **Utilisateurs** si l’utilisateur n’est pas `ADMIN`. **Ne pas** afficher **Journal d’activité** si l’utilisateur n’est ni `ADMIN` ni `MANAGER`. Liens : Dashboard, Stock (sous-routes), Comptoir (sous-routes), et les entrées conditionnelles ci-dessus. |
 
 ---
 
@@ -46,7 +46,7 @@
 | | |
 |---|---|
 | **Accès** | Tous (contenu différencié par rôle). |
-| **Actions** | **`ADMIN` / `MANAGER` :** cartes KPI (CA jour, nb ventes, panier moyen, espèces / hors espèces, alertes & ruptures stock), graphique **7 jours**, **top 5** produits, aperçu alertes stock — voir liste complète **`SPECS/DASHBOARD.md`**. **`CAISSIER` :** accueil + lien **Caisse** ; optionnellement indicateurs **personnels** du jour (pas les totaux magasin) — **§5** de `DASHBOARD.md`. Données : `GET /api/dashboard/kpis`. |
+| **Actions** | **`ADMIN` / `MANAGER` :** cartes KPI (CA jour, nb ventes, panier moyen, espèces / hors espèces, alertes & ruptures stock), graphique **7 jours**, **top 5** produits, aperçu alertes stock — voir liste complète **`SPECS/DASHBOARD.md`**. **`CAISSIER` :** accueil + lien **Comptoir** ; optionnellement indicateurs **personnels** du jour (pas les totaux magasin) — **§5** de `DASHBOARD.md`. Données : `GET /api/dashboard/kpis`. |
 | **Règles** | Ne pas exposer les KPI magasin aux `CAISSIER` (`SPECS/AUTH.md` + `DASHBOARD.md`). Clics stock : `SPECS/STOCK.md`. Composant `KPICard` pour les cartes chiffrées. |
 
 ---
@@ -127,33 +127,33 @@
 
 ---
 
-## 6. Module Caisse (POS)
+## 6. Module Comptoir (POS)
 
-### `/caisse` — `app/(dashboard)/caisse/page.tsx`
+### `/comptoir` — `app/(dashboard)/comptoir/page.tsx`
 
 | | |
 |---|---|
 | **Accès** | Tous. |
 | **Actions** | Recherche / **douchette** (focus, `Enter` fin de scan) ; **grille** produits (par catégorie) ; **panier** (Zustand) : lignes, quantités, remise globale, vider ; **ouvrir modale paiement** ; après succès : ticket / PDF / impression thermique / tiroir. |
-| **Règles** | **Vente** uniquement si **session de caisse ouverte** pour l’utilisateur (ou règle `CAISSE.md` : pas de vente sans session). Scan : ordre `barcode` → `reference` → recherche ; **pas** d’ajout si produit inactif. Paiement : `POST /api/ventes` ; max 2 modes ; pas de vente stock insuffisant. Erreur imprimante/tiroir : **n’annule pas** la vente (`SPECS/PERIPHERIQUES.md`, `CAISSE.md`). |
+| **Règles** | **Vente** uniquement si **session de comptoir ouverte** pour l’utilisateur (ou règle `COMPTOIR.md` : pas de vente sans session). Scan : ordre `barcode` → `reference` → recherche ; **pas** d’ajout si produit inactif. Paiement : `POST /api/ventes` ; max 2 modes ; pas de vente stock insuffisant. Erreur imprimante/tiroir : **n’annule pas** la vente (`SPECS/PERIPHERIQUES.md`, `COMPTOIR.md`). |
 
-### `/caisse/sessions` — `app/(dashboard)/caisse/sessions/page.tsx`
+### `/comptoir/sessions` — `app/(dashboard)/comptoir/sessions/page.tsx`
 
 | | |
 |---|---|
 | **Accès** | Tous. |
-| **Actions** | **Ouvrir** session (fond de caisse initial) si aucune session ouverte pour ce caissier ; vue **session active** : totaux live, comptage transactions, **fermer** session. **Clôturer la session d’un autre** : réservé `ADMIN` + `MANAGER` (`CAISSE.md`, `AUTH.md`). |
-| **Règles** | **Une** session `OPEN` par caissier (conflit → 409). Clôture : saisie montant compté, écart théorique vs compté, `CASH_SESSION_CLOSED` ; export récap **PDF** si prévu. `CAISSE.md`. |
+| **Actions** | **Ouvrir** session (fond de caisse initial (espèces + mobile money)) si aucune session ouverte pour ce caissier ; vue **session active** : totaux live, comptage transactions, **fermer** session. **Clôturer la session d’un autre** : réservé `ADMIN` + `MANAGER` (`COMPTOIR.md`, `AUTH.md`). |
+| **Règles** | **Une** session `OPEN` par caissier (conflit → 409). Clôture : saisie montant compté, écart théorique vs compté, `COMPTOIR_SESSION_CLOSED` ; export récap **PDF** si prévu. `COMPTOIR.md`. |
 
-### `/caisse/ventes` — `app/(dashboard)/caisse/ventes/page.tsx`
+### `/comptoir/ventes` — `app/(dashboard)/comptoir/ventes/page.tsx`
 
 | | |
 |---|---|
 | **Accès** | Tous (liste). |
 | **Actions** | Tableau : n°, date, caissier, total, modes de paiement, statut ; **filtres** ; **voir ticket** (PDF) ; **annuler vente** (bouton seulement si rôle + statut). |
-| **Règles** | **Annulation** : `ADMIN` + `MANAGER` uniquement ; `COMPLETED` uniquement ; **restauration stock** + `RETURN` ; `CAISSIER` → 403. `SALE_CANCELLED` ; `VENTES` / tickets : liens `SPECS/CAISSE.md`, `IMPRESSION.md`. |
+| **Règles** | **Annulation** : `ADMIN` + `MANAGER` uniquement ; `COMPLETED` uniquement ; **restauration stock** + `RETURN` ; `CAISSIER` → 403. `SALE_CANCELLED` ; `VENTES` / tickets : liens `SPECS/COMPTOIR.md`, `IMPRESSION.md`. |
 
-### `/caisse/tickets/[id]` — `app/(dashboard)/caisse/tickets/[id]/page.tsx`
+### `/comptoir/tickets/[id]` — `app/(dashboard)/comptoir/tickets/[id]/page.tsx`
 
 | | |
 |---|---|
@@ -175,10 +175,10 @@
 | `/stock/nouveau`, `/stock/[id]` (édit) | ✓ | ✓ | — |
 | `/stock/categories` | ✓ | ✓ | — |
 | `/stock/mouvements` | ✓ | ✓ | — |
-| `/caisse` | ✓ | ✓ | ✓ |
-| `/caisse/sessions` | ✓ | ✓ | ✓ |
-| `/caisse/ventes` (annulation) | ✓ annul. | ✓ annul. | — |
-| `/caisse/tickets/[id]` | ✓ | ✓ | ✓ |
+| `/comptoir` | ✓ | ✓ | ✓ |
+| `/comptoir/sessions` | ✓ | ✓ | ✓ |
+| `/comptoir/ventes` (annulation) | ✓ annul. | ✓ annul. | — |
+| `/comptoir/tickets/[id]` | ✓ | ✓ | ✓ |
 
 *(Mouvements de stock : `CAISSIER` exclu — `SPECS/AUTH.md`.)*
 
@@ -191,7 +191,7 @@
 | Rôles & règles d’accès | `SPECS/AUTH.md`, `ARCHITECTURE_MVP.md` §8 |
 | Tableau de bord & KPI | `SPECS/DASHBOARD.md` |
 | Stock & mouvements | `SPECS/STOCK.md` |
-| Caisse, sessions, ventes, annulation | `SPECS/CAISSE.md` |
+| Comptoir, sessions, ventes, annulation | `SPECS/COMPTOIR.md` |
 | PDF, thermique, tiroir | `SPECS/IMPRESSION.md`, `SPECS/PERIPHERIQUES.md` |
 | Audit | `SPECS/ACTIVITY_LOG.md` |
 | Multi-PDV (futur) | `SPECS/MULTI_ORGANISATION.md` |

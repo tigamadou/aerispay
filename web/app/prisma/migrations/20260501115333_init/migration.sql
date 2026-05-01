@@ -66,12 +66,18 @@ CREATE TABLE `mouvements_stock` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE `caisse_sessions` (
+CREATE TABLE `comptoir_sessions` (
     `id` VARCHAR(191) NOT NULL,
     `ouvertureAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `fermetureAt` DATETIME(3) NULL,
-    `montantOuverture` DECIMAL(10, 2) NOT NULL,
-    `montantFermeture` DECIMAL(10, 2) NULL,
+    `montantOuvertureCash` DECIMAL(10, 2) NOT NULL,
+    `montantOuvertureMobileMoney` DECIMAL(10, 2) NOT NULL DEFAULT 0,
+    `montantFermetureCash` DECIMAL(10, 2) NULL,
+    `montantFermetureMobileMoney` DECIMAL(10, 2) NULL,
+    `soldeTheoriqueCash` DECIMAL(10, 2) NULL,
+    `soldeTheoriqueMobileMoney` DECIMAL(10, 2) NULL,
+    `ecartCash` DECIMAL(10, 2) NULL,
+    `ecartMobileMoney` DECIMAL(10, 2) NULL,
     `statut` ENUM('OUVERTE', 'FERMEE') NOT NULL DEFAULT 'OUVERTE',
     `notes` VARCHAR(191) NULL,
     `userId` VARCHAR(191) NOT NULL,
@@ -87,6 +93,7 @@ CREATE TABLE `ventes` (
     `sousTotal` DECIMAL(10, 2) NOT NULL,
     `remise` DECIMAL(10, 2) NOT NULL DEFAULT 0,
     `tva` DECIMAL(10, 2) NOT NULL DEFAULT 0,
+    `taxesDetail` JSON NULL,
     `total` DECIMAL(10, 2) NOT NULL,
     `statut` ENUM('VALIDEE', 'ANNULEE', 'REMBOURSEE') NOT NULL DEFAULT 'VALIDEE',
     `nomClient` VARCHAR(191) NULL,
@@ -116,11 +123,41 @@ CREATE TABLE `lignes_vente` (
 -- CreateTable
 CREATE TABLE `paiements` (
     `id` VARCHAR(191) NOT NULL,
-    `mode` ENUM('ESPECES', 'CARTE_BANCAIRE', 'MOBILE_MONEY', 'CHEQUE', 'VIREMENT', 'AUTRE') NOT NULL,
+    `mode` ENUM('ESPECES', 'MOBILE_MONEY') NOT NULL,
     `montant` DECIMAL(10, 2) NOT NULL,
     `reference` VARCHAR(191) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `venteId` VARCHAR(191) NOT NULL,
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `parametres` (
+    `id` VARCHAR(191) NOT NULL DEFAULT 'default',
+    `nomCommerce` VARCHAR(191) NOT NULL DEFAULT '',
+    `adresse` VARCHAR(191) NOT NULL DEFAULT '',
+    `telephone` VARCHAR(191) NOT NULL DEFAULT '',
+    `email` VARCHAR(191) NOT NULL DEFAULT '',
+    `rccm` VARCHAR(191) NOT NULL DEFAULT '',
+    `nif` VARCHAR(191) NOT NULL DEFAULT '',
+    `logo` MEDIUMTEXT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `taxes` (
+    `id` VARCHAR(191) NOT NULL,
+    `nom` VARCHAR(191) NOT NULL,
+    `taux` DECIMAL(5, 2) NOT NULL,
+    `active` BOOLEAN NOT NULL DEFAULT true,
+    `ordre` INTEGER NOT NULL DEFAULT 0,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+    `parametresId` VARCHAR(191) NOT NULL DEFAULT 'default',
 
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -154,10 +191,10 @@ ALTER TABLE `mouvements_stock` ADD CONSTRAINT `mouvements_stock_produitId_fkey` 
 ALTER TABLE `mouvements_stock` ADD CONSTRAINT `mouvements_stock_venteId_fkey` FOREIGN KEY (`venteId`) REFERENCES `ventes`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `caisse_sessions` ADD CONSTRAINT `caisse_sessions_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `comptoir_sessions` ADD CONSTRAINT `comptoir_sessions_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `ventes` ADD CONSTRAINT `ventes_sessionId_fkey` FOREIGN KEY (`sessionId`) REFERENCES `caisse_sessions`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `ventes` ADD CONSTRAINT `ventes_sessionId_fkey` FOREIGN KEY (`sessionId`) REFERENCES `comptoir_sessions`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `ventes` ADD CONSTRAINT `ventes_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -170,6 +207,9 @@ ALTER TABLE `lignes_vente` ADD CONSTRAINT `lignes_vente_produitId_fkey` FOREIGN 
 
 -- AddForeignKey
 ALTER TABLE `paiements` ADD CONSTRAINT `paiements_venteId_fkey` FOREIGN KEY (`venteId`) REFERENCES `ventes`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `taxes` ADD CONSTRAINT `taxes_parametresId_fkey` FOREIGN KEY (`parametresId`) REFERENCES `parametres`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `activity_logs` ADD CONSTRAINT `activity_logs_actorId_fkey` FOREIGN KEY (`actorId`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;

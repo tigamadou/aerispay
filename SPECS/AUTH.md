@@ -12,7 +12,7 @@ Toute évolution d’`enum` ou de schéma (ex. `niveau` + rôles étendus) reste
 | Niveau | Périmètre typique | Qui s’y connecte (vocation) |
 |--------|-------------------|----------------------------|
 | **Groupe (structure)** | Stratégie, gouvernance, **synthèses multi-magasins**, comptes transverses (futur) | Très **peu** d’utilisateurs : direction, support réseau, rôles d’**audit** ou de **lecture** consolidée |
-| **Point de vente (PDV)** | Opérations **quotidiennes** d’un seul supermarché (stock, caisse, clôture, équipe de vente) | L’**équipe locale** : en **volume** surtout des **caissiers** ; complétée par le **gérant** (encadrement) et l’**administrateur local** (comptes, paramètres) |
+| **Point de vente (PDV)** | Opérations **quotidiennes** d’un seul supermarché (stock, comptoir, clôture, équipe de vente) | L’**équipe locale** : en **volume** surtout des **caissiers** ; complétée par le **gérant** (encadrement) et l’**administrateur local** (comptes, paramètres) |
 
 - En **MVP** mono-déploiement (un magasin = une base), l’`enum` actuel ne contient que des rôles de **niveau point de vente** (sections 2 et 3 ci-dessous).
 - L’introduction de comptes **groupe** (extranet, base centrale ou fédération) ajoutera des codes dédiés et un champ **`niveauCompte` (ou `scope`)** : voir la section 4 et `SPECS/MULTI_ORGANISATION.md`.
@@ -26,8 +26,8 @@ Ces rôles s’appliquent **au site sur lequel l’instance est installée** (un
 | Code (Prisma) | Dénomination métier | Rôle | Accès résumé |
 |---------------|---------------------|------|--------------|
 | `ADMIN` | **Administrateur du point de vente** | Tout l’**administratif** local : comptes utilisateurs **du magasin**, paramétrage, toutes opérations métier autorisées par l’appli. | Complet sur **ce** magasin. |
-| `MANAGER` | **Gérant / responsable de magasin** | Encadrement, **stock**, **caisse**, clôture de session d’autres opérateurs, rapports locaux, journal d’activité (lecture). | Pas de **création / désactivation** des comptes utilisateurs (réservé `ADMIN` au MVP). |
-| `CAISSIER` | **Caissier** (cœur du poste) | Vente, session de caisse, lecture stock, impression ticket. | Pas d’accès **gestion** du stock, pas d’annulation de vente, pas d’`activity-logs`, pas de **gestion des comptes**. |
+| `MANAGER` | **Gérant / responsable de magasin** | Encadrement, **stock**, **comptoir**, clôture de session d’autres opérateurs, rapports locaux, journal d’activité (lecture). | Pas de **création / désactivation** des comptes utilisateurs (réservé `ADMIN` au MVP). |
+| `CAISSIER` | **Caissier** (cœur du poste) | Vente, session de comptoir, lecture stock, impression ticket. | Pas d’accès **gestion** du stock, pas d’annulation de vente, pas d’`activity-logs`, pas de **gestion des comptes**. |
 
 **Aucune inscription publique** : il n’existe pas de route d’inscription libre. Les comptes **niveau PDV** sont créés par un utilisateur `ADMIN` (administrateur **local**), via l’UI `/users` et `POST /api/users` (voir la section 5). Les comptes **groupe** seront définis dans une phase ultérieure (provisionnement côté siège ou outil dédié — à spécifier en implémentation).
 
@@ -39,7 +39,7 @@ Ces rôles s’appliquent **au site sur lequel l’instance est installée** (un
 |----------------|:-------------:|:------------------:|:----------:|
 | Créer / modifier / désactiver comptes **de ce magasin** | Oui | Non | Non |
 | Créer / modifier produits, stock | Oui | Oui | Non |
-| Vendre, ouvrir/fermer **sa** session de caisse | Oui | Oui | Oui |
+| Vendre, ouvrir/fermer **sa** session de comptoir | Oui | Oui | Oui |
 | Gérer / clôturer session **d’un autre** opérateur | Oui | Oui | Non |
 | Annuler une vente | Oui | Oui | Non |
 | Consulter le journal d’activité (audit) | Oui | Oui | Non |

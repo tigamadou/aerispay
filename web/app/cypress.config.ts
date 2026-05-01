@@ -51,7 +51,7 @@ export default defineConfig({
           const prisma = getPrismaPlugin();
           const user = await prisma.user.findFirst({ where: { email } });
           if (!user) return null;
-          const sessions = await prisma.caisseSession.findMany({
+          const sessions = await prisma.comptoirSession.findMany({
             where: { userId: user.id },
             select: { id: true },
           });
@@ -90,9 +90,9 @@ export default defineConfig({
           const prisma = getPrismaPlugin();
           const user = await prisma.user.findFirst({ where: { email } });
           if (!user) return null;
-          await prisma.caisseSession.updateMany({
+          await prisma.comptoirSession.updateMany({
             where: { userId: user.id, statut: "OUVERTE" },
-            data: { statut: "FERMEE", fermetureAt: new Date(), montantFermeture: 0 },
+            data: { statut: "FERMEE", fermetureAt: new Date(), montantFermetureCash: 0, montantFermetureMobileMoney: 0 },
           });
           return null;
         },

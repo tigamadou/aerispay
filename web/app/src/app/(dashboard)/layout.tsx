@@ -25,7 +25,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   const canManageParametres = hasPermission(role, "parametres:manage");
 
   // Check if user has an open cash session (for sign-out flow)
-  const openSession = await prisma.caisseSession.findFirst({
+  const openSession = await prisma.comptoirSession.findFirst({
     where: { userId: session.user.id, statut: "OUVERTE" },
     select: { id: true },
   });
@@ -44,10 +44,10 @@ export default async function DashboardLayout({ children }: { children: ReactNod
                   Stock
                 </Link>
               )}
-              <Link href="/caisse" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
-                Caisse
+              <Link href="/comptoir" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
+                Comptoir
               </Link>
-              <Link href="/caisse/ventes" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
+              <Link href="/comptoir/ventes" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
                 Ventes
               </Link>
               {canManageUsers && (

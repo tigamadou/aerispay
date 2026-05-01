@@ -1,5 +1,5 @@
 /**
- * e2e — Module ventes : pages `/caisse/ventes`, détail, API, annulation.
+ * e2e — Module ventes : pages `/comptoir/ventes`, détail, API, annulation.
  * La base de test est réinitialisée via `make test-db-reset` avant le run.
  */
 
@@ -14,7 +14,7 @@ describe("Ventes — UI & navigation", () => {
     cy.task("cleanVentesForUser", "caissier@aerispay.com");
     cy.closeOpenSessions("caissier@aerispay.com");
     cy.loginAsCaissier();
-    cy.visit("/caisse/ventes");
+    cy.visit("/comptoir/ventes");
     cy.contains("h1", "Mes ventes").should("be.visible");
     cy.contains("0 vente enregistrée").should("be.visible");
     cy.contains("Aucune vente enregistrée.").should("be.visible");
@@ -23,7 +23,7 @@ describe("Ventes — UI & navigation", () => {
   it("CAISSIER : affiche une vente créée et le détail", () => {
     cy.closeOpenSessions("caissier@aerispay.com");
     cy.loginAsCaissier();
-    cy.request("POST", "/api/caisse/sessions", { montantOuverture: 50_000 }).then((r1) => {
+    cy.request("POST", "/api/comptoir/sessions", { montantOuvertureCash: 50_000 }).then((r1) => {
       expect(r1.status).to.eq(201);
       const sessionId = r1.body.data.id as string;
       cy.task<string>("getProduitIdByReference", "ALM-001").then((produitId) => {
@@ -38,11 +38,11 @@ describe("Ventes — UI & navigation", () => {
           expect(r2.status).to.eq(201);
           const vente = r2.body.data as { id: string; numero: string };
 
-          cy.visit("/caisse/ventes");
+          cy.visit("/comptoir/ventes");
           cy.contains("1 vente enregistrée").should("be.visible");
           cy.contains("a", vente.numero).click();
 
-          cy.location("pathname", { timeout: 10_000 }).should("eq", `/caisse/ventes/${vente.id}`);
+          cy.location("pathname", { timeout: 10_000 }).should("eq", `/comptoir/ventes/${vente.id}`);
           cy.contains("h1", vente.numero).should("be.visible");
           cy.contains("Riz brise 5kg").should("be.visible");
         });
@@ -52,7 +52,7 @@ describe("Ventes — UI & navigation", () => {
 
   it("MANAGER : titre Historique et filtre caissiers", () => {
     cy.loginAsManager();
-    cy.visit("/caisse/ventes");
+    cy.visit("/comptoir/ventes");
     cy.contains("h1", "Historique des ventes").should("be.visible");
     cy.contains("label", "Caissier").should("be.visible");
     cy.contains("a", "Tous").should("be.visible");
@@ -72,7 +72,7 @@ describe("Ventes — API", () => {
   it("POST /api/ventes/:id/annuler renvoie 403 pour un CAISSIER", () => {
     cy.closeOpenSessions("caissier@aerispay.com");
     cy.loginAsCaissier();
-    cy.request("POST", "/api/caisse/sessions", { montantOuverture: 50_000 }).then((r1) => {
+    cy.request("POST", "/api/comptoir/sessions", { montantOuvertureCash: 50_000 }).then((r1) => {
       const sessionId = r1.body.data.id as string;
       cy.task<string>("getProduitIdByReference", "ALM-001").then((produitId) => {
         cy.request("POST", "/api/ventes", {
@@ -101,7 +101,7 @@ describe("Ventes — annulation (MANAGER)", () => {
   it("peut annuler une vente validée depuis la liste", () => {
     cy.closeOpenSessions("caissier@aerispay.com");
     cy.loginAsCaissier();
-    cy.request("POST", "/api/caisse/sessions", { montantOuverture: 50_000 }).then((r1) => {
+    cy.request("POST", "/api/comptoir/sessions", { montantOuvertureCash: 50_000 }).then((r1) => {
       const sessionId = r1.body.data.id as string;
       cy.task<string>("getProduitIdByReference", "ALM-001").then((produitId) => {
         cy.request("POST", "/api/ventes", {
@@ -115,7 +115,7 @@ describe("Ventes — annulation (MANAGER)", () => {
           const numero = r2.body.data.numero as string;
 
           cy.loginAsManager();
-          cy.visit("/caisse/ventes");
+          cy.visit("/comptoir/ventes");
           cy.contains("tr", numero).within(() => {
             cy.contains("button", "Annuler").click();
           });

@@ -4,13 +4,16 @@ import { useState, useCallback, useEffect } from "react";
 
 // ── Types ──────────────────────────────────────────────
 
-interface SerializedCaisseSession {
+interface SerializedComptoirSession {
   id: string;
   ouvertureAt: string;
   fermetureAt: string | null;
-  montantOuverture: string;
-  montantFermeture: string | null;
-  soldeTheorique: number | null;
+  montantOuvertureCash: string;
+  montantOuvertureMobileMoney: string;
+  montantFermetureCash: string | null;
+  montantFermetureMobileMoney: string | null;
+  soldeTheoriqueCash: number | null;
+  soldeTheoriqueMobileMoney: number | null;
   statut: "OUVERTE" | "FERMEE";
   notes: string | null;
   userId: string;
@@ -19,7 +22,7 @@ interface SerializedCaisseSession {
 }
 
 interface SessionManagerProps {
-  initialSession: SerializedCaisseSession | null;
+  initialSession: SerializedComptoirSession | null;
 }
 
 // ── Helpers ────────────────────────────────────────────
@@ -40,36 +43,52 @@ function formatDateTime(iso: string): string {
 // ── Component ──────────────────────────────────────────
 
 export function SessionManager({ initialSession }: SessionManagerProps) {
-  const [session, setSession] = useState<SerializedCaisseSession | null>(initialSession);
-  const [montantOuverture, setMontantOuverture] = useState("");
-  const [montantFermeture, setMontantFermeture] = useState("");
+  const [session, setSession] = useState<SerializedComptoirSession | null>(initialSession);
+  const [montantOuvertureCash, setMontantOuvertureCash] = useState("");
+  const [montantOuvertureMobileMoney, setMontantOuvertureMobileMoney] = useState("");
+  const [montantFermetureCash, setMontantFermetureCash] = useState("");
+  const [montantFermetureMobileMoney, setMontantFermetureMobileMoney] = useState("");
   const [notesFermeture, setNotesFermeture] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showCloseForm, setShowCloseForm] = useState(false);
-  const [soldeTheorique, setSoldeTheorique] = useState<number | null>(
-    session?.soldeTheorique ?? null
+  const [soldeTheoriqueCash, setSoldeTheoriqueCash] = useState<number | null>(
+    session?.soldeTheoriqueCash ?? null
+  );
+  const [soldeTheoriqueMobileMoney, setSoldeTheoriqueMobileMoney] = useState<number | null>(
+    session?.soldeTheoriqueMobileMoney ?? null
   );
 
   // Fetch live solde théorique when opening close form
   useEffect(() => {
     if (!showCloseForm || !session) return;
     let cancelled = false;
-    fetch(`/api/caisse/sessions/${session.id}`)
+    fetch(`/api/comptoir/sessions/${session.id}`)
       .then((r) => r.json())
       .then((json) => {
-        if (!cancelled && json.data?.soldeTheorique != null) {
-          setSoldeTheorique(json.data.soldeTheorique);
+        if (!cancelled) {
+          if (json.data?.soldeTheoriqueCash != null) {
+            setSoldeTheoriqueCash(json.data.soldeTheoriqueCash);
+          }
+          if (json.data?.soldeTheoriqueMobileMoney != null) {
+            setSoldeTheoriqueMobileMoney(json.data.soldeTheoriqueMobileMoney);
+          }
         }
       })
       .catch(() => {});
     return () => { cancelled = true; };
   }, [showCloseForm, session]);
 
-  const montantCompte = parseFloat(montantFermeture);
-  const ecartCaisse =
-    !isNaN(montantCompte) && soldeTheorique !== null
-      ? montantCompte - soldeTheorique
+  const montantCompteCash = parseFloat(montantFermetureCash);
+  const ecartCash =
+    !isNaN(montantCompteCash) && soldeTheoriqueCash !== null
+      ? montantCompteCash - soldeTheoriqueCash
+      : null;
+
+  const montantCompteMobileMoney = parseFloat(montantFermetureMobileMoney);
+  const ecartMobileMoney =
+    !isNaN(montantCompteMobileMoney) && soldeTheoriqueMobileMoney !== null
+      ? montantCompteMobileMoney - soldeTheoriqueMobileMoney
       : null;
 
   // ── Open session ──
@@ -79,18 +98,23 @@ export function SessionManager({ initialSession }: SessionManagerProps) {
       e.preventDefault();
       setError(null);
 
-      const montant = parseFloat(montantOuverture);
-      if (isNaN(montant) || montant < 0) {
-        setError("Veuillez saisir un montant valide.");
+      const cash = parseFloat(montantOuvertureCash);
+      const mobileMoney = parseFloat(montantOuvertureMobileMoney || "0");
+      if (isNaN(cash) || cash < 0) {
+        setError("Veuillez saisir un montant valide pour les espèces.");
+        return;
+      }
+      if (isNaN(mobileMoney) || mobileMoney < 0) {
+        setError("Veuillez saisir un montant valide pour le mobile money.");
         return;
       }
 
       setLoading(true);
       try {
-        const res = await fetch("/api/caisse/sessions", {
+        const res = await fetch("/api/comptoir/sessions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ montantOuverture: montant }),
+          body: JSON.stringify({ montantOuvertureCash: cash, montantOuvertureMobileMoney: mobileMoney }),
         });
 
         const json = await res.json();
@@ -101,14 +125,15 @@ export function SessionManager({ initialSession }: SessionManagerProps) {
         }
 
         setSession(json.data);
-        setMontantOuverture("");
+        setMontantOuvertureCash("");
+        setMontantOuvertureMobileMoney("");
       } catch {
         setError("Erreur réseau. Veuillez réessayer.");
       } finally {
         setLoading(false);
       }
     },
-    [montantOuverture],
+    [montantOuvertureCash, montantOuvertureMobileMoney],
   );
 
   // ── Close session ──
@@ -119,19 +144,25 @@ export function SessionManager({ initialSession }: SessionManagerProps) {
       if (!session) return;
       setError(null);
 
-      const montant = parseFloat(montantFermeture);
-      if (isNaN(montant) || montant < 0) {
-        setError("Veuillez saisir le montant compté.");
+      const cash = parseFloat(montantFermetureCash);
+      const mobileMoney = parseFloat(montantFermetureMobileMoney || "0");
+      if (isNaN(cash) || cash < 0) {
+        setError("Veuillez saisir le montant compté (espèces).");
+        return;
+      }
+      if (isNaN(mobileMoney) || mobileMoney < 0) {
+        setError("Veuillez saisir le montant compté (mobile money).");
         return;
       }
 
       setLoading(true);
       try {
-        const res = await fetch(`/api/caisse/sessions/${session.id}`, {
+        const res = await fetch(`/api/comptoir/sessions/${session.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            montantFermeture: montant,
+            montantFermetureCash: cash,
+            montantFermetureMobileMoney: mobileMoney,
             ...(notesFermeture.trim() ? { notes: notesFermeture.trim() } : {}),
           }),
         });
@@ -144,7 +175,8 @@ export function SessionManager({ initialSession }: SessionManagerProps) {
         }
 
         setSession(null);
-        setMontantFermeture("");
+        setMontantFermetureCash("");
+        setMontantFermetureMobileMoney("");
         setNotesFermeture("");
         setShowCloseForm(false);
       } catch {
@@ -153,7 +185,7 @@ export function SessionManager({ initialSession }: SessionManagerProps) {
         setLoading(false);
       }
     },
-    [session, montantFermeture, notesFermeture],
+    [session, montantFermetureCash, montantFermetureMobileMoney, notesFermeture],
   );
 
   // ── Render: No active session → Open form ──
@@ -163,10 +195,10 @@ export function SessionManager({ initialSession }: SessionManagerProps) {
       <div data-testid="session-open-form" className="mx-auto max-w-md">
         <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-800">
           <h2 className="mb-1 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-            Ouvrir une session de caisse
+            Ouvrir une session de comptoir
           </h2>
           <p className="mb-6 text-sm text-zinc-500 dark:text-zinc-400">
-            Saisissez le montant du fond de caisse pour démarrer.
+            Saisissez les montants du fond de comptoir pour démarrer.
           </p>
 
           {error && (
@@ -181,20 +213,40 @@ export function SessionManager({ initialSession }: SessionManagerProps) {
           <form onSubmit={handleOpen} className="space-y-4">
             <div>
               <label
-                htmlFor="montantOuverture"
+                htmlFor="montantOuvertureCash"
                 className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
               >
-                Fond de caisse (FCFA)
+                Fond de caisse (Espèces)
               </label>
               <input
-                id="montantOuverture"
-                data-testid="input-montant-ouverture"
+                id="montantOuvertureCash"
+                data-testid="input-montant-ouverture-cash"
                 type="number"
                 min="0"
                 step="1"
                 required
-                value={montantOuverture}
-                onChange={(e) => setMontantOuverture(e.target.value)}
+                value={montantOuvertureCash}
+                onChange={(e) => setMontantOuvertureCash(e.target.value)}
+                placeholder="0"
+                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="montantOuvertureMobileMoney"
+                className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
+              >
+                Fond de caisse (Mobile Money)
+              </label>
+              <input
+                id="montantOuvertureMobileMoney"
+                data-testid="input-montant-ouverture-mobile-money"
+                type="number"
+                min="0"
+                step="1"
+                value={montantOuvertureMobileMoney}
+                onChange={(e) => setMontantOuvertureMobileMoney(e.target.value)}
                 placeholder="0"
                 className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 dark:placeholder:text-zinc-500"
               />
@@ -206,7 +258,7 @@ export function SessionManager({ initialSession }: SessionManagerProps) {
               disabled={loading}
               className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {loading ? "Ouverture en cours..." : "Ouvrir la caisse"}
+              {loading ? "Ouverture en cours..." : "Ouvrir le comptoir"}
             </button>
           </form>
         </div>
@@ -244,12 +296,21 @@ export function SessionManager({ initialSession }: SessionManagerProps) {
             </dd>
           </div>
           <div>
-            <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Fond de caisse</dt>
+            <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Fond de caisse (Espèces)</dt>
             <dd
-              data-testid="session-montant-ouverture"
+              data-testid="session-montant-ouverture-cash"
               className="mt-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100"
             >
-              {formatFCFA(session.montantOuverture)}
+              {formatFCFA(session.montantOuvertureCash)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Fond de caisse (Mobile Money)</dt>
+            <dd
+              data-testid="session-montant-ouverture-mobile-money"
+              className="mt-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100"
+            >
+              {formatFCFA(session.montantOuvertureMobileMoney)}
             </dd>
           </div>
           <div>
@@ -302,75 +363,149 @@ export function SessionManager({ initialSession }: SessionManagerProps) {
           </h3>
 
           {/* Solde théorique */}
-          {soldeTheorique !== null && (
-            <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/50">
-              <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                Solde théorique en caisse
-              </div>
-              <div className="mt-0.5 text-lg font-bold text-zinc-900 dark:text-zinc-100" data-testid="solde-theorique">
-                {formatFCFA(soldeTheorique)}
-              </div>
-              <div className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
-                Fond de caisse + espèces encaissées − monnaie rendue
-              </div>
+          {(soldeTheoriqueCash !== null || soldeTheoriqueMobileMoney !== null) && (
+            <div className="space-y-3">
+              {soldeTheoriqueCash !== null && (
+                <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/50">
+                  <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                    Solde théorique en comptoir (Espèces)
+                  </div>
+                  <div className="mt-0.5 text-lg font-bold text-zinc-900 dark:text-zinc-100" data-testid="solde-theorique-cash">
+                    {formatFCFA(soldeTheoriqueCash)}
+                  </div>
+                  <div className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
+                    Fond de caisse + espèces encaissées − monnaie rendue
+                  </div>
+                </div>
+              )}
+              {soldeTheoriqueMobileMoney !== null && (
+                <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/50">
+                  <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                    Solde théorique en comptoir (Mobile Money)
+                  </div>
+                  <div className="mt-0.5 text-lg font-bold text-zinc-900 dark:text-zinc-100" data-testid="solde-theorique-mobile-money">
+                    {formatFCFA(soldeTheoriqueMobileMoney)}
+                  </div>
+                  <div className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
+                    Fond mobile money + paiements mobile money reçus
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
           <form onSubmit={handleClose} className="space-y-4">
             <div>
               <label
-                htmlFor="montantFermeture"
+                htmlFor="montantFermetureCash"
                 className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
               >
-                Montant compté (FCFA)
+                Montant compté (Espèces)
               </label>
               <input
-                id="montantFermeture"
-                data-testid="input-montant-fermeture"
+                id="montantFermetureCash"
+                data-testid="input-montant-fermeture-cash"
                 type="number"
                 min="0"
                 step="1"
                 required
-                value={montantFermeture}
-                onChange={(e) => setMontantFermeture(e.target.value)}
+                value={montantFermetureCash}
+                onChange={(e) => setMontantFermetureCash(e.target.value)}
                 placeholder="0"
                 className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 dark:placeholder:text-zinc-500"
               />
             </div>
 
-            {/* Écart de caisse — affiché en temps réel */}
-            {ecartCaisse !== null && (
+            <div>
+              <label
+                htmlFor="montantFermetureMobileMoney"
+                className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
+              >
+                Montant compté (Mobile Money)
+              </label>
+              <input
+                id="montantFermetureMobileMoney"
+                data-testid="input-montant-fermeture-mobile-money"
+                type="number"
+                min="0"
+                step="1"
+                value={montantFermetureMobileMoney}
+                onChange={(e) => setMontantFermetureMobileMoney(e.target.value)}
+                placeholder="0"
+                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+              />
+            </div>
+
+            {/* Écart espèces — affiché en temps réel */}
+            {ecartCash !== null && (
               <div
-                data-testid="ecart-caisse"
+                data-testid="ecart-cash"
                 className={`rounded-lg border px-4 py-3 ${
-                  ecartCaisse === 0
+                  ecartCash === 0
                     ? "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-900/20"
-                    : ecartCaisse > 0
+                    : ecartCash > 0
                       ? "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20"
                       : "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20"
                 }`}
               >
                 <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                  Écart de caisse
+                  Écart espèces
                 </div>
                 <div
                   className={`mt-0.5 text-lg font-bold ${
-                    ecartCaisse === 0
+                    ecartCash === 0
                       ? "text-emerald-700 dark:text-emerald-400"
-                      : ecartCaisse > 0
+                      : ecartCash > 0
                         ? "text-blue-700 dark:text-blue-400"
                         : "text-red-700 dark:text-red-400"
                   }`}
                 >
-                  {ecartCaisse > 0 ? "+" : ""}
-                  {formatFCFA(ecartCaisse)}
+                  {ecartCash > 0 ? "+" : ""}
+                  {formatFCFA(ecartCash)}
                 </div>
                 <div className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
-                  {ecartCaisse === 0
-                    ? "Caisse équilibrée"
-                    : ecartCaisse > 0
-                      ? "Excédent de caisse"
-                      : "Manquant de caisse"}
+                  {ecartCash === 0
+                    ? "Comptoir équilibré"
+                    : ecartCash > 0
+                      ? "Excédent espèces"
+                      : "Manquant espèces"}
+                </div>
+              </div>
+            )}
+
+            {/* Écart mobile money — affiché en temps réel */}
+            {ecartMobileMoney !== null && (
+              <div
+                data-testid="ecart-mobile-money"
+                className={`rounded-lg border px-4 py-3 ${
+                  ecartMobileMoney === 0
+                    ? "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-900/20"
+                    : ecartMobileMoney > 0
+                      ? "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20"
+                      : "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20"
+                }`}
+              >
+                <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                  Écart mobile money
+                </div>
+                <div
+                  className={`mt-0.5 text-lg font-bold ${
+                    ecartMobileMoney === 0
+                      ? "text-emerald-700 dark:text-emerald-400"
+                      : ecartMobileMoney > 0
+                        ? "text-blue-700 dark:text-blue-400"
+                        : "text-red-700 dark:text-red-400"
+                  }`}
+                >
+                  {ecartMobileMoney > 0 ? "+" : ""}
+                  {formatFCFA(ecartMobileMoney)}
+                </div>
+                <div className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
+                  {ecartMobileMoney === 0
+                    ? "Comptoir équilibré"
+                    : ecartMobileMoney > 0
+                      ? "Excédent mobile money"
+                      : "Manquant mobile money"}
                 </div>
               </div>
             )}

@@ -62,7 +62,13 @@ export async function GET(req: Request) {
       ...(isCaissier ? { userId: result.user.id } : {}),
     };
 
-    const [salesAgg, cashAgg, openSession] = await Promise.all([
+    const sessionWhere = {
+      statut: "FERMEE" as const,
+      fermetureAt: dateRange,
+      ...(isCaissier ? { userId: result.user.id } : {}),
+    };
+
+    const [salesAgg, cashAgg, openSession, closedSessions] = await Promise.all([
       prisma.vente.aggregate({
         where: venteWhere,
         _sum: { total: true },
@@ -75,9 +81,13 @@ export async function GET(req: Request) {
         },
         _sum: { montant: true },
       }),
-      prisma.caisseSession.findFirst({
+      prisma.comptoirSession.findFirst({
         where: { userId: result.user.id, statut: "OUVERTE" },
-        select: { id: true, ouvertureAt: true, montantOuverture: true },
+        select: { id: true, ouvertureAt: true, montantOuvertureCash: true, montantOuvertureMobileMoney: true },
+      }),
+      prisma.comptoirSession.findMany({
+        where: sessionWhere,
+        select: { id: true, ecartCash: true, ecartMobileMoney: true, userId: true },
       }),
     ]);
 
@@ -86,6 +96,21 @@ export async function GET(req: Request) {
     const averageBasket = salesCount > 0 ? Math.round(revenue / salesCount) : 0;
     const cashTotal = Number(cashAgg._sum.montant ?? 0);
     const nonCashTotal = Math.max(0, revenue - cashTotal);
+
+    // Cash discrepancy KPIs (cash + mobile money combined)
+    let totalExcedent = 0;
+    let totalManquant = 0;
+    let discrepancyCount = 0;
+    for (const s of closedSessions) {
+      const ecartTotal = Number(s.ecartCash ?? 0) + Number(s.ecartMobileMoney ?? 0);
+      if (ecartTotal > 0) {
+        totalExcedent += ecartTotal;
+        discrepancyCount++;
+      } else if (ecartTotal < 0) {
+        totalManquant += Math.abs(ecartTotal);
+        discrepancyCount++;
+      }
+    }
 
     // Peripheral status
     const printerConfig = getPrinterConfig();
@@ -105,9 +130,16 @@ export async function GET(req: Request) {
           ? {
               id: openSession.id,
               ouvertureAt: openSession.ouvertureAt.toISOString(),
-              montantOuverture: Number(openSession.montantOuverture),
+              montantOuvertureCash: Number(openSession.montantOuvertureCash),
+              montantOuvertureMobileMoney: Number(openSession.montantOuvertureMobileMoney),
             }
           : null,
+        cashDiscrepancy: {
+          sessionsCount: closedSessions.length,
+          discrepancyCount,
+          totalExcedent,
+          totalManquant,
+        },
         peripherals: {
           printer: {
             enabled: printerConfig.enabled,

@@ -5,7 +5,7 @@ import type { Role } from "@prisma/client";
 
 vi.mock("@/lib/db", () => ({
   prisma: {
-    caisseSession: {
+    comptoirSession: {
       findFirst: vi.fn(),
       findMany: vi.fn(),
       findUnique: vi.fn(),
@@ -42,7 +42,7 @@ vi.mock("@/auth", () => ({
 
 vi.mock("@/lib/activity-log", () => ({
   logActivity: vi.fn(),
-  ACTIONS: { CASH_SESSION_OPENED: "CASH_SESSION_OPENED", CASH_SESSION_CLOSED: "CASH_SESSION_CLOSED" },
+  ACTIONS: { COMPTOIR_SESSION_OPENED: "COMPTOIR_SESSION_OPENED", COMPTOIR_SESSION_CLOSED: "COMPTOIR_SESSION_CLOSED" },
   getClientIp: vi.fn(),
   getClientUserAgent: vi.fn(),
 }));
@@ -66,8 +66,10 @@ const mockOpenSession = {
   id: "session-1",
   ouvertureAt: new Date("2026-04-30T08:00:00Z"),
   fermetureAt: null,
-  montantOuverture: 50000,
-  montantFermeture: null,
+  montantOuvertureCash: 50000,
+  montantOuvertureMobileMoney: 0,
+  montantFermetureCash: null,
+  montantFermetureMobileMoney: null,
   statut: "OUVERTE",
   notes: null,
   userId: "user-1",
@@ -77,27 +79,27 @@ const mockClosedSession = {
   ...mockOpenSession,
   id: "session-2",
   fermetureAt: new Date("2026-04-30T18:00:00Z"),
-  montantFermeture: 120000,
+  montantFermetureCash: 120000,
   statut: "FERMEE",
 };
 
-// ─── POST /api/caisse/sessions (open session) ────────
+// ─── POST /api/comptoir/sessions (open session) ────────
 
-describe("POST /api/caisse/sessions", () => {
+describe("POST /api/comptoir/sessions", () => {
   let POST: (req: Request) => Promise<Response>;
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    const mod = await import("@/app/api/caisse/sessions/route");
+    const mod = await import("@/app/api/comptoir/sessions/route");
     POST = mod.POST;
   });
 
   it("returns 401 if not authenticated", async () => {
     mockNoSession();
     const res = await POST(
-      new Request("http://localhost/api/caisse/sessions", {
+      new Request("http://localhost/api/comptoir/sessions", {
         method: "POST",
-        body: JSON.stringify({ montantOuverture: 50000 }),
+        body: JSON.stringify({ montantOuvertureCash: 50000 }),
         headers: { "Content-Type": "application/json" },
       })
     );
@@ -107,9 +109,9 @@ describe("POST /api/caisse/sessions", () => {
   it("returns 403 if ADMIN tries to open a session", async () => {
     mockSession("ADMIN");
     const res = await POST(
-      new Request("http://localhost/api/caisse/sessions", {
+      new Request("http://localhost/api/comptoir/sessions", {
         method: "POST",
-        body: JSON.stringify({ montantOuverture: 50000 }),
+        body: JSON.stringify({ montantOuvertureCash: 50000 }),
         headers: { "Content-Type": "application/json" },
       })
     );
@@ -119,63 +121,63 @@ describe("POST /api/caisse/sessions", () => {
   it("returns 403 if MANAGER tries to open a session", async () => {
     mockSession("MANAGER");
     const res = await POST(
-      new Request("http://localhost/api/caisse/sessions", {
+      new Request("http://localhost/api/comptoir/sessions", {
         method: "POST",
-        body: JSON.stringify({ montantOuverture: 50000 }),
+        body: JSON.stringify({ montantOuvertureCash: 50000 }),
         headers: { "Content-Type": "application/json" },
       })
     );
     expect(res.status).toBe(403);
   });
 
-  it("creates session with montantOuverture for CAISSIER", async () => {
+  it("creates session with montantOuvertureCash for CAISSIER", async () => {
     mockSession("CAISSIER");
-    (prisma.caisseSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-    (prisma.caisseSession.create as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
+    (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (prisma.comptoirSession.create as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
 
     const res = await POST(
-      new Request("http://localhost/api/caisse/sessions", {
+      new Request("http://localhost/api/comptoir/sessions", {
         method: "POST",
-        body: JSON.stringify({ montantOuverture: 50000 }),
+        body: JSON.stringify({ montantOuvertureCash: 50000 }),
         headers: { "Content-Type": "application/json" },
       })
     );
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.data.statut).toBe("OUVERTE");
-    expect(body.data.montantOuverture).toBeDefined();
+    expect(body.data.montantOuvertureCash).toBeDefined();
   });
 
   it("returns 409 if user already has an open session", async () => {
     mockSession("CAISSIER");
-    (prisma.caisseSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
+    (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
 
     const res = await POST(
-      new Request("http://localhost/api/caisse/sessions", {
+      new Request("http://localhost/api/comptoir/sessions", {
         method: "POST",
-        body: JSON.stringify({ montantOuverture: 50000 }),
+        body: JSON.stringify({ montantOuvertureCash: 50000 }),
         headers: { "Content-Type": "application/json" },
       })
     );
     expect(res.status).toBe(409);
   });
 
-  it("returns 400 for invalid data (negative montantOuverture)", async () => {
+  it("returns 400 for invalid data (negative montantOuvertureCash)", async () => {
     mockSession("CAISSIER");
     const res = await POST(
-      new Request("http://localhost/api/caisse/sessions", {
+      new Request("http://localhost/api/comptoir/sessions", {
         method: "POST",
-        body: JSON.stringify({ montantOuverture: -100 }),
+        body: JSON.stringify({ montantOuvertureCash: -100 }),
         headers: { "Content-Type": "application/json" },
       })
     );
     expect(res.status).toBe(400);
   });
 
-  it("returns 400 for missing montantOuverture", async () => {
+  it("returns 400 for missing montantOuvertureCash", async () => {
     mockSession("CAISSIER");
     const res = await POST(
-      new Request("http://localhost/api/caisse/sessions", {
+      new Request("http://localhost/api/comptoir/sessions", {
         method: "POST",
         body: JSON.stringify({}),
         headers: { "Content-Type": "application/json" },
@@ -185,38 +187,38 @@ describe("POST /api/caisse/sessions", () => {
   });
 });
 
-// ─── GET /api/caisse/sessions ────────────────────────
+// ─── GET /api/comptoir/sessions ────────────────────────
 
-describe("GET /api/caisse/sessions", () => {
+describe("GET /api/comptoir/sessions", () => {
   let GET: (req: Request) => Promise<Response>;
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    const mod = await import("@/app/api/caisse/sessions/route");
+    const mod = await import("@/app/api/comptoir/sessions/route");
     GET = mod.GET;
   });
 
   it("returns 401 if not authenticated", async () => {
     mockNoSession();
-    const res = await GET(new Request("http://localhost/api/caisse/sessions"));
+    const res = await GET(new Request("http://localhost/api/comptoir/sessions"));
     expect(res.status).toBe(401);
   });
 
   it("returns sessions list for authenticated user", async () => {
     mockSession("CAISSIER");
     const sessions = [mockOpenSession, mockClosedSession];
-    (prisma.caisseSession.findMany as ReturnType<typeof vi.fn>).mockResolvedValue(sessions);
+    (prisma.comptoirSession.findMany as ReturnType<typeof vi.fn>).mockResolvedValue(sessions);
 
-    const res = await GET(new Request("http://localhost/api/caisse/sessions"));
+    const res = await GET(new Request("http://localhost/api/comptoir/sessions"));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data).toHaveLength(2);
   });
 });
 
-// ─── PUT /api/caisse/sessions/[id] (close session) ──
+// ─── PUT /api/comptoir/sessions/[id] (close session) ──
 
-describe("PUT /api/caisse/sessions/[id]", () => {
+describe("PUT /api/comptoir/sessions/[id]", () => {
   let PUT: (
     req: Request,
     ctx: { params: Promise<{ id: string }> }
@@ -224,7 +226,7 @@ describe("PUT /api/caisse/sessions/[id]", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    const mod = await import("@/app/api/caisse/sessions/[id]/route");
+    const mod = await import("@/app/api/comptoir/sessions/[id]/route");
     PUT = mod.PUT;
 
     // Default mocks for solde théorique computation
@@ -237,12 +239,12 @@ describe("PUT /api/caisse/sessions/[id]", () => {
     });
   });
 
-  const closeBody = { montantFermeture: 120000, notes: "RAS" };
+  const closeBody = { montantFermetureCash: 120000, montantFermetureMobileMoney: 0, notes: "RAS" };
 
   it("returns 401 if not authenticated", async () => {
     mockNoSession();
     const res = await PUT(
-      new Request("http://localhost/api/caisse/sessions/session-1", {
+      new Request("http://localhost/api/comptoir/sessions/session-1", {
         method: "PUT",
         body: JSON.stringify(closeBody),
         headers: { "Content-Type": "application/json" },
@@ -254,17 +256,19 @@ describe("PUT /api/caisse/sessions/[id]", () => {
 
   it("closes own session for any role", async () => {
     mockSession("CAISSIER", "user-1");
-    (prisma.caisseSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
-    (prisma.caisseSession.update as ReturnType<typeof vi.fn>).mockResolvedValue({
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
+    (prisma.comptoirSession.update as ReturnType<typeof vi.fn>).mockResolvedValue({
       ...mockOpenSession,
       statut: "FERMEE",
-      montantFermeture: 120000,
+      montantFermetureCash: 120000, montantFermetureMobileMoney: 0,
+      soldeTheoriqueCash: 50000, soldeTheoriqueMobileMoney: 0,
+      ecartCash: 70000, ecartMobileMoney: 0,
       fermetureAt: new Date(),
       notes: "RAS",
     });
 
     const res = await PUT(
-      new Request("http://localhost/api/caisse/sessions/session-1", {
+      new Request("http://localhost/api/comptoir/sessions/session-1", {
         method: "PUT",
         body: JSON.stringify(closeBody),
         headers: { "Content-Type": "application/json" },
@@ -278,10 +282,10 @@ describe("PUT /api/caisse/sessions/[id]", () => {
 
   it("returns 403 if CAISSIER tries to close another user's session", async () => {
     mockSession("CAISSIER", "user-2");
-    (prisma.caisseSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
 
     const res = await PUT(
-      new Request("http://localhost/api/caisse/sessions/session-1", {
+      new Request("http://localhost/api/comptoir/sessions/session-1", {
         method: "PUT",
         body: JSON.stringify(closeBody),
         headers: { "Content-Type": "application/json" },
@@ -293,16 +297,18 @@ describe("PUT /api/caisse/sessions/[id]", () => {
 
   it("ADMIN can close any session", async () => {
     mockSession("ADMIN", "admin-1");
-    (prisma.caisseSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
-    (prisma.caisseSession.update as ReturnType<typeof vi.fn>).mockResolvedValue({
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
+    (prisma.comptoirSession.update as ReturnType<typeof vi.fn>).mockResolvedValue({
       ...mockOpenSession,
       statut: "FERMEE",
-      montantFermeture: 120000,
+      montantFermetureCash: 120000, montantFermetureMobileMoney: 0,
+      soldeTheoriqueCash: 50000, soldeTheoriqueMobileMoney: 0,
+      ecartCash: 70000, ecartMobileMoney: 0,
       fermetureAt: new Date(),
     });
 
     const res = await PUT(
-      new Request("http://localhost/api/caisse/sessions/session-1", {
+      new Request("http://localhost/api/comptoir/sessions/session-1", {
         method: "PUT",
         body: JSON.stringify(closeBody),
         headers: { "Content-Type": "application/json" },
@@ -314,16 +320,18 @@ describe("PUT /api/caisse/sessions/[id]", () => {
 
   it("MANAGER can close any session", async () => {
     mockSession("MANAGER", "mgr-1");
-    (prisma.caisseSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
-    (prisma.caisseSession.update as ReturnType<typeof vi.fn>).mockResolvedValue({
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
+    (prisma.comptoirSession.update as ReturnType<typeof vi.fn>).mockResolvedValue({
       ...mockOpenSession,
       statut: "FERMEE",
-      montantFermeture: 120000,
+      montantFermetureCash: 120000, montantFermetureMobileMoney: 0,
+      soldeTheoriqueCash: 50000, soldeTheoriqueMobileMoney: 0,
+      ecartCash: 70000, ecartMobileMoney: 0,
       fermetureAt: new Date(),
     });
 
     const res = await PUT(
-      new Request("http://localhost/api/caisse/sessions/session-1", {
+      new Request("http://localhost/api/comptoir/sessions/session-1", {
         method: "PUT",
         body: JSON.stringify(closeBody),
         headers: { "Content-Type": "application/json" },
@@ -335,10 +343,10 @@ describe("PUT /api/caisse/sessions/[id]", () => {
 
   it("returns 404 if session not found", async () => {
     mockSession("ADMIN");
-    (prisma.caisseSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
     const res = await PUT(
-      new Request("http://localhost/api/caisse/sessions/session-999", {
+      new Request("http://localhost/api/comptoir/sessions/session-999", {
         method: "PUT",
         body: JSON.stringify(closeBody),
         headers: { "Content-Type": "application/json" },
@@ -351,23 +359,23 @@ describe("PUT /api/caisse/sessions/[id]", () => {
 
 // ─── Error paths ────────────────────────────────────
 
-describe("Caisse error handling", () => {
-  it("GET /api/caisse/sessions returns 500 on DB error", async () => {
+describe("Comptoir error handling", () => {
+  it("GET /api/comptoir/sessions returns 500 on DB error", async () => {
     mockSession("ADMIN");
-    (prisma.caisseSession.findMany as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
-    const { GET } = await import("@/app/api/caisse/sessions/route");
+    (prisma.comptoirSession.findMany as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
+    const { GET } = await import("@/app/api/comptoir/sessions/route");
     const res = await GET();
     expect(res.status).toBe(500);
   });
 
-  it("POST /api/caisse/sessions returns 500 on DB error", async () => {
+  it("POST /api/comptoir/sessions returns 500 on DB error", async () => {
     mockSession("CAISSIER");
-    (prisma.caisseSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-    (prisma.caisseSession.create as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
-    const { POST } = await import("@/app/api/caisse/sessions/route");
-    const res = await POST(new Request("http://localhost/api/caisse/sessions", {
+    (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (prisma.comptoirSession.create as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
+    const { POST } = await import("@/app/api/comptoir/sessions/route");
+    const res = await POST(new Request("http://localhost/api/comptoir/sessions", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ montantOuverture: 50000 }),
+      body: JSON.stringify({ montantOuvertureCash: 50000 }),
     }));
     expect(res.status).toBe(500);
   });

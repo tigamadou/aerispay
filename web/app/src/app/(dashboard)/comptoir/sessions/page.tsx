@@ -2,14 +2,14 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { hasRole } from "@/lib/permissions";
-import { SessionManager } from "@/components/caisse/SessionManager";
+import { SessionManager } from "@/components/comptoir/SessionManager";
 import type { Metadata } from "next";
 import type { Role } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Sessions de caisse",
+  title: "Sessions de comptoir",
 };
 
 export default async function SessionsPage() {
@@ -20,13 +20,13 @@ export default async function SessionsPage() {
 
   const role = session.user.role as Role;
   if (!hasRole(role, ["CAISSIER"])) {
-    redirect("/caisse");
+    redirect("/comptoir");
   }
 
   const userId = session.user.id as string;
 
   // Find the user's currently open session (if any)
-  const openSession = await prisma.caisseSession.findFirst({
+  const openSession = await prisma.comptoirSession.findFirst({
     where: {
       userId,
       statut: "OUVERTE",
@@ -61,15 +61,19 @@ export default async function SessionsPage() {
     const totalVentesNum = Number(salesAggregate._sum.total ?? 0);
     const totalPaiements = Number(totalPaiementsAgg._sum.montant ?? 0);
     const monnaieRendue = totalPaiements - totalVentesNum;
-    const soldeTheorique = Number(openSession.montantOuverture) + especesRecues - monnaieRendue;
+    const soldeTheoriqueCash = Number(openSession.montantOuvertureCash) + especesRecues - monnaieRendue;
+    const soldeTheoriqueMobileMoney = Number(openSession.montantOuvertureMobileMoney);
 
     serialized = {
       id: openSession.id,
       ouvertureAt: openSession.ouvertureAt.toISOString(),
       fermetureAt: openSession.fermetureAt?.toISOString() ?? null,
-      montantOuverture: openSession.montantOuverture.toString(),
-      montantFermeture: openSession.montantFermeture?.toString() ?? null,
-      soldeTheorique,
+      montantOuvertureCash: openSession.montantOuvertureCash.toString(),
+      montantOuvertureMobileMoney: openSession.montantOuvertureMobileMoney.toString(),
+      montantFermetureCash: openSession.montantFermetureCash?.toString() ?? null,
+      montantFermetureMobileMoney: openSession.montantFermetureMobileMoney?.toString() ?? null,
+      soldeTheoriqueCash,
+      soldeTheoriqueMobileMoney,
       statut: openSession.statut as "OUVERTE" | "FERMEE",
       notes: openSession.notes,
       userId: openSession.userId,
@@ -82,10 +86,10 @@ export default async function SessionsPage() {
     <div className="space-y-6" data-testid="sessions-page">
       <div>
         <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
-          Sessions de caisse
+          Sessions de comptoir
         </h1>
         <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          Ouvrez ou fermez votre session de caisse pour commencer les ventes.
+          Ouvrez ou fermez votre session de comptoir pour commencer les ventes.
         </p>
       </div>
 

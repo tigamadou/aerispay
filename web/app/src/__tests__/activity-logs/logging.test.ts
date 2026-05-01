@@ -11,7 +11,7 @@ vi.mock("@/lib/db", () => ({
     categorie: { findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn(), findMany: vi.fn() },
     mouvementStock: { findMany: vi.fn(), count: vi.fn() },
     vente: { findUnique: vi.fn(), create: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), count: vi.fn(), aggregate: vi.fn() },
-    caisseSession: { findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+    comptoirSession: { findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     paiement: { aggregate: vi.fn() },
     activityLog: { create: vi.fn() },
     $transaction: vi.fn(),
@@ -41,8 +41,8 @@ vi.mock("@/lib/activity-log", () => ({
     STOCK_MOVEMENT_CREATED: "STOCK_MOVEMENT_CREATED",
     SALE_COMPLETED: "SALE_COMPLETED",
     SALE_CANCELLED: "SALE_CANCELLED",
-    CASH_SESSION_OPENED: "CASH_SESSION_OPENED",
-    CASH_SESSION_CLOSED: "CASH_SESSION_CLOSED",
+    COMPTOIR_SESSION_OPENED: "COMPTOIR_SESSION_OPENED",
+    COMPTOIR_SESSION_CLOSED: "COMPTOIR_SESSION_CLOSED",
     CASH_DRAWER_OPENED: "CASH_DRAWER_OPENED",
     CASH_DRAWER_OPEN_FAILED: "CASH_DRAWER_OPEN_FAILED",
     TICKET_THERMAL_PRINT_REQUESTED: "TICKET_THERMAL_PRINT_REQUESTED",
@@ -173,20 +173,20 @@ describe("Sale activity logging", () => {
 describe("Cash session activity logging", () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
-  it("logs CASH_SESSION_OPENED on POST /api/caisse/sessions", async () => {
+  it("logs COMPTOIR_SESSION_OPENED on POST /api/comptoir/sessions", async () => {
     mockSession("CAISSIER");
-    (prisma.caisseSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-    (prisma.caisseSession.create as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: "s-1", montantOuverture: new Decimal(50000), userId: "user-1",
+    (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (prisma.comptoirSession.create as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "s-1", montantOuvertureCash: new Decimal(50000), userId: "user-1",
       ouvertureAt: new Date("2026-04-23T08:00:00Z"),
       user: { id: "user-1", nom: "Test", email: "test@test.com" },
     });
 
-    const { POST } = await import("@/app/api/caisse/sessions/route");
-    const res = await POST(jsonReq("http://localhost/api/caisse/sessions", "POST", { montantOuverture: 50000 }));
+    const { POST } = await import("@/app/api/comptoir/sessions/route");
+    const res = await POST(jsonReq("http://localhost/api/comptoir/sessions", "POST", { montantOuvertureCash: 50000 }));
     expect(res.status).toBe(201);
     expect(mockLogActivity).toHaveBeenCalledWith(
-      expect.objectContaining({ action: "CASH_SESSION_OPENED", entityType: "CashSession", entityId: "s-1" })
+      expect.objectContaining({ action: "COMPTOIR_SESSION_OPENED", entityType: "ComptoirSession", entityId: "s-1" })
     );
   });
 });

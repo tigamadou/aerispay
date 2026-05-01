@@ -3,7 +3,7 @@ import type { Role } from "@prisma/client";
 
 vi.mock("@/lib/db", () => ({
   prisma: {
-    caisseSession: {
+    comptoirSession: {
       findFirst: vi.fn(),
       findMany: vi.fn(),
       findUnique: vi.fn(),
@@ -62,8 +62,8 @@ const mockOpenSession = {
   id: "session-1",
   ouvertureAt: new Date("2026-04-30T08:00:00Z"),
   fermetureAt: null,
-  montantOuverture: 50000,
-  montantFermeture: null,
+  montantOuvertureCash: 50000,
+  montantFermetureCash: null,
   statut: "OUVERTE",
   notes: null,
   userId: "user-1",
@@ -73,7 +73,7 @@ const mockClosedSession = {
   ...mockOpenSession,
   id: "session-2",
   fermetureAt: new Date("2026-04-30T18:00:00Z"),
-  montantFermeture: 120000,
+  montantFermetureCash: 120000,
   statut: "FERMEE",
 };
 
@@ -287,7 +287,7 @@ describe("POST /api/ventes", () => {
 
   it("creates sale with lines, payments and stock decrement via transaction", async () => {
     mockSession("CAISSIER");
-    (prisma.caisseSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
     (prisma.$transaction as ReturnType<typeof vi.fn>).mockResolvedValue(mockVente);
 
     const res = await POST(
@@ -305,7 +305,7 @@ describe("POST /api/ventes", () => {
 
   it("returns 422 if stock insufficient for a product", async () => {
     mockSession("CAISSIER");
-    (prisma.caisseSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
     (prisma.$transaction as ReturnType<typeof vi.fn>).mockRejectedValue(
       Object.assign(new Error("Stock insuffisant pour le produit : Savon liquide"), {
         code: "STOCK_INSUFFISANT",
@@ -359,7 +359,7 @@ describe("POST /api/ventes", () => {
 
   it("returns 422 if session is not open", async () => {
     mockSession("CAISSIER");
-    (prisma.caisseSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockClosedSession);
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockClosedSession);
 
     const res = await POST(
       new Request("http://localhost/api/ventes", {

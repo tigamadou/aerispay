@@ -4,8 +4,17 @@ import { hasRole } from "@/lib/permissions";
 import { closeSessionSchema } from "@/lib/validations/session";
 import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
 
-async function computeSoldeTheorique(sessionId: string, montantOuverture: number): Promise<number> {
-  // Total espèces encaissées (paiements ESPECES des ventes VALIDEE de cette session)
+interface SoldeTheorique {
+  cash: number;
+  mobileMoney: number;
+}
+
+async function computeSoldeTheorique(
+  sessionId: string,
+  montantOuvertureCash: number,
+  montantOuvertureMobileMoney: number
+): Promise<SoldeTheorique> {
+  // Espèces encaissées
   const especesAgg = await prisma.paiement.aggregate({
     where: {
       mode: "ESPECES",
@@ -14,13 +23,22 @@ async function computeSoldeTheorique(sessionId: string, montantOuverture: number
     _sum: { montant: true },
   });
 
-  // Total des ventes validées (pour calculer la monnaie rendue)
+  // Mobile Money encaissé
+  const mobileMoneyAgg = await prisma.paiement.aggregate({
+    where: {
+      mode: "MOBILE_MONEY",
+      vente: { sessionId, statut: "VALIDEE" },
+    },
+    _sum: { montant: true },
+  });
+
+  // Total des ventes validées
   const ventesAgg = await prisma.vente.aggregate({
     where: { sessionId, statut: "VALIDEE" },
     _sum: { total: true },
   });
 
-  // Total de TOUS les paiements (toutes méthodes) des ventes validées
+  // Total de TOUS les paiements des ventes validées
   const totalPaiementsAgg = await prisma.paiement.aggregate({
     where: {
       vente: { sessionId, statut: "VALIDEE" },
@@ -29,14 +47,17 @@ async function computeSoldeTheorique(sessionId: string, montantOuverture: number
   });
 
   const especesRecues = Number(especesAgg._sum.montant ?? 0);
+  const mobileMoneyRecu = Number(mobileMoneyAgg._sum.montant ?? 0);
   const totalVentes = Number(ventesAgg._sum.total ?? 0);
   const totalPaiements = Number(totalPaiementsAgg._sum.montant ?? 0);
 
-  // Monnaie rendue = total paiements - total ventes (l'excédent payé en espèces)
+  // Monnaie rendue = excédent payé (uniquement en espèces)
   const monnaieRendue = totalPaiements - totalVentes;
 
-  // Solde théorique = fond de caisse + espèces reçues - monnaie rendue
-  return montantOuverture + especesRecues - monnaieRendue;
+  return {
+    cash: montantOuvertureCash + especesRecues - monnaieRendue,
+    mobileMoney: montantOuvertureMobileMoney + mobileMoneyRecu,
+  };
 }
 
 export async function GET(
@@ -49,7 +70,7 @@ export async function GET(
   const { id } = await params;
 
   try {
-    const session = await prisma.caisseSession.findUnique({
+    const session = await prisma.comptoirSession.findUnique({
       where: { id },
       include: {
         user: { select: { id: true, nom: true, email: true } },
@@ -63,23 +84,32 @@ export async function GET(
       return Response.json({ error: "Session introuvable" }, { status: 404 });
     }
 
-    // Compute live theoretical balance for open sessions
-    let soldeTheorique: number | null = null;
+    let soldeTheoriqueCash: number | null = null;
+    let soldeTheoriqueMobileMoney: number | null = null;
     if (session.statut === "OUVERTE") {
-      soldeTheorique = await computeSoldeTheorique(id, Number(session.montantOuverture));
+      const solde = await computeSoldeTheorique(
+        id,
+        Number(session.montantOuvertureCash),
+        Number(session.montantOuvertureMobileMoney)
+      );
+      soldeTheoriqueCash = solde.cash;
+      soldeTheoriqueMobileMoney = solde.mobileMoney;
     } else {
-      soldeTheorique = session.soldeTheorique ? Number(session.soldeTheorique) : null;
+      soldeTheoriqueCash = session.soldeTheoriqueCash ? Number(session.soldeTheoriqueCash) : null;
+      soldeTheoriqueMobileMoney = session.soldeTheoriqueMobileMoney ? Number(session.soldeTheoriqueMobileMoney) : null;
     }
 
     return Response.json({
       data: {
         ...session,
-        soldeTheorique,
-        ecartCaisse: session.ecartCaisse ? Number(session.ecartCaisse) : null,
+        soldeTheoriqueCash,
+        soldeTheoriqueMobileMoney,
+        ecartCash: session.ecartCash ? Number(session.ecartCash) : null,
+        ecartMobileMoney: session.ecartMobileMoney ? Number(session.ecartMobileMoney) : null,
       },
     });
   } catch (error) {
-    console.error(`[GET /api/caisse/sessions/${id}]`, error);
+    console.error(`[GET /api/comptoir/sessions/${id}]`, error);
     return Response.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }
@@ -94,7 +124,7 @@ export async function PUT(
   const { id } = await params;
 
   try {
-    const session = await prisma.caisseSession.findUnique({ where: { id } });
+    const session = await prisma.comptoirSession.findUnique({ where: { id } });
     if (!session) {
       return Response.json({ error: "Session introuvable" }, { status: 404 });
     }
@@ -120,17 +150,25 @@ export async function PUT(
       );
     }
 
-    const soldeTheorique = await computeSoldeTheorique(id, Number(session.montantOuverture));
-    const ecartCaisse = parsed.data.montantFermeture - soldeTheorique;
+    const solde = await computeSoldeTheorique(
+      id,
+      Number(session.montantOuvertureCash),
+      Number(session.montantOuvertureMobileMoney)
+    );
+    const ecartCash = parsed.data.montantFermetureCash - solde.cash;
+    const ecartMobileMoney = parsed.data.montantFermetureMobileMoney - solde.mobileMoney;
 
-    const updated = await prisma.caisseSession.update({
+    const updated = await prisma.comptoirSession.update({
       where: { id },
       data: {
         statut: "FERMEE",
         fermetureAt: new Date(),
-        montantFermeture: parsed.data.montantFermeture,
-        soldeTheorique,
-        ecartCaisse,
+        montantFermetureCash: parsed.data.montantFermetureCash,
+        montantFermetureMobileMoney: parsed.data.montantFermetureMobileMoney,
+        soldeTheoriqueCash: solde.cash,
+        soldeTheoriqueMobileMoney: solde.mobileMoney,
+        ecartCash,
+        ecartMobileMoney,
         notes: parsed.data.notes,
       },
       include: { user: { select: { id: true, nom: true, email: true } } },
@@ -143,14 +181,17 @@ export async function PUT(
     });
 
     await logActivity({
-      action: ACTIONS.CASH_SESSION_CLOSED,
+      action: ACTIONS.COMPTOIR_SESSION_CLOSED,
       actorId: result.user.id,
-      entityType: "CashSession",
+      entityType: "ComptoirSession",
       entityId: id,
       metadata: {
-        montantFermeture: parsed.data.montantFermeture,
-        soldeTheorique,
-        ecartCaisse,
+        montantFermetureCash: parsed.data.montantFermetureCash,
+        montantFermetureMobileMoney: parsed.data.montantFermetureMobileMoney,
+        soldeTheoriqueCash: solde.cash,
+        soldeTheoriqueMobileMoney: solde.mobileMoney,
+        ecartCash,
+        ecartMobileMoney,
         closedByOwner: session.userId === result.user.id,
         ouvertureAt: session.ouvertureAt.toISOString(),
         fermetureAt: updated.fermetureAt?.toISOString() ?? null,
@@ -164,12 +205,14 @@ export async function PUT(
     return Response.json({
       data: {
         ...updated,
-        soldeTheorique: Number(updated.soldeTheorique),
-        ecartCaisse: Number(updated.ecartCaisse),
+        soldeTheoriqueCash: Number(updated.soldeTheoriqueCash),
+        soldeTheoriqueMobileMoney: Number(updated.soldeTheoriqueMobileMoney),
+        ecartCash: Number(updated.ecartCash),
+        ecartMobileMoney: Number(updated.ecartMobileMoney),
       },
     });
   } catch (error) {
-    console.error(`[PUT /api/caisse/sessions/${id}]`, error);
+    console.error(`[PUT /api/comptoir/sessions/${id}]`, error);
     return Response.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }

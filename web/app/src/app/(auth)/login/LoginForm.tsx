@@ -46,7 +46,7 @@ export function LoginForm() {
     >
       <div>
         <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">AerisPay</h1>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">Connexion à la caisse</p>
+        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">Connexion au comptoir</p>
       </div>
       <div className="flex flex-col gap-1.5">
         <label htmlFor="email" className="text-sm font-medium text-zinc-800 dark:text-zinc-200">

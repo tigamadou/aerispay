@@ -1,21 +1,27 @@
-# Spec — Module Gestion de Caisse (POS)
+# Spec — Module Gestion de Comptoir (POS)
 
 > **Multi-magasins, multi-postes, base locale, sauvegarde & accès distant** (vision groupe) : `SPECS/MULTI_ORGANISATION.md`. **Rôles** (groupe **vs** point de vente, caissiers) : `SPECS/AUTH.md`.
 
 ## Objectif
-Interface point de vente intuitive permettant à un caissier de réaliser des ventes rapides avec encaissement multi-modes, génération de tickets et compatibilité matériel de caisse : imprimante ticket, douchette lecteur de code-barres et tiroir-caisse.
+Interface point de vente intuitive permettant à un caissier de réaliser des ventes rapides avec encaissement multi-modes, génération de tickets et compatibilité matériel de comptoir : imprimante ticket, douchette lecteur de code-barres et tiroir-caisse.
 
 ---
 
 ## Entités
 
-### CashSession
+### ComptoirSession
 | Field | Type | Règles |
 |---|---|---|
 | `openedAt` | DateTime | Auto, heure d'ouverture |
 | `closedAt` | DateTime? | Null si session ouverte |
-| `openingAmount` | Decimal | Fond de caisse initial, obligatoire |
-| `closingAmount` | Decimal? | Montant compté à la clôture |
+| `montantOuvertureCash` | Decimal | Fond de caisse initial (espèces), obligatoire |
+| `montantOuvertureMobileMoney` | Decimal | Fond de caisse initial (mobile money), défaut 0 |
+| `montantFermetureCash` | Decimal? | Montant espèces compté à la clôture |
+| `montantFermetureMobileMoney` | Decimal? | Montant mobile money compté à la clôture |
+| `soldeTheoriqueCash` | Decimal? | Solde théorique espèces calculé à la clôture |
+| `soldeTheoriqueMobileMoney` | Decimal? | Solde théorique mobile money calculé à la clôture |
+| `ecartCash` | Decimal? | Écart espèces (compté - théorique) |
+| `ecartMobileMoney` | Decimal? | Écart mobile money (compté - théorique) |
 | `status` | Enum | OPEN / CLOSED |
 | `userId` | String | Caissier qui a ouvert la session |
 
@@ -29,7 +35,7 @@ Interface point de vente intuitive permettant à un caissier de réaliser des ve
 | `total` | Decimal | Montant final TTC |
 | `status` | Enum | COMPLETED / CANCELLED / REFUNDED |
 | `clientName` | String? | Optionnel, pour fidélisation future |
-| `sessionId` | String | Session de caisse active |
+| `sessionId` | String | Session de comptoir active |
 | `userId` | String | Caissier |
 
 ### SaleLine
@@ -46,7 +52,7 @@ Interface point de vente intuitive permettant à un caissier de réaliser des ve
 ### Payment
 | Field | Type | Règles |
 |---|---|---|
-| `method` | Enum | CASH, CARD, MOBILE_MONEY, CHECK, WIRE_TRANSFER |
+| `method` | Enum | ESPECES, MOBILE_MONEY |
 | `amount` | Decimal | Montant encaissé |
 | `reference` | String? | Référence transaction (mobile money, etc.) |
 | `saleId` | String | Vente associée |
@@ -57,8 +63,8 @@ Interface point de vente intuitive permettant à un caissier de réaliser des ve
 
 ### Sessions
 - **Une seule session ouverte** par caissier à la fois
-- Un caissier ne peut pas vendre si aucune session n'est ouverte
-- La clôture de session calcule automatiquement le total des ventes et le solde théorique
+- Un caissier ne peut pas vendre si aucune session de comptoir n'est ouverte
+- La clôture de session calcule automatiquement le total des ventes et les soldes théoriques (espèces et mobile money séparément)
 - Seul ADMIN ou MANAGER peut clôturer la session d'un autre utilisateur
 
 ### Numérotation des ventes
@@ -78,6 +84,7 @@ TOTAL TTC         = subtotal - discount + TVA (aligné modèle)
 ```
 
 ### Paiement multi-modes
+- Modes disponibles : **ESPECES** et **MOBILE_MONEY** uniquement
 - La somme des paiements doit être ≥ total TTC
 - En espèces : monnaie rendue = amount reçu - total TTC
 - Maximum 2 modes de paiement par vente (MVP)
@@ -87,10 +94,10 @@ TOTAL TTC         = subtotal - discount + TVA (aligné modèle)
 - Décrémentation atomique (transaction Prisma sur `Product.currentStock`)
 - Si un produit est en rupture → erreur 422 avec message explicite
 
-### Périphériques de caisse
+### Périphériques de comptoir
 - **Douchette code-barres** : support prioritaire des lecteurs USB/HID en mode clavier. Un scan remplit la barre de recherche ou ajoute directement le produit si le code correspond à une référence / code-barres unique.
 - **Imprimante ticket** : impression thermique ESC/POS après validation de vente, avec fallback PDF si l’imprimante est désactivée ou indisponible.
-- **Tiroir-caisse** : ouverture automatique après paiement `CASH` validé, via impulsion ESC/POS envoyée à l’imprimante connectée au tiroir (RJ11/RJ12) ou via une interface configurée.
+- **Tiroir-caisse** : ouverture automatique après paiement `ESPECES` validé, via impulsion ESC/POS envoyée à l’imprimante connectée au tiroir (RJ11/RJ12) ou via une interface configurée.
 - Les erreurs matériel ne doivent jamais annuler une vente déjà validée ; elles déclenchent un message clair et une entrée de journal d’activité si pertinent.
 
 ### Annulation
@@ -101,7 +108,7 @@ TOTAL TTC         = subtotal - discount + TVA (aligné modèle)
 
 ---
 
-## Interface POS (`/caisse`)
+## Interface POS (`/comptoir`)
 
 ### Layout
 ```
@@ -143,22 +150,22 @@ La barre de recherche doit rester compatible douchette : focus rapide, scan comp
 ### Modale de Paiement
 1. Affiche le total à payer
 2. Sélection mode de paiement (boutons radio)
-3. Si CASH :
+3. Si ESPECES :
    - Champ "Montant reçu"
    - Affichage "Monnaie à rendre : X FCFA" en temps réel
-4. Si MOBILE_MONEY / CARD :
+4. Si MOBILE_MONEY :
    - Champ référence transaction (optionnel)
 5. Bouton "Valider" → `POST /api/ventes` (aligné sur les routes API du projet, voir `CLAUDE.md` et `SPECS/PERIPHERIQUES.md`)
 6. Succès → modal ticket + bouton imprimer + réinitialisation panier
-7. Si paiement CASH et tiroir activé → ouverture du tiroir-caisse après validation serveur
+7. Si paiement ESPECES et tiroir activé → ouverture du tiroir-caisse après validation serveur
 
 ---
 
-## Page Sessions (`/caisse/sessions`)
+## Page Sessions (`/comptoir/sessions`)
 
 ### Écran d'ouverture
-- Bouton "Ouvrir la caisse" (si aucune session ouverte)
-- Saisie du fond de caisse initial
+- Bouton "Ouvrir le comptoir" (si aucune session ouverte)
+- Saisie du fond de caisse initial (espèces + mobile money)
 - Confirmation
 
 ### Tableau de bord session active
@@ -169,14 +176,14 @@ La barre de recherche doit rester compatible douchette : focus rapide, scan comp
 - Bouton "Fermer la session"
 
 ### Clôture session
-- Saisie du montant compté physiquement
-- Comparaison : Solde théorique vs Montant compté
-- Affichage écart (positif = excédent, négatif = manquant)
+- Saisie du montant compté physiquement (espèces et mobile money séparément)
+- Comparaison : Solde théorique vs Montant compté (par mode de paiement)
+- Affichage écart par mode (positif = excédent, négatif = manquant)
 - Confirmation + export récapitulatif PDF
 
 ---
 
-## Page Historique Ventes (`/caisse/ventes`)
+## Page Historique Ventes (`/comptoir/ventes`)
 
 - Tableau : N° | Date | Caissier | Articles | Total | Mode paiement | Statut
 - Filtres : date (range picker), caissier, statut
@@ -218,18 +225,18 @@ interface CartStore {
 ---
 
 ## Tests Requis
-Ces tests sont le point de départ TDD du module Caisse. Écrire d’abord les tests Vitest des transactions et permissions, puis les tests RTL/Playwright des parcours POS critiques.
+Ces tests sont le point de départ TDD du module Comptoir. Écrire d’abord les tests Vitest des transactions et permissions, puis les tests RTL/Playwright des parcours POS critiques.
 
-- [ ] Ouvrir session → status OPEN
+- [ ] Ouvrir session de comptoir → status OPEN
 - [ ] Tentative de 2ème session simultanée → erreur 409
 - [ ] Vente complète → currentStock décrémenté + StockMovement créé
 - [ ] Vente avec stock insuffisant → erreur 422, aucune donnée créée
-- [ ] Calcul monnaie rendue (CASH) → correct
+- [ ] Calcul monnaie rendue (ESPECES) → correct
 - [ ] Annulation vente → stock restauré, status CANCELLED
 - [ ] CAISSIER ne peut pas annuler → erreur 403
 - [ ] Numérotation séquentielle ventes (`number`) → pas de doublon
-- [ ] Clôture session → solde théorique calculé correctement
+- [ ] Clôture session → soldes théoriques (espèces + mobile money) calculés correctement
 - [ ] Scan douchette code-barres → produit correspondant ajouté au panier
 - [ ] Scan inconnu → message "Produit introuvable" sans modifier le panier
-- [ ] Vente CASH avec tiroir activé → commande d’ouverture tiroir envoyée après validation
+- [ ] Vente ESPECES avec tiroir activé → commande d’ouverture tiroir envoyée après validation
 - [ ] Erreur imprimante / tiroir → vente conservée, message clair affiché

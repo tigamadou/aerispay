@@ -8,14 +8,14 @@ export async function GET() {
   if (!result.authenticated) return result.response;
 
   try {
-    const sessions = await prisma.caisseSession.findMany({
+    const sessions = await prisma.comptoirSession.findMany({
       orderBy: { ouvertureAt: "desc" },
       include: { user: { select: { id: true, nom: true, email: true } } },
     });
 
     return Response.json({ data: sessions });
   } catch (error) {
-    console.error("[GET /api/caisse/sessions]", error);
+    console.error("[GET /api/comptoir/sessions]", error);
     return Response.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }
@@ -35,31 +35,33 @@ export async function POST(req: Request) {
     }
 
     // Check for existing open session
-    const existing = await prisma.caisseSession.findFirst({
+    const existing = await prisma.comptoirSession.findFirst({
       where: { userId: result.user.id, statut: "OUVERTE" },
     });
     if (existing) {
       return Response.json(
-        { error: "Vous avez déjà une session de caisse ouverte" },
+        { error: "Vous avez déjà une session de comptoir ouverte" },
         { status: 409 }
       );
     }
 
-    const session = await prisma.caisseSession.create({
+    const session = await prisma.comptoirSession.create({
       data: {
-        montantOuverture: parsed.data.montantOuverture,
+        montantOuvertureCash: parsed.data.montantOuvertureCash,
+        montantOuvertureMobileMoney: parsed.data.montantOuvertureMobileMoney,
         userId: result.user.id,
       },
       include: { user: { select: { id: true, nom: true, email: true } } },
     });
 
     await logActivity({
-      action: ACTIONS.CASH_SESSION_OPENED,
+      action: ACTIONS.COMPTOIR_SESSION_OPENED,
       actorId: result.user.id,
-      entityType: "CashSession",
+      entityType: "ComptoirSession",
       entityId: session.id,
       metadata: {
-        montantOuverture: Number(session.montantOuverture),
+        montantOuvertureCash: Number(session.montantOuvertureCash),
+        montantOuvertureMobileMoney: Number(session.montantOuvertureMobileMoney),
         ouvertureAt: session.ouvertureAt.toISOString(),
       },
       ipAddress: getClientIp(req),
@@ -68,7 +70,7 @@ export async function POST(req: Request) {
 
     return Response.json({ data: session }, { status: 201 });
   } catch (error) {
-    console.error("[POST /api/caisse/sessions]", error);
+    console.error("[POST /api/comptoir/sessions]", error);
     return Response.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }
