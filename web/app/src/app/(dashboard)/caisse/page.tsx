@@ -86,7 +86,7 @@ export default async function CaissePage() {
       </div>
 
       {/* Quick actions */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {/* POS */}
         <Link
           href="/comptoir"
@@ -127,6 +127,20 @@ export default async function CaissePage() {
           </div>
           <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Ventes</h3>
           <p className="text-xs text-zinc-500">Historique et details</p>
+        </Link>
+
+        {/* Mouvements */}
+        <Link
+          href="/caisse/mouvements"
+          className="rounded-lg border border-zinc-200 bg-white p-4 hover:border-indigo-300 hover:shadow-sm transition dark:border-zinc-800 dark:bg-zinc-900"
+        >
+          <div className="text-2xl mb-2">
+            <svg className="h-8 w-8 text-cyan-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+            </svg>
+          </div>
+          <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Mouvements</h3>
+          <p className="text-xs text-zinc-500">Tous les mouvements de caisse</p>
         </Link>
 
         {/* Ecarts — MANAGER/ADMIN only */}

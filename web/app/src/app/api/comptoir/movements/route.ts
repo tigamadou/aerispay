@@ -1,10 +1,88 @@
-import type { ModePaiement, TypeMouvementCaisse } from "@prisma/client";
+import type { ModePaiement, TypeMouvementCaisse, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireAuth, hasPermission } from "@/lib/permissions";
 import { createMouvementManuelSchema } from "@/lib/validations/mouvement-caisse";
 import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
 import { createMovement, computeSoldeTheoriqueParMode } from "@/lib/services/cash-movement";
 import { getSeuil } from "@/lib/services/seuils";
+
+const VALID_TYPES: TypeMouvementCaisse[] = [
+  "FOND_INITIAL", "VENTE", "REMBOURSEMENT", "APPORT", "RETRAIT", "DEPENSE", "CORRECTION",
+];
+const VALID_MODES: ModePaiement[] = [
+  "ESPECES", "MOBILE_MONEY_MTN", "MOBILE_MONEY_MOOV", "CARTE_BANCAIRE",
+];
+
+export async function GET(req: Request) {
+  const result = await requireAuth();
+  if (!result.authenticated) return result.response;
+
+  try {
+    const url = new URL(req.url);
+    const page = Math.max(1, parseInt(url.searchParams.get("page") ?? "1", 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") ?? "50", 10) || 50));
+    const skip = (page - 1) * limit;
+
+    const typeParam = url.searchParams.get("type");
+    const modeParam = url.searchParams.get("mode");
+    const sessionId = url.searchParams.get("sessionId");
+    const from = url.searchParams.get("from");
+    const to = url.searchParams.get("to");
+
+    const where: Prisma.MouvementCaisseWhereInput = {};
+
+    // CAISSIER can only see movements from their own sessions
+    if (result.user.role === "CAISSIER") {
+      where.session = { userId: result.user.id };
+    }
+
+    if (typeParam && VALID_TYPES.includes(typeParam as TypeMouvementCaisse)) {
+      where.type = typeParam as TypeMouvementCaisse;
+    }
+
+    if (modeParam && VALID_MODES.includes(modeParam as ModePaiement)) {
+      where.mode = modeParam as ModePaiement;
+    }
+
+    if (sessionId) {
+      where.sessionId = sessionId;
+    }
+
+    if (from || to) {
+      where.createdAt = {};
+      if (from) where.createdAt.gte = new Date(from);
+      if (to) where.createdAt.lte = new Date(to);
+    }
+
+    const [mouvements, total] = await Promise.all([
+      prisma.mouvementCaisse.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+        include: {
+          session: { select: { id: true, userId: true } },
+          auteur: { select: { id: true, nom: true } },
+          vente: { select: { id: true, numero: true } },
+        },
+      }),
+      prisma.mouvementCaisse.count({ where }),
+    ]);
+
+    return Response.json({
+      data: mouvements,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("[GET /api/comptoir/movements]", error);
+    return Response.json({ error: "Erreur serveur" }, { status: 500 });
+  }
+}
 
 export async function POST(req: Request) {
   const result = await requireAuth();
