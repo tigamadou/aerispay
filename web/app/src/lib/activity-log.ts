@@ -42,6 +42,11 @@ export const ACTIONS = {
 
   // Parametres
   PARAMETRES_UPDATED: "PARAMETRES_UPDATED",
+
+  // Taxes
+  TAXE_CREATED: "TAXE_CREATED",
+  TAXE_UPDATED: "TAXE_UPDATED",
+  TAXE_DELETED: "TAXE_DELETED",
 } as const;
 
 export type ActionCode = (typeof ACTIONS)[keyof typeof ACTIONS];

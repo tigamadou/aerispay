@@ -61,6 +61,11 @@ export default async function DashboardLayout({ children }: { children: ReactNod
                 </Link>
               )}
               {canManageParametres && (
+                <Link href="/taxes" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
+                  Taxes
+                </Link>
+              )}
+              {canManageParametres && (
                 <Link href="/parametres" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
                   Parametres
                 </Link>

@@ -209,7 +209,24 @@ model Parametres {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
+  taxes Taxe[]
+
   @@map("parametres")
+}
+
+model Taxe {
+  id        String   @id @default(cuid())
+  nom       String
+  taux      Decimal  @db.Decimal(5, 2)
+  active    Boolean  @default(true)
+  ordre     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parametresId String @default("default")
+  parametres   Parametres @relation(fields: [parametresId], references: [id])
+
+  @@map("taxes")
 }
 
 // ─── JOURNAL D'ACTIVITÉ ─────────────────────────────
