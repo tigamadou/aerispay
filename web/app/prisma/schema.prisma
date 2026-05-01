@@ -223,6 +223,22 @@ model SeuilCaisse {
   @@map("seuils_caisse")
 }
 
+// ─── MODULE CAISSE — ÉVÉNEMENTS MÉTIER ──────────────
+
+model EventCaisse {
+  id          String   @id @default(cuid())
+  type        String   // EVT-SESSION-OPENED, EVT-CASH-MOVEMENT-CREATED, etc.
+  sessionId   String?
+  payload     Json
+  consumed    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([type])
+  @@index([sessionId])
+  @@index([consumed, createdAt])
+  @@map("events_caisse")
+}
+
 model Vente {
   id            String      @id @default(cuid())
   numero        String      @unique

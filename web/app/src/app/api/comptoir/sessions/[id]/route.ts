@@ -77,8 +77,10 @@ export async function PUT(
       return Response.json({ error: "Session introuvable" }, { status: 404 });
     }
 
-    if (session.statut === "FERMEE") {
-      return Response.json({ error: "Cette session est déjà fermée" }, { status: 422 });
+    // Legacy PUT only works on OUVERTE sessions. For the new multi-step closure flow,
+    // use POST /api/comptoir/sessions/[id]/closure instead.
+    if (session.statut !== "OUVERTE") {
+      return Response.json({ error: "Cette session n'est pas ouverte (utilisez le flux de clôture multi-étapes)" }, { status: 422 });
     }
 
     // CAISSIER can only close their own session
