@@ -87,6 +87,7 @@ export function ActivityLogTable({ logs, total, page, pageSize, showIp }: Activi
               <th className="px-4 py-3 font-medium">Entité</th>
               <th className="px-4 py-3 font-medium">Résumé</th>
               {showIp && <th className="px-4 py-3 font-medium">IP</th>}
+              <th className="px-4 py-3 font-medium sr-only">Detail</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -127,12 +128,20 @@ export function ActivityLogTable({ logs, total, page, pageSize, showIp }: Activi
                       {log.ipAddress ?? "-"}
                     </td>
                   )}
+                  <td className="px-4 py-3">
+                    <Link
+                      href={`/activity-logs/${log.id}`}
+                      className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 text-xs font-medium"
+                    >
+                      Detail
+                    </Link>
+                  </td>
                 </tr>
               );
             })}
             {logs.length === 0 && (
               <tr>
-                <td colSpan={showIp ? 6 : 5} className="px-4 py-8 text-center text-zinc-400">
+                <td colSpan={showIp ? 7 : 6} className="px-4 py-8 text-center text-zinc-400">
                   Aucune activité trouvée.
                 </td>
               </tr>

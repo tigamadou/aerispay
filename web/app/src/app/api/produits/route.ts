@@ -175,7 +175,15 @@ export async function POST(req: Request) {
       actorId: result.user.id,
       entityType: "Product",
       entityId: produit.id,
-      metadata: { nom: produit.nom, reference: produit.reference },
+      metadata: {
+        nom: produit.nom,
+        reference: produit.reference,
+        prixAchat: Number(produit.prixAchat),
+        prixVente: Number(produit.prixVente),
+        tva: Number(produit.tva),
+        stockActuel: produit.stockActuel,
+        categorieNom: produit.categorie.nom,
+      },
       ipAddress: getClientIp(req),
       userAgent: getClientUserAgent(req),
     });

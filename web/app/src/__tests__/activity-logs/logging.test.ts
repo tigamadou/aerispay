@@ -146,6 +146,8 @@ describe("Sale activity logging", () => {
     mockSession("ADMIN");
     const mockVente = {
       id: "v-1", numero: "VTE-2026-00001", statut: "VALIDEE", total: new Decimal(5000),
+      sousTotal: new Decimal(5000), remise: new Decimal(0), tva: new Decimal(0),
+      dateVente: new Date("2026-04-23T14:00:00Z"), sessionId: "s-1",
       lignes: [{ id: "l1", produitId: "p1", quantite: 2, produit: { id: "p1", nom: "X", stockActuel: 10 } }],
     };
     (prisma.vente.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockVente);
@@ -176,6 +178,7 @@ describe("Cash session activity logging", () => {
     (prisma.caisseSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (prisma.caisseSession.create as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: "s-1", montantOuverture: new Decimal(50000), userId: "user-1",
+      ouvertureAt: new Date("2026-04-23T08:00:00Z"),
       user: { id: "user-1", nom: "Test", email: "test@test.com" },
     });
 

@@ -5,6 +5,7 @@ import { hasPermission } from "@/lib/permissions";
 import { formatMontant } from "@/lib/utils";
 import Link from "next/link";
 import type { Role } from "@prisma/client";
+import { CaissierDashboard } from "@/components/dashboard/CaissierDashboard";
 
 export const dynamic = "force-dynamic";
 
@@ -18,25 +19,7 @@ export default async function DashboardPage() {
   const canViewKpis = hasPermission(role, "rapports:consulter");
 
   if (!canViewKpis) {
-    // CAISSIER: simple welcome + link to caisse
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
-            Bienvenue, {session.user.name ?? session.user.email}
-          </h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-          </p>
-        </div>
-        <Link
-          href="/caisse"
-          className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-base font-semibold text-white hover:bg-indigo-700"
-        >
-          Ouvrir la caisse
-        </Link>
-      </div>
-    );
+    return <CaissierDashboard userName={session.user.name ?? session.user.email ?? "Caissier"} />;
   }
 
   // ADMIN / MANAGER: full KPIs

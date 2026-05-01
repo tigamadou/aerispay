@@ -116,7 +116,12 @@ export async function PUT(
       actorId: result.user.id,
       entityType: "Product",
       entityId: id,
-      metadata: updateData,
+      metadata: {
+        nom: updated.nom,
+        reference: updated.reference,
+        changes: Object.keys(updateData),
+        ...updateData,
+      },
       ipAddress: getClientIp(req),
       userAgent: getClientUserAgent(req),
     });
@@ -153,7 +158,12 @@ export async function DELETE(
       actorId: result.user.id,
       entityType: "Product",
       entityId: id,
-      metadata: { nom: existing.nom, reference: existing.reference },
+      metadata: {
+        nom: existing.nom,
+        reference: existing.reference,
+        prixVente: Number(existing.prixVente),
+        stockActuel: existing.stockActuel,
+      },
       ipAddress: getClientIp(_req),
       userAgent: getClientUserAgent(_req),
     });

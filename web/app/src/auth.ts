@@ -55,6 +55,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           actorId: user.id,
           entityType: "User",
           entityId: user.id,
+          metadata: { email: user.email, nom: user.nom, role: user.role },
         });
 
         return {

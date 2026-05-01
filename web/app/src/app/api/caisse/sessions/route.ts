@@ -58,7 +58,10 @@ export async function POST(req: Request) {
       actorId: result.user.id,
       entityType: "CashSession",
       entityId: session.id,
-      metadata: { montantOuverture: Number(session.montantOuverture) },
+      metadata: {
+        montantOuverture: Number(session.montantOuverture),
+        ouvertureAt: session.ouvertureAt.toISOString(),
+      },
       ipAddress: getClientIp(req),
       userAgent: getClientUserAgent(req),
     });

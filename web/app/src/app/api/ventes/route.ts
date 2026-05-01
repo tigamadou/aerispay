@@ -186,7 +186,7 @@ export async function POST(req: Request) {
           },
         },
         include: {
-          lignes: true,
+          lignes: { include: { produit: { select: { nom: true } } } },
           paiements: true,
           caissier: { select: { id: true, nom: true } },
         },
@@ -223,7 +223,23 @@ export async function POST(req: Request) {
       actorId: result.user.id,
       entityType: "Sale",
       entityId: vente.id,
-      metadata: { numero: vente.numero, total: Number(vente.total), lignes: vente.lignes.length },
+      metadata: {
+        numero: vente.numero,
+        total: Number(vente.total),
+        sousTotal: Number(vente.sousTotal),
+        remise: Number(vente.remise),
+        tva: Number(vente.tva),
+        sessionId: vente.sessionId,
+        paiements: vente.paiements.map((p) => ({ mode: p.mode, montant: Number(p.montant) })),
+        nbArticles: vente.lignes.reduce((sum, l) => sum + l.quantite, 0),
+        lignes: vente.lignes.map((l) => ({
+          produitId: l.produitId,
+          produitNom: l.produit.nom,
+          quantite: l.quantite,
+          prixUnitaire: Number(l.prixUnitaire),
+          sousTotal: Number(l.sousTotal),
+        })),
+      },
       ipAddress: getClientIp(req),
       userAgent: getClientUserAgent(req),
     });

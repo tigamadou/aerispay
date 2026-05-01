@@ -48,7 +48,12 @@ export async function GET(
       actorId: result.user.id,
       entityType: "Sale",
       entityId: id,
-      metadata: { numero: vente.numero },
+      metadata: {
+        numero: vente.numero,
+        total: Number(vente.total),
+        dateVente: vente.dateVente.toISOString(),
+        caissierNom: vente.caissier.nom,
+      },
       ipAddress: getClientIp(req),
       userAgent: getClientUserAgent(req),
     });

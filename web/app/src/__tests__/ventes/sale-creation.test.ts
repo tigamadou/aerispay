@@ -78,7 +78,8 @@ describe("POST /api/ventes (sale creation)", () => {
     const newVente = {
       id: "v-new", numero: "VTE-2026-00001", total: new Decimal(2000),
       sousTotal: new Decimal(2000), remise: new Decimal(0), tva: new Decimal(0),
-      lignes: [{ id: "l1", produitId: "p-1", quantite: 2 }],
+      sessionId: "s-1",
+      lignes: [{ id: "l1", produitId: "p-1", quantite: 2, prixUnitaire: new Decimal(1000), sousTotal: new Decimal(2000), produit: { id: "p-1", nom: "Riz" } }],
       paiements: [{ mode: "ESPECES", montant: new Decimal(2000) }],
       caissier: { id: "user-1", nom: "T" },
     };

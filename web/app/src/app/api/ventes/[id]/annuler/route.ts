@@ -70,7 +70,16 @@ export async function POST(
       actorId: result.user.id,
       entityType: "Sale",
       entityId: id,
-      metadata: { numero: vente.numero, total: Number(vente.total) },
+      metadata: {
+        numero: vente.numero,
+        total: Number(vente.total),
+        sousTotal: Number(vente.sousTotal),
+        remise: Number(vente.remise),
+        tva: Number(vente.tva),
+        nbArticlesRestaures: vente.lignes.reduce((sum, l) => sum + l.quantite, 0),
+        sessionId: vente.sessionId,
+        dateVente: vente.dateVente.toISOString(),
+      },
       ipAddress: getClientIp(_req),
       userAgent: getClientUserAgent(_req),
     });

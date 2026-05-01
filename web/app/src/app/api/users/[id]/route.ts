@@ -81,7 +81,7 @@ export async function PUT(
       actorId: result.user.id,
       entityType: "User",
       entityId: id,
-      metadata: { nom: updated.nom, changes: Object.keys(updateData) },
+      metadata: { nom: updated.nom, email: updated.email, role: updated.role, changes: Object.keys(updateData) },
       ipAddress: getClientIp(req),
       userAgent: getClientUserAgent(req),
     });
