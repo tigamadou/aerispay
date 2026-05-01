@@ -11,15 +11,16 @@ export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const session = await auth();
-  if (!session?.user) {
+  const user = session?.user;
+  if (!user) {
     redirect("/login");
   }
 
-  const role = session.user.role as Role;
+  const role = user.role as Role;
   const canViewKpis = hasPermission(role, "rapports:consulter");
 
   if (!canViewKpis) {
-    return <CaissierDashboard userName={session.user.name ?? session.user.email ?? "Caissier"} />;
+    return <CaissierDashboard userName={user.name ?? user.email ?? "Caissier"} />;
   }
 
   // ADMIN / MANAGER: full KPIs

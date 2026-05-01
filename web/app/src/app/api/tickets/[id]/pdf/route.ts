@@ -41,7 +41,26 @@ export async function GET(
       logo: parametres?.logo ?? null,
     };
 
-    const pdfBuffer = await generateReceiptPDF({ sale: vente, business });
+    const sale = {
+      ...vente,
+      sousTotal: Number(vente.sousTotal),
+      remise: Number(vente.remise),
+      tva: Number(vente.tva),
+      total: Number(vente.total),
+      lignes: vente.lignes.map((l) => ({
+        ...l,
+        prixUnitaire: Number(l.prixUnitaire),
+        sousTotal: Number(l.sousTotal),
+        remise: Number(l.remise),
+        tva: Number(l.tva),
+      })),
+      paiements: vente.paiements.map((p) => ({
+        ...p,
+        montant: Number(p.montant),
+      })),
+    };
+
+    const pdfBuffer = await generateReceiptPDF({ sale, business });
 
     await logActivity({
       action: ACTIONS.TICKET_PDF_DOWNLOADED,
@@ -58,7 +77,7 @@ export async function GET(
       userAgent: getClientUserAgent(req),
     });
 
-    return new Response(pdfBuffer, {
+    return new Response(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",

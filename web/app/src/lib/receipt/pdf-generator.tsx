@@ -1,6 +1,11 @@
 import React from "react";
 import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
 
+/** React-PDF's StyleSheet.create widens keys to possibly undefined; keep caller's keys definite. */
+function definePdfStyles<const T extends Record<string, Record<string, unknown>>>(styles: T): T {
+  return StyleSheet.create(styles as Parameters<typeof StyleSheet.create>[0]) as T;
+}
+
 // ─── Types ───────────────────────────────────────────
 
 interface SaleLine {
@@ -75,7 +80,7 @@ function formatDate(d: Date): string {
 
 // ─── Styles ──────────────────────────────────────────
 
-const s = StyleSheet.create({
+const s = definePdfStyles({
   page: {
     fontFamily: "Courier",
     fontSize: 10,

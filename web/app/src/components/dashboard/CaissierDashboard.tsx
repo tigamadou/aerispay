@@ -69,7 +69,10 @@ export function CaissierDashboard({ userName }: CaissierDashboardProps) {
   }, [period, dateFrom, dateTo]);
 
   useEffect(() => {
-    fetchKpis();
+    const id = window.setTimeout(() => {
+      void fetchKpis();
+    }, 0);
+    return () => window.clearTimeout(id);
   }, [fetchKpis]);
 
   return (

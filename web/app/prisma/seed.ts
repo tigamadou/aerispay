@@ -1,7 +1,7 @@
-import { PrismaClient, Role } from "@prisma/client";
+import { Role } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/db";
+import { seedDefaultParametres } from "@/lib/seed/parametres";
 
 const ROUNDS = 12;
 
@@ -438,19 +438,7 @@ async function main() {
   console.log(`\nSeed OK — ${SEED_PRODUITS.length} produits crees/mis a jour`);
 
   // --- Parametres ---
-  await prisma.parametres.upsert({
-    where: { id: "default" },
-    create: {
-      id: "default",
-      nomCommerce: "Super Marche AerisPay",
-      adresse: "123 Avenue Cheikh Anta Diop, Dakar",
-      telephone: "+221 77 000 00 00",
-      email: "contact@aerispay.com",
-      rccm: "SN-DKR-2024-B-12345",
-      nif: "1234567890",
-    },
-    update: {},
-  });
+  await seedDefaultParametres(prisma);
 
   console.log(`\nSeed OK — Parametres de la structure crees`);
 }

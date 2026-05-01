@@ -211,9 +211,9 @@ function SaleMetadata({ meta }: { meta: Record<string, unknown> }) {
   return (
     <div className="space-y-4">
       <div className="space-y-1">
-        {meta.numero && <Row label="N° vente" value={String(meta.numero)} mono />}
-        {meta.dateVente && <Row label="Date vente" value={formatDateTime(String(meta.dateVente))} />}
-        {meta.sessionId && <Row label="Session" value={String(meta.sessionId)} mono />}
+        {meta.numero ? <Row label="N° vente" value={String(meta.numero)} mono /> : null}
+        {meta.dateVente ? <Row label="Date vente" value={formatDateTime(String(meta.dateVente))} /> : null}
+        {meta.sessionId ? <Row label="Session" value={String(meta.sessionId)} mono /> : null}
       </div>
 
       {/* Totals */}
@@ -283,9 +283,9 @@ function SaleMetadata({ meta }: { meta: Record<string, unknown> }) {
 function StockMovementMetadata({ meta }: { meta: Record<string, unknown> }) {
   return (
     <div className="space-y-1">
-      {meta.produitNom && <Row label="Produit" value={String(meta.produitNom)} />}
-      {meta.produitId && <Row label="ID produit" value={String(meta.produitId)} mono />}
-      {meta.type && <Row label="Type" value={String(meta.type)} />}
+      {meta.produitNom ? <Row label="Produit" value={String(meta.produitNom)} /> : null}
+      {meta.produitId ? <Row label="ID produit" value={String(meta.produitId)} mono /> : null}
+      {meta.type ? <Row label="Type" value={String(meta.type)} /> : null}
       {meta.quantite != null && <Row label="Quantite" value={String(meta.quantite)} />}
       {meta.quantiteAvant != null && <Row label="Stock avant" value={String(meta.quantiteAvant)} />}
       {meta.quantiteApres != null && <Row label="Stock apres" value={String(meta.quantiteApres)} />}
@@ -297,8 +297,8 @@ function StockMovementMetadata({ meta }: { meta: Record<string, unknown> }) {
 function CashSessionMetadata({ meta }: { meta: Record<string, unknown> }) {
   return (
     <div className="space-y-1">
-      {meta.ouvertureAt && <Row label="Ouverture" value={formatDateTime(String(meta.ouvertureAt))} />}
-      {meta.fermetureAt && <Row label="Fermeture" value={formatDateTime(String(meta.fermetureAt))} />}
+      {meta.ouvertureAt ? <Row label="Ouverture" value={formatDateTime(String(meta.ouvertureAt))} /> : null}
+      {meta.fermetureAt ? <Row label="Fermeture" value={formatDateTime(String(meta.fermetureAt))} /> : null}
       {meta.montantOuverture != null && <Row label="Fond de caisse" value={formatMontant(Number(meta.montantOuverture))} />}
       {meta.montantFermeture != null && <Row label="Montant fermeture" value={formatMontant(Number(meta.montantFermeture))} />}
       {meta.soldeTheorique != null && <Row label="Solde theorique" value={formatMontant(Number(meta.soldeTheorique))} />}
