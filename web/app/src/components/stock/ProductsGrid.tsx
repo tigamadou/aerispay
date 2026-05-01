@@ -92,7 +92,7 @@ export function ProductsGrid({ produits, total, page, pageSize, canManage }: Pro
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
         {items.map((produit) => (
           <div
             key={produit.id}
