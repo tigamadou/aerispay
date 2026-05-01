@@ -9,6 +9,13 @@ export type Permission =
   | "stock:manage"
   | "comptoir:vendre"
   | "comptoir:gerer_session_autre"
+  | "comptoir:valider_session"
+  | "comptoir:force_close"
+  | "comptoir:session_corrective"
+  | "comptoir:verifier_integrite"
+  | "comptoir:mouvement_manuel"
+  | "comptoir:retrait_caisse"
+  | "comptoir:depense"
   | "ventes:annuler"
   | "activity_logs:consulter"
   | "rapports:consulter"
@@ -20,6 +27,13 @@ export const ROLE_PERMISSIONS: Record<Role, Set<Permission>> = {
     "stock:manage",
     "comptoir:vendre",
     "comptoir:gerer_session_autre",
+    "comptoir:valider_session",
+    "comptoir:force_close",
+    "comptoir:session_corrective",
+    "comptoir:verifier_integrite",
+    "comptoir:mouvement_manuel",
+    "comptoir:retrait_caisse",
+    "comptoir:depense",
     "ventes:annuler",
     "activity_logs:consulter",
     "rapports:consulter",
@@ -29,11 +43,19 @@ export const ROLE_PERMISSIONS: Record<Role, Set<Permission>> = {
     "stock:manage",
     "comptoir:vendre",
     "comptoir:gerer_session_autre",
+    "comptoir:valider_session",
+    "comptoir:verifier_integrite",
+    "comptoir:mouvement_manuel",
+    "comptoir:retrait_caisse",
+    "comptoir:depense",
     "ventes:annuler",
     "activity_logs:consulter",
     "rapports:consulter",
   ]),
-  CAISSIER: new Set(["comptoir:vendre"]),
+  CAISSIER: new Set([
+    "comptoir:vendre",
+    "comptoir:mouvement_manuel",
+  ]),
 };
 
 export function hasPermission(role: Role, permission: Permission): boolean {

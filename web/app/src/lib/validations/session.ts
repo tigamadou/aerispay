@@ -10,6 +10,8 @@ export const openSessionSchema = z.object({
     .default(0),
 });
 
+// Conservé pour rétrocompatibilité — la nouvelle clôture utilise
+// declarationCloturSchema dans mouvement-caisse.ts
 export const closeSessionSchema = z.object({
   montantFermetureCash: z
     .number()

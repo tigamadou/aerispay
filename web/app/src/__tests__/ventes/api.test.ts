@@ -45,6 +45,10 @@ vi.mock("@/lib/activity-log", () => ({
   getClientUserAgent: vi.fn(),
 }));
 
+vi.mock("@/lib/services/cash-movement", () => ({
+  createMovementInTx: vi.fn(),
+}));
+
 import { prisma } from "@/lib/db";
 import { auth } from "@/auth";
 

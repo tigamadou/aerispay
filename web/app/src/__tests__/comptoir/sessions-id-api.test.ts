@@ -7,6 +7,7 @@ vi.mock("@/lib/db", () => ({
     comptoirSession: { findUnique: vi.fn(), update: vi.fn() },
     paiement: { aggregate: vi.fn() },
     vente: { aggregate: vi.fn() },
+    mouvementCaisse: { findMany: vi.fn() },
   },
 }));
 
@@ -17,6 +18,11 @@ vi.mock("@/lib/activity-log", () => ({
   ACTIONS: { COMPTOIR_SESSION_CLOSED: "COMPTOIR_SESSION_CLOSED" },
   getClientIp: vi.fn(),
   getClientUserAgent: vi.fn(),
+}));
+
+vi.mock("@/lib/services/cash-movement", () => ({
+  computeSoldeTheoriqueLegacy: vi.fn().mockResolvedValue({ cash: 78000, mobileMoney: 0 }),
+  computeSoldeTheoriqueParMode: vi.fn().mockResolvedValue([{ mode: "ESPECES", solde: 78000 }]),
 }));
 
 import { prisma } from "@/lib/db";
@@ -39,11 +45,7 @@ const mockOpenSession = {
   ventes: [],
 };
 
-function mockAggregates() {
-  (prisma.paiement.aggregate as ReturnType<typeof vi.fn>)
-    .mockResolvedValueOnce({ _sum: { montant: new Decimal(30000) } })  // espèces
-    .mockResolvedValueOnce({ _sum: { montant: new Decimal(0) } })     // mobile money
-    .mockResolvedValueOnce({ _sum: { montant: new Decimal(30000) } }); // all payments
+function mockVenteAggregateForClose() {
   (prisma.vente.aggregate as ReturnType<typeof vi.fn>)
     .mockResolvedValue({ _sum: { total: new Decimal(28000) }, _count: { id: 2 } });
 }
@@ -72,12 +74,13 @@ describe("GET /api/comptoir/sessions/[id]", () => {
   it("returns open session with computed soldeTheoriqueCash", async () => {
     mockSession("CAISSIER");
     (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
-    mockAggregates();
 
     const res = await GET(new Request("http://localhost"), { params: Promise.resolve({ id: "s-1" }) });
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.data.soldeTheoriqueCash).toBeTypeOf("number");
+    // solde comes from mocked computeSoldeTheoriqueLegacy returning { cash: 78000, mobileMoney: 0 }
+    expect(body.data.soldeTheoriqueCash).toBe(78000);
+    expect(body.data.soldesParMode).toBeDefined();
   });
 
   it("returns closed session with stored soldeTheoriqueCash", async () => {
@@ -153,7 +156,7 @@ describe("PUT /api/comptoir/sessions/[id] (close)", () => {
   it("closes session and computes ecart", async () => {
     mockSession("CAISSIER", "user-1");
     (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
-    mockAggregates();
+    mockVenteAggregateForClose();
     (prisma.comptoirSession.update as ReturnType<typeof vi.fn>).mockResolvedValue({
       ...mockOpenSession, statut: "FERMEE",
       montantFermetureCash: new Decimal(76000), montantFermetureMobileMoney: new Decimal(0),
@@ -173,7 +176,7 @@ describe("PUT /api/comptoir/sessions/[id] (close)", () => {
   it("ADMIN can close another user's session", async () => {
     mockSession("ADMIN", "admin-1");
     (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
-    mockAggregates();
+    mockVenteAggregateForClose();
     (prisma.comptoirSession.update as ReturnType<typeof vi.fn>).mockResolvedValue({
       ...mockOpenSession, statut: "FERMEE",
       montantFermetureCash: new Decimal(50000), montantFermetureMobileMoney: new Decimal(0),

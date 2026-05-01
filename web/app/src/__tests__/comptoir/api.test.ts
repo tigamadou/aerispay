@@ -32,8 +32,18 @@ vi.mock("@/lib/db", () => ({
     mouvementStock: {
       create: vi.fn(),
     },
+    mouvementCaisse: {
+      create: vi.fn(),
+      findMany: vi.fn(),
+    },
     $transaction: vi.fn(),
   },
+}));
+
+vi.mock("@/lib/services/cash-movement", () => ({
+  createMovementInTx: vi.fn(),
+  computeSoldeTheoriqueLegacy: vi.fn().mockResolvedValue({ cash: 0, mobileMoney: 0 }),
+  computeSoldeTheoriqueParMode: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock("@/auth", () => ({
@@ -133,6 +143,10 @@ describe("POST /api/comptoir/sessions", () => {
   it("creates session with montantOuvertureCash for CAISSIER", async () => {
     mockSession("CAISSIER");
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    // $transaction executes the callback with prisma as tx
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+      async (cb: (tx: typeof prisma) => Promise<unknown>) => cb(prisma)
+    );
     (prisma.comptoirSession.create as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
 
     const res = await POST(
@@ -229,10 +243,7 @@ describe("PUT /api/comptoir/sessions/[id]", () => {
     const mod = await import("@/app/api/comptoir/sessions/[id]/route");
     PUT = mod.PUT;
 
-    // Default mocks for solde théorique computation
-    (prisma.paiement.aggregate as ReturnType<typeof vi.fn>).mockResolvedValue({
-      _sum: { montant: null },
-    });
+    // Default mocks for vente aggregate (used after close for log metadata)
     (prisma.vente.aggregate as ReturnType<typeof vi.fn>).mockResolvedValue({
       _sum: { total: null },
       _count: { id: 0 },
@@ -371,7 +382,7 @@ describe("Comptoir error handling", () => {
   it("POST /api/comptoir/sessions returns 500 on DB error", async () => {
     mockSession("CAISSIER");
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-    (prisma.comptoirSession.create as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
     const { POST } = await import("@/app/api/comptoir/sessions/route");
     const res = await POST(new Request("http://localhost/api/comptoir/sessions", {
       method: "POST", headers: { "Content-Type": "application/json" },

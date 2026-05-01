@@ -56,6 +56,12 @@ vi.mock("@/lib/receipt/thermal-printer", () => ({
   openCashDrawer: vi.fn().mockResolvedValue({ success: true, message: "OK" }),
 }));
 
+vi.mock("@/lib/services/cash-movement", () => ({
+  createMovementInTx: vi.fn(),
+  computeSoldeTheoriqueLegacy: vi.fn().mockResolvedValue({ cash: 0, mobileMoney: 0 }),
+  computeSoldeTheoriqueParMode: vi.fn().mockResolvedValue([]),
+}));
+
 import { prisma } from "@/lib/db";
 import { auth } from "@/auth";
 
@@ -176,11 +182,15 @@ describe("Cash session activity logging", () => {
   it("logs COMPTOIR_SESSION_OPENED on POST /api/comptoir/sessions", async () => {
     mockSession("CAISSIER");
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-    (prisma.comptoirSession.create as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: "s-1", montantOuvertureCash: new Decimal(50000), userId: "user-1",
+    const mockCreatedSession = {
+      id: "s-1", montantOuvertureCash: new Decimal(50000), montantOuvertureMobileMoney: new Decimal(0), userId: "user-1",
       ouvertureAt: new Date("2026-04-23T08:00:00Z"),
       user: { id: "user-1", nom: "Test", email: "test@test.com" },
-    });
+    };
+    (prisma.comptoirSession.create as ReturnType<typeof vi.fn>).mockResolvedValue(mockCreatedSession);
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+      async (cb: (tx: typeof prisma) => Promise<unknown>) => cb(prisma)
+    );
 
     const { POST } = await import("@/app/api/comptoir/sessions/route");
     const res = await POST(jsonReq("http://localhost/api/comptoir/sessions", "POST", { montantOuvertureCash: 50000 }));

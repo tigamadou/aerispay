@@ -1,64 +1,11 @@
 import { prisma } from "@/lib/db";
-import { requireAuth } from "@/lib/permissions";
-import { hasRole } from "@/lib/permissions";
+import { requireAuth, hasRole } from "@/lib/permissions";
 import { closeSessionSchema } from "@/lib/validations/session";
 import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
-
-interface SoldeTheorique {
-  cash: number;
-  mobileMoney: number;
-}
-
-async function computeSoldeTheorique(
-  sessionId: string,
-  montantOuvertureCash: number,
-  montantOuvertureMobileMoney: number
-): Promise<SoldeTheorique> {
-  // Espèces encaissées
-  const especesAgg = await prisma.paiement.aggregate({
-    where: {
-      mode: "ESPECES",
-      vente: { sessionId, statut: "VALIDEE" },
-    },
-    _sum: { montant: true },
-  });
-
-  // Mobile Money encaissé
-  const mobileMoneyAgg = await prisma.paiement.aggregate({
-    where: {
-      mode: "MOBILE_MONEY",
-      vente: { sessionId, statut: "VALIDEE" },
-    },
-    _sum: { montant: true },
-  });
-
-  // Total des ventes validées
-  const ventesAgg = await prisma.vente.aggregate({
-    where: { sessionId, statut: "VALIDEE" },
-    _sum: { total: true },
-  });
-
-  // Total de TOUS les paiements des ventes validées
-  const totalPaiementsAgg = await prisma.paiement.aggregate({
-    where: {
-      vente: { sessionId, statut: "VALIDEE" },
-    },
-    _sum: { montant: true },
-  });
-
-  const especesRecues = Number(especesAgg._sum.montant ?? 0);
-  const mobileMoneyRecu = Number(mobileMoneyAgg._sum.montant ?? 0);
-  const totalVentes = Number(ventesAgg._sum.total ?? 0);
-  const totalPaiements = Number(totalPaiementsAgg._sum.montant ?? 0);
-
-  // Monnaie rendue = excédent payé (uniquement en espèces)
-  const monnaieRendue = totalPaiements - totalVentes;
-
-  return {
-    cash: montantOuvertureCash + especesRecues - monnaieRendue,
-    mobileMoney: montantOuvertureMobileMoney + mobileMoneyRecu,
-  };
-}
+import {
+  computeSoldeTheoriqueLegacy,
+  computeSoldeTheoriqueParMode,
+} from "@/lib/services/cash-movement";
 
 export async function GET(
   _req: Request,
@@ -84,16 +31,16 @@ export async function GET(
       return Response.json({ error: "Session introuvable" }, { status: 404 });
     }
 
+    // Compute theoretical balance from cash movements
+    const soldesParMode = await computeSoldeTheoriqueParMode(id);
+
     let soldeTheoriqueCash: number | null = null;
     let soldeTheoriqueMobileMoney: number | null = null;
-    if (session.statut === "OUVERTE") {
-      const solde = await computeSoldeTheorique(
-        id,
-        Number(session.montantOuvertureCash),
-        Number(session.montantOuvertureMobileMoney)
-      );
-      soldeTheoriqueCash = solde.cash;
-      soldeTheoriqueMobileMoney = solde.mobileMoney;
+
+    if (session.statut === "OUVERTE" || session.statut === "EN_ATTENTE_CLOTURE" || session.statut === "EN_ATTENTE_VALIDATION") {
+      const legacy = await computeSoldeTheoriqueLegacy(id);
+      soldeTheoriqueCash = legacy.cash;
+      soldeTheoriqueMobileMoney = legacy.mobileMoney;
     } else {
       soldeTheoriqueCash = session.soldeTheoriqueCash ? Number(session.soldeTheoriqueCash) : null;
       soldeTheoriqueMobileMoney = session.soldeTheoriqueMobileMoney ? Number(session.soldeTheoriqueMobileMoney) : null;
@@ -104,6 +51,7 @@ export async function GET(
         ...session,
         soldeTheoriqueCash,
         soldeTheoriqueMobileMoney,
+        soldesParMode,
         ecartCash: session.ecartCash ? Number(session.ecartCash) : null,
         ecartMobileMoney: session.ecartMobileMoney ? Number(session.ecartMobileMoney) : null,
       },
@@ -150,11 +98,7 @@ export async function PUT(
       );
     }
 
-    const solde = await computeSoldeTheorique(
-      id,
-      Number(session.montantOuvertureCash),
-      Number(session.montantOuvertureMobileMoney)
-    );
+    const solde = await computeSoldeTheoriqueLegacy(id);
     const ecartCash = parsed.data.montantFermetureCash - solde.cash;
     const ecartMobileMoney = parsed.data.montantFermetureMobileMoney - solde.mobileMoney;
 

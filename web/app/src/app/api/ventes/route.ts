@@ -3,6 +3,7 @@ import { requireAuth, hasRole } from "@/lib/permissions";
 import { createVenteSchema } from "@/lib/validations/vente";
 import { Prisma } from "@prisma/client";
 import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
+import { createMovementInTx } from "@/lib/services/cash-movement";
 
 function genererNumeroVente(sequence: number): string {
   return `VTE-${new Date().getFullYear()}-${String(sequence).padStart(5, "0")}`;
@@ -200,7 +201,7 @@ export async function POST(req: Request) {
         },
       });
 
-      // Decrement stock + create movements
+      // Decrement stock + create stock movements
       for (let i = 0; i < lignes.length; i++) {
         const l = lignes[i];
         const p = produits[i];
@@ -221,6 +222,28 @@ export async function POST(req: Request) {
             venteId: newVente.id,
           },
         });
+      }
+
+      // RULE-MVT-002 + RULE-MVT-005 : mouvement VENTE par paiement
+      // Le montant enregistré = part de la vente couverte par ce paiement (pas le montant reçu)
+      const totalNum = Number(total);
+      let remainingTotal = totalNum;
+      for (const createdPaiement of newVente.paiements) {
+        // Each payment covers at most the remaining total of the sale
+        const paiementMontant = Math.min(Number(createdPaiement.montant), remainingTotal);
+        if (paiementMontant > 0) {
+          await createMovementInTx(tx, {
+            type: "VENTE",
+            mode: createdPaiement.mode,
+            montant: paiementMontant,
+            sessionId,
+            auteurId: result.user.id,
+            venteId: newVente.id,
+            motif: `Vente ${numero}`,
+            reference: createdPaiement.reference ?? undefined,
+          });
+          remainingTotal -= paiementMontant;
+        }
       }
 
       return newVente;

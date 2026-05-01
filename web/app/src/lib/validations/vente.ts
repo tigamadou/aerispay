@@ -9,7 +9,7 @@ const ligneVenteSchema = z.object({
 });
 
 const paiementSchema = z.object({
-  mode: z.enum(["ESPECES", "MOBILE_MONEY"], {
+  mode: z.enum(["ESPECES", "MOBILE_MONEY", "MOBILE_MONEY_MTN", "MOBILE_MONEY_MOOV", "CARTE_BANCAIRE"], {
     errorMap: () => ({ message: "Mode de paiement invalide" }),
   }),
   montant: z.number().positive("Le montant doit être > 0"),
