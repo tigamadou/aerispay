@@ -69,11 +69,12 @@ export default async function TicketPage({ params }: TicketPageProps) {
   const total = Number(vente.total);
   const statut = statutLabel[vente.statut] ?? { text: vente.statut, className: "" };
 
-  const commerceNom = process.env.NEXT_PUBLIC_COMMERCE_NOM ?? "AerisPay";
-  const commerceAdresse = process.env.NEXT_PUBLIC_COMMERCE_ADRESSE ?? "";
-  const commerceTel = process.env.NEXT_PUBLIC_COMMERCE_TEL ?? "";
-  const commerceRccm = process.env.NEXT_PUBLIC_COMMERCE_RCCM ?? "";
-  const commerceNif = process.env.NEXT_PUBLIC_COMMERCE_NIF ?? "";
+  const parametres = await prisma.parametres.findUnique({ where: { id: "default" } });
+  const commerceNom = parametres?.nomCommerce || "AerisPay";
+  const commerceAdresse = parametres?.adresse ?? "";
+  const commerceTel = parametres?.telephone ?? "";
+  const commerceRccm = parametres?.rccm ?? "";
+  const commerceNif = parametres?.nif ?? "";
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">

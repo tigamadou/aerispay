@@ -21,6 +21,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   const role = session.user.role as Role;
   const canManageUsers = hasPermission(role, "users:manage");
   const canViewLogs = hasPermission(role, "activity_logs:consulter");
+  const canManageParametres = hasPermission(role, "parametres:manage");
 
   // Check if user has an open cash session (for sign-out flow)
   const openSession = await prisma.caisseSession.findFirst({
@@ -54,6 +55,11 @@ export default async function DashboardLayout({ children }: { children: ReactNod
               {canViewLogs && (
                 <Link href="/activity-logs" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
                   Journal
+                </Link>
+              )}
+              {canManageParametres && (
+                <Link href="/parametres" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
+                  Parametres
                 </Link>
               )}
             </nav>

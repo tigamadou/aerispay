@@ -195,6 +195,22 @@ enum ModePaiement {
   AUTRE
 }
 
+// ─── PARAMÈTRES STRUCTURE ────────────────────────────
+
+model Parametres {
+  id        String   @id @default("default")
+  nomCommerce       String  @default("")
+  adresse           String  @default("")
+  telephone         String  @default("")
+  email             String  @default("")
+  rccm              String  @default("")
+  nif               String  @default("")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("parametres")
+}
+
 // ─── JOURNAL D'ACTIVITÉ ─────────────────────────────
 
 model ActivityLog {
