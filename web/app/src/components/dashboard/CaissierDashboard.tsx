@@ -84,12 +84,20 @@ export function CaissierDashboard({ userName }: CaissierDashboardProps) {
             {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
           </p>
         </div>
-        <Link
-          href="/caisse"
-          className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 shrink-0"
-        >
-          Ouvrir la caisse
-        </Link>
+        <div className="flex items-center gap-2 shrink-0">
+          <Link
+            href="/caisse/sessions"
+            className="inline-flex items-center gap-2 rounded-xl border border-zinc-300 bg-white px-5 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            Mes sessions
+          </Link>
+          <Link
+            href="/caisse"
+            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
+          >
+            Ouvrir la caisse
+          </Link>
+        </div>
       </div>
 
       {/* Period selector */}
@@ -180,21 +188,26 @@ export function CaissierDashboard({ userName }: CaissierDashboardProps) {
             />
           </div>
 
-          {/* Session info */}
+          {/* Session info with chrono */}
           {data.openSession && (
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-900/10">
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-                  Session de caisse ouverte
-                </span>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                      Session de caisse ouverte
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">
+                    Depuis {new Date(data.openSession.ouvertureAt).toLocaleString("fr-FR", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })} — Fond de caisse: {formatMontant(data.openSession.montantOuverture)}
+                  </p>
+                </div>
+                <SessionChrono startedAt={data.openSession.ouvertureAt} />
               </div>
-              <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">
-                Depuis {new Date(data.openSession.ouvertureAt).toLocaleString("fr-FR", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })} — Fond de caisse: {formatMontant(data.openSession.montantOuverture)}
-              </p>
             </div>
           )}
 
@@ -234,6 +247,38 @@ function KpiCard({ label, value, sub }: { label: string; value: string; sub?: st
       <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{label}</p>
       <p className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-100">{value}</p>
       {sub && <p className="mt-0.5 text-xs text-zinc-400">{sub}</p>}
+    </div>
+  );
+}
+
+function SessionChrono({ startedAt }: { startedAt: string }) {
+  const [elapsed, setElapsed] = useState("");
+
+  useEffect(() => {
+    const start = new Date(startedAt).getTime();
+
+    function update() {
+      const diff = Math.max(0, Date.now() - start);
+      const totalSeconds = Math.floor(diff / 1000);
+      const h = Math.floor(totalSeconds / 3600);
+      const m = Math.floor((totalSeconds % 3600) / 60);
+      const s = totalSeconds % 60;
+      setElapsed(
+        `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+      );
+    }
+
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [startedAt]);
+
+  return (
+    <div className="text-right">
+      <p className="font-mono text-2xl font-bold text-emerald-700 dark:text-emerald-300">
+        {elapsed}
+      </p>
+      <p className="text-xs text-emerald-500 dark:text-emerald-400">Durée session</p>
     </div>
   );
 }

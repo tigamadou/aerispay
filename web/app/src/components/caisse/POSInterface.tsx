@@ -11,6 +11,7 @@ interface POSInterfaceProps {
   produits: ProduitPOS[];
   categories: CategoriePOS[];
   sessionId: string;
+  readOnly?: boolean;
 }
 
 type ModePaiement = "ESPECES" | "CARTE_BANCAIRE" | "MOBILE_MONEY";
@@ -29,7 +30,7 @@ function formatMontant(amount: number): string {
 
 // ─── POSInterface ────────────────────────────────────
 
-export function POSInterface({ produits, categories, sessionId }: POSInterfaceProps) {
+export function POSInterface({ produits, categories, sessionId, readOnly = false }: POSInterfaceProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategorie, setSelectedCategorie] = useState<string | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -124,11 +125,11 @@ export function POSInterface({ produits, categories, sessionId }: POSInterfacePr
 
   const handleProductClick = useCallback(
     (product: ProduitPOS) => {
-      if (!product.actif || product.stockActuel <= 0) return;
+      if (readOnly || !product.actif || product.stockActuel <= 0) return;
       addItem({ id: product.id, nom: product.nom, prixVente: product.prixVente, tva: product.tva });
       setSearchMessage(null);
     },
-    [addItem]
+    [readOnly, addItem]
   );
 
   const currentTotal = total();
@@ -137,313 +138,322 @@ export function POSInterface({ produits, categories, sessionId }: POSInterfacePr
   const currentTva = montantTva();
 
   return (
-    <div className="flex flex-1 flex-col min-h-0 gap-4 lg:flex-row">
-      {/* LEFT: Search + Product Grid */}
-      <div className="flex flex-1 flex-col min-h-0 min-w-0">
-        {/* Search Bar (fixed) */}
-        <div className="shrink-0 mb-4">
-          <div className="relative">
-            <svg
-              className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.5}
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
-              />
-            </svg>
-            <input
-              ref={searchInputRef}
-              data-testid="pos-search"
-              type="text"
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setSearchMessage(null);
-              }}
-              onKeyDown={handleSearchKeyDown}
-              placeholder="Rechercher un produit (nom, ref, code-barres)..."
-              className="w-full rounded-lg border border-zinc-200 bg-white py-2.5 pl-10 pr-4 text-sm text-zinc-900 placeholder-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder-zinc-500"
-              autoComplete="off"
-            />
-          </div>
-          {searchMessage && (
-            <p className="mt-1.5 text-sm text-red-600 dark:text-red-400">{searchMessage}</p>
-          )}
+    <>
+      {readOnly && (
+        <div className="shrink-0 w-full rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-center text-sm font-medium text-amber-700 dark:border-amber-800 dark:bg-amber-900/10 dark:text-amber-400">
+          Mode consultation — seuls les caissiers peuvent vendre
         </div>
-
-        {/* Category Tabs (fixed) */}
-        <div className="shrink-0 mb-4 flex gap-2 overflow-x-auto pb-1">
-          <button
-            onClick={() => setSelectedCategorie(null)}
-            className={cn(
-              "shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
-              selectedCategorie === null
-                ? "bg-indigo-600 text-white"
-                : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+      )}
+      <div className="flex flex-1 flex-col min-h-0 gap-4 lg:flex-row">
+        {/* LEFT: Search + Product Grid */}
+        <div className="flex flex-1 flex-col min-h-0 min-w-0">
+          {/* Search Bar (fixed) */}
+          <div className="shrink-0 mb-4">
+            <div className="relative">
+              <svg
+                className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+                />
+              </svg>
+              <input
+                ref={searchInputRef}
+                data-testid="pos-search"
+                type="text"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setSearchMessage(null);
+                }}
+                onKeyDown={handleSearchKeyDown}
+                placeholder="Rechercher un produit (nom, ref, code-barres)..."
+                className="w-full rounded-lg border border-zinc-200 bg-white py-2.5 pl-10 pr-4 text-sm text-zinc-900 placeholder-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder-zinc-500"
+                autoComplete="off"
+              />
+            </div>
+            {searchMessage && (
+              <p className="mt-1.5 text-sm text-red-600 dark:text-red-400">{searchMessage}</p>
             )}
-          >
-            Tous
-          </button>
-          {categories.map((cat) => (
+          </div>
+
+          {/* Category Tabs (fixed) */}
+          <div className="shrink-0 mb-4 flex gap-2 overflow-x-auto pb-1">
             <button
-              key={cat.id}
-              onClick={() => setSelectedCategorie(cat.id)}
+              onClick={() => setSelectedCategorie(null)}
               className={cn(
                 "shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
-                selectedCategorie === cat.id
+                selectedCategorie === null
                   ? "bg-indigo-600 text-white"
                   : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
               )}
-              style={
-                selectedCategorie !== cat.id && cat.couleur
-                  ? { borderLeft: `3px solid ${cat.couleur}` }
-                  : undefined
-              }
             >
-              {cat.nom}
+              Tous
             </button>
-          ))}
-        </div>
-
-        {/* Product Grid */}
-        <div
-          data-testid="pos-grid"
-          className="flex-1 overflow-y-auto rounded-lg"
-        >
-          {filteredProduits.length === 0 ? (
-            <div className="flex h-40 items-center justify-center text-sm text-zinc-500 dark:text-zinc-400">
-              Aucun produit trouve.
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredProduits.map((product) => {
-                const isDisabled = !product.actif || product.stockActuel <= 0;
-                const isLowStock = product.stockActuel > 0 && product.stockActuel <= product.stockMinimum;
-                const isOutOfStock = product.stockActuel <= 0;
-
-                return (
-                  <button
-                    key={product.id}
-                    onClick={() => handleProductClick(product)}
-                    disabled={isDisabled}
-                    className={cn(
-                      "flex flex-col rounded-lg border p-3 text-left transition-all",
-                      isDisabled
-                        ? "cursor-not-allowed border-zinc-200 bg-zinc-50 opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
-                        : "cursor-pointer border-zinc-200 bg-white hover:border-indigo-300 hover:shadow-md active:scale-[0.98] dark:border-zinc-700 dark:bg-zinc-800 dark:hover:border-indigo-600"
-                    )}
-                    style={
-                      !isDisabled && product.categorie.couleur
-                        ? { borderTopColor: product.categorie.couleur, borderTopWidth: "2px" }
-                        : undefined
-                    }
-                  >
-                    <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100 line-clamp-2">
-                      {product.nom}
-                    </span>
-                    <span className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                      {product.reference}
-                    </span>
-                    <div className="mt-auto flex items-end justify-between pt-2">
-                      <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
-                        {formatMontant(product.prixVente)}
-                      </span>
-                      <span
-                        className={cn(
-                          "rounded-full px-2 py-0.5 text-xs font-medium",
-                          isOutOfStock
-                            ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                            : isLowStock
-                              ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
-                              : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                        )}
-                      >
-                        {isOutOfStock ? "Rupture" : product.stockActuel}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* RIGHT: Cart Panel */}
-      <div
-        data-testid="pos-cart"
-        className="flex w-full min-h-0 flex-col rounded-lg border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-800 lg:w-96 lg:min-w-[24rem]"
-      >
-        {/* Cart Header (pinned) */}
-        <div className="shrink-0 flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
-          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-            Panier ({items.length} article{items.length !== 1 ? "s" : ""})
-          </h2>
-          {items.length > 0 && (
-            <button
-              onClick={clearCart}
-              className="text-xs font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-            >
-              Vider
-            </button>
-          )}
-        </div>
-
-        {/* Cart Items */}
-        <div className="flex-1 overflow-y-auto px-4 py-2 min-h-0">
-          {items.length === 0 ? (
-            <div className="flex h-32 items-center justify-center text-sm text-zinc-400 dark:text-zinc-500">
-              Le panier est vide
-            </div>
-          ) : (
-            <div className="divide-y divide-zinc-100 dark:divide-zinc-700">
-              {items.map((item) => (
-                <div
-                  key={item.produitId}
-                  data-testid="pos-cart-item"
-                  className="flex items-center gap-3 py-3"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
-                      {item.nom}
-                    </p>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                      {formatMontant(item.prixUnitaire)} / u.
-                    </p>
-                  </div>
-
-                  {/* Quantity controls */}
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => updateQuantity(item.produitId, item.quantite - 1)}
-                      className="flex h-7 w-7 items-center justify-center rounded-md border border-zinc-200 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-400 dark:hover:bg-zinc-700"
-                      aria-label={`Diminuer ${item.nom}`}
-                    >
-                      -
-                    </button>
-                    <span className="w-8 text-center text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                      {item.quantite}
-                    </span>
-                    <button
-                      onClick={() => updateQuantity(item.produitId, item.quantite + 1)}
-                      className="flex h-7 w-7 items-center justify-center rounded-md border border-zinc-200 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-400 dark:hover:bg-zinc-700"
-                      aria-label={`Augmenter ${item.nom}`}
-                    >
-                      +
-                    </button>
-                  </div>
-
-                  {/* Line subtotal */}
-                  <span className="w-24 text-right text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                    {formatMontant(item.prixUnitaire * item.quantite * (1 - item.remiseLigne / 100))}
-                  </span>
-
-                  {/* Remove */}
-                  <button
-                    onClick={() => removeItem(item.produitId)}
-                    className="ml-1 flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-                    aria-label={`Supprimer ${item.nom}`}
-                  >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Discount + Totals (pinned) */}
-        <div className="shrink-0 border-t border-zinc-200 px-4 py-3 dark:border-zinc-700">
-          {/* Discount input */}
-          <div className="mb-3 flex items-center gap-2">
-            <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400 shrink-0">
-              Remise
-            </label>
-            <input
-              type="number"
-              min={0}
-              value={remiseGlobale || ""}
-              onChange={(e) => setRemise(Number(e.target.value) || 0, typeRemise)}
-              className="w-20 rounded-md border border-zinc-200 px-2 py-1 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100"
-              placeholder="0"
-            />
-            <select
-              value={typeRemise}
-              onChange={(e) =>
-                setRemise(remiseGlobale, e.target.value as "pourcentage" | "fixe")
-              }
-              className="rounded-md border border-zinc-200 px-2 py-1 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100"
-            >
-              <option value="pourcentage">%</option>
-              <option value="fixe">FCFA</option>
-            </select>
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategorie(cat.id)}
+                className={cn(
+                  "shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
+                  selectedCategorie === cat.id
+                    ? "bg-indigo-600 text-white"
+                    : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                )}
+                style={
+                  selectedCategorie !== cat.id && cat.couleur
+                    ? { borderLeft: `3px solid ${cat.couleur}` }
+                    : undefined
+                }
+              >
+                {cat.nom}
+              </button>
+            ))}
           </div>
 
-          {/* Totals */}
-          <div className="space-y-1 text-sm">
-            <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
-              <span>Sous-total</span>
-              <span>{formatMontant(currentSousTotal)}</span>
-            </div>
-            {currentRemise > 0 && (
-              <div className="flex justify-between text-orange-600 dark:text-orange-400">
-                <span>Remise</span>
-                <span>-{formatMontant(currentRemise)}</span>
-              </div>
-            )}
-            {currentTva > 0 && (
-              <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
-                <span>TVA</span>
-                <span>{formatMontant(currentTva)}</span>
-              </div>
-            )}
-            <div className="flex justify-between border-t border-zinc-200 pt-2 text-lg font-bold text-zinc-900 dark:border-zinc-600 dark:text-zinc-100">
-              <span>TOTAL</span>
-              <span>{formatMontant(currentTotal)}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Encaisser Button (pinned) */}
-        <div className="shrink-0 px-4 pb-4">
-          <button
-            data-testid="pos-encaisser"
-            disabled={items.length === 0}
-            onClick={() => setShowPaymentModal(true)}
-            className={cn(
-              "w-full rounded-lg py-3 text-base font-semibold transition-colors",
-              items.length === 0
-                ? "cursor-not-allowed bg-zinc-200 text-zinc-400 dark:bg-zinc-700 dark:text-zinc-500"
-                : "bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800"
-            )}
+          {/* Product Grid */}
+          <div
+            data-testid="pos-grid"
+            className="flex-1 overflow-y-auto rounded-lg"
           >
-            ENCAISSER
-          </button>
-        </div>
-      </div>
+            {filteredProduits.length === 0 ? (
+              <div className="flex h-40 items-center justify-center text-sm text-zinc-500 dark:text-zinc-400">
+                Aucun produit trouve.
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
+                {filteredProduits.map((product) => {
+                  const isDisabled = !product.actif || product.stockActuel <= 0;
+                  const isLowStock = product.stockActuel > 0 && product.stockActuel <= product.stockMinimum;
+                  const isOutOfStock = product.stockActuel <= 0;
 
-      {/* Payment Modal */}
-      {showPaymentModal && (
-        <PaymentModal
-          sessionId={sessionId}
-          totalAPayer={currentTotal}
-          items={items}
-          remise={currentRemise}
-          onClose={() => setShowPaymentModal(false)}
-          onSuccess={() => {
-            clearCart();
-            setShowPaymentModal(false);
-          }}
-        />
-      )}
-    </div>
+                  return (
+                    <button
+                      key={product.id}
+                      onClick={() => handleProductClick(product)}
+                      disabled={isDisabled}
+                      className={cn(
+                        "flex flex-col rounded-lg border p-3 text-left transition-all",
+                        isDisabled
+                          ? "cursor-not-allowed border-zinc-200 bg-zinc-50 opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
+                          : "cursor-pointer border-zinc-200 bg-white hover:border-indigo-300 hover:shadow-md active:scale-[0.98] dark:border-zinc-700 dark:bg-zinc-800 dark:hover:border-indigo-600"
+                      )}
+                      style={
+                        !isDisabled && product.categorie.couleur
+                          ? { borderTopColor: product.categorie.couleur, borderTopWidth: "2px" }
+                          : undefined
+                      }
+                    >
+                      <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100 line-clamp-2">
+                        {product.nom}
+                      </span>
+                      <span className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                        {product.reference}
+                      </span>
+                      <div className="mt-auto flex items-end justify-between pt-2">
+                        <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+                          {formatMontant(product.prixVente)}
+                        </span>
+                        <span
+                          className={cn(
+                            "rounded-full px-2 py-0.5 text-xs font-medium",
+                            isOutOfStock
+                              ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                              : isLowStock
+                                ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
+                                : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                          )}
+                        >
+                          {isOutOfStock ? "Rupture" : product.stockActuel}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* RIGHT: Cart Panel (hidden in read-only) */}
+        {!readOnly && (
+        <div
+          data-testid="pos-cart"
+          className="flex w-full min-h-0 flex-col rounded-lg border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-800 lg:w-96 lg:min-w-[24rem]"
+        >
+          {/* Cart Header (pinned) */}
+          <div className="shrink-0 flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
+            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+              Panier ({items.length} article{items.length !== 1 ? "s" : ""})
+            </h2>
+            {items.length > 0 && (
+              <button
+                onClick={clearCart}
+                className="text-xs font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+              >
+                Vider
+              </button>
+            )}
+          </div>
+
+          {/* Cart Items */}
+          <div className="flex-1 overflow-y-auto px-4 py-2 min-h-0">
+            {items.length === 0 ? (
+              <div className="flex h-32 items-center justify-center text-sm text-zinc-400 dark:text-zinc-500">
+                Le panier est vide
+              </div>
+            ) : (
+              <div className="divide-y divide-zinc-100 dark:divide-zinc-700">
+                {items.map((item) => (
+                  <div
+                    key={item.produitId}
+                    data-testid="pos-cart-item"
+                    className="flex items-center gap-3 py-3"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
+                        {item.nom}
+                      </p>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        {formatMontant(item.prixUnitaire)} / u.
+                      </p>
+                    </div>
+
+                    {/* Quantity controls */}
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => updateQuantity(item.produitId, item.quantite - 1)}
+                        className="flex h-7 w-7 items-center justify-center rounded-md border border-zinc-200 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                        aria-label={`Diminuer ${item.nom}`}
+                      >
+                        -
+                      </button>
+                      <span className="w-8 text-center text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                        {item.quantite}
+                      </span>
+                      <button
+                        onClick={() => updateQuantity(item.produitId, item.quantite + 1)}
+                        className="flex h-7 w-7 items-center justify-center rounded-md border border-zinc-200 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                        aria-label={`Augmenter ${item.nom}`}
+                      >
+                        +
+                      </button>
+                    </div>
+
+                    {/* Line subtotal */}
+                    <span className="w-24 text-right text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                      {formatMontant(item.prixUnitaire * item.quantite * (1 - item.remiseLigne / 100))}
+                    </span>
+
+                    {/* Remove */}
+                    <button
+                      onClick={() => removeItem(item.produitId)}
+                      className="ml-1 flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                      aria-label={`Supprimer ${item.nom}`}
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Discount + Totals (pinned) */}
+          <div className="shrink-0 border-t border-zinc-200 px-4 py-3 dark:border-zinc-700">
+            {/* Discount input */}
+            <div className="mb-3 flex items-center gap-2">
+              <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400 shrink-0">
+                Remise
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={remiseGlobale || ""}
+                onChange={(e) => setRemise(Number(e.target.value) || 0, typeRemise)}
+                className="w-20 rounded-md border border-zinc-200 px-2 py-1 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100"
+                placeholder="0"
+              />
+              <select
+                value={typeRemise}
+                onChange={(e) =>
+                  setRemise(remiseGlobale, e.target.value as "pourcentage" | "fixe")
+                }
+                className="rounded-md border border-zinc-200 px-2 py-1 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100"
+              >
+                <option value="pourcentage">%</option>
+                <option value="fixe">FCFA</option>
+              </select>
+            </div>
+
+            {/* Totals */}
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
+                <span>Sous-total</span>
+                <span>{formatMontant(currentSousTotal)}</span>
+              </div>
+              {currentRemise > 0 && (
+                <div className="flex justify-between text-orange-600 dark:text-orange-400">
+                  <span>Remise</span>
+                  <span>-{formatMontant(currentRemise)}</span>
+                </div>
+              )}
+              {currentTva > 0 && (
+                <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
+                  <span>TVA</span>
+                  <span>{formatMontant(currentTva)}</span>
+                </div>
+              )}
+              <div className="flex justify-between border-t border-zinc-200 pt-2 text-lg font-bold text-zinc-900 dark:border-zinc-600 dark:text-zinc-100">
+                <span>TOTAL</span>
+                <span>{formatMontant(currentTotal)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Encaisser Button (pinned) */}
+          <div className="shrink-0 px-4 pb-4">
+            <button
+              data-testid="pos-encaisser"
+              disabled={items.length === 0}
+              onClick={() => setShowPaymentModal(true)}
+              className={cn(
+                "w-full rounded-lg py-3 text-base font-semibold transition-colors",
+                items.length === 0
+                  ? "cursor-not-allowed bg-zinc-200 text-zinc-400 dark:bg-zinc-700 dark:text-zinc-500"
+                  : "bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800"
+              )}
+            >
+              ENCAISSER
+            </button>
+          </div>
+        </div>
+        )}
+
+        {/* Payment Modal */}
+        {!readOnly && showPaymentModal && (
+          <PaymentModal
+            sessionId={sessionId}
+            totalAPayer={currentTotal}
+            items={items}
+            remise={currentRemise}
+            onClose={() => setShowPaymentModal(false)}
+            onSuccess={() => {
+              clearCart();
+              setShowPaymentModal(false);
+            }}
+          />
+        )}
+      </div>
+    </>
   );
 }
 

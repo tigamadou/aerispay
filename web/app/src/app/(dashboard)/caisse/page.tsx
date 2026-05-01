@@ -2,8 +2,10 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { POSInterface } from "@/components/caisse/POSInterface";
+import { hasRole } from "@/lib/permissions";
 import Link from "next/link";
 import type { Metadata } from "next";
+import type { Role } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -37,21 +39,26 @@ export default async function CaissePage() {
   }
 
   const userId = session.user.id;
+  const role = session.user.role as Role;
+  const isCaissier = hasRole(role, ["CAISSIER"]);
 
   // Check if the user has an open cash register session
-  const caisseSession = await prisma.caisseSession.findFirst({
-    where: {
-      userId,
-      statut: "OUVERTE",
-    },
-    select: {
-      id: true,
-      ouvertureAt: true,
-      montantOuverture: true,
-    },
-  });
+  const caisseSession = isCaissier
+    ? await prisma.caisseSession.findFirst({
+        where: {
+          userId,
+          statut: "OUVERTE",
+        },
+        select: {
+          id: true,
+          ouvertureAt: true,
+          montantOuverture: true,
+        },
+      })
+    : null;
 
-  if (!caisseSession) {
+  // CAISSIER without session → prompt to open one
+  if (isCaissier && !caisseSession) {
     return (
       <div className="flex flex-1 items-center justify-center">
         <div className="max-w-md text-center space-y-4">
@@ -86,6 +93,9 @@ export default async function CaissePage() {
       </div>
     );
   }
+
+  // ADMIN / MANAGER → read-only mode (no session needed)
+  const readOnly = !isCaissier;
 
   // Fetch products with their categories
   const produits = await prisma.produit.findMany({
@@ -133,7 +143,8 @@ export default async function CaissePage() {
     <POSInterface
       produits={serializedProduits}
       categories={serializedCategories}
-      sessionId={caisseSession.id}
+      sessionId={caisseSession?.id ?? ""}
+      readOnly={readOnly}
     />
   );
 }

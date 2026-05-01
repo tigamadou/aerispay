@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 export default async function CategoriesPage() {
   const session = await auth();
   if (!session?.user || !hasPermission(session.user.role as Role, "stock:manage")) {
-    redirect("/stock");
+    redirect("/");
   }
 
   const categories = await prisma.categorie.findMany({

@@ -19,6 +19,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   }
 
   const role = session.user.role as Role;
+  const canManageStock = hasPermission(role, "stock:manage");
   const canManageUsers = hasPermission(role, "users:manage");
   const canViewLogs = hasPermission(role, "activity_logs:consulter");
   const canManageParametres = hasPermission(role, "parametres:manage");
@@ -38,9 +39,11 @@ export default async function DashboardLayout({ children }: { children: ReactNod
               AerisPay
             </Link>
             <nav className="flex items-center gap-3 text-sm" aria-label="Navigation principale">
-              <Link href="/stock" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
-                Stock
-              </Link>
+              {canManageStock && (
+                <Link href="/stock" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
+                  Stock
+                </Link>
+              )}
               <Link href="/caisse" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
                 Caisse
               </Link>
