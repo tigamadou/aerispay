@@ -6,7 +6,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     vente: { aggregate: vi.fn() },
     paiement: { aggregate: vi.fn() },
-    caisseSession: { findFirst: vi.fn(), findMany: vi.fn() },
+    comptoirSession: { findFirst: vi.fn(), findMany: vi.fn() },
   },
 }));
 
@@ -34,37 +34,34 @@ function mockAggregates() {
   (prisma.paiement.aggregate as ReturnType<typeof vi.fn>).mockResolvedValue({
     _sum: { montant: new Decimal(30000) },
   });
-  (prisma.caisseSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+  (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
     id: "s-1",
     statut: "OUVERTE",
     ouvertureAt: new Date("2026-04-23T08:00:00Z"),
   });
-  (prisma.caisseSession.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+  (prisma.comptoirSession.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 }
 
 function mockClosedSessions() {
-  (prisma.caisseSession.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+  (prisma.comptoirSession.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
     {
       id: "s-closed-1",
-      ecartCaisse: new Decimal(500),
-      montantFermeture: new Decimal(10500),
-      soldeTheorique: new Decimal(10000),
+      ecartCash: new Decimal(500),
+      ecartMobileMoney: new Decimal(0),
       userId: "user-1",
       user: { nom: "Alice" },
     },
     {
       id: "s-closed-2",
-      ecartCaisse: new Decimal(-200),
-      montantFermeture: new Decimal(9800),
-      soldeTheorique: new Decimal(10000),
+      ecartCash: new Decimal(-200),
+      ecartMobileMoney: new Decimal(0),
       userId: "user-2",
       user: { nom: "Bob" },
     },
     {
       id: "s-closed-3",
-      ecartCaisse: new Decimal(0),
-      montantFermeture: new Decimal(5000),
-      soldeTheorique: new Decimal(5000),
+      ecartCash: new Decimal(0),
+      ecartMobileMoney: new Decimal(0),
       userId: "user-1",
       user: { nom: "Alice" },
     },
@@ -225,12 +222,11 @@ describe("GET /api/dashboard/kpis", () => {
     mockSession("CAISSIER", "caissier-1");
     mockAggregates();
     // For CAISSIER, findMany should be called with userId filter
-    (prisma.caisseSession.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+    (prisma.comptoirSession.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
       {
         id: "s-own",
-        ecartCaisse: new Decimal(-150),
-        montantFermeture: new Decimal(4850),
-        soldeTheorique: new Decimal(5000),
+        ecartCash: new Decimal(-150),
+        ecartMobileMoney: new Decimal(0),
         userId: "caissier-1",
         user: { nom: "Caissier" },
       },
@@ -244,7 +240,7 @@ describe("GET /api/dashboard/kpis", () => {
     expect(body.data.cashDiscrepancy.totalExcedent).toBe(0);
 
     // Verify findMany was called with userId filter
-    expect(prisma.caisseSession.findMany).toHaveBeenCalledWith(
+    expect(prisma.comptoirSession.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ userId: "caissier-1" }),
       })

@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useCartStore } from "@/store/cartStore";
 import { cn } from "@/lib/utils";
-import type { ProduitPOS, CategoriePOS, TaxePOS } from "@/app/(dashboard)/caisse/page";
+import type { ProduitPOS, CategoriePOS, TaxePOS } from "@/app/(dashboard)/comptoir/page";
 
 // ─── Types ───────────────────────────────────────────
 

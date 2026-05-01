@@ -3,7 +3,7 @@
 > **Implémentation matérielle (ordre des appels, Docker, douchette)** : voir `SPECS/PERIPHERIQUES.md`.
 
 ## Objectif
-Générer des tickets de caisse normalisés en PDF, les envoyer à une imprimante thermique POS et piloter le tiroir-caisse lorsque le matériel le permet.
+Générer des tickets de comptoir normalisés en PDF, les envoyer à une imprimante thermique POS et piloter le tiroir-caisse lorsque le matériel le permet.
 
 ---
 
@@ -100,7 +100,7 @@ export async function generateReceiptPDF(data: ReceiptData): Promise<Buffer> {
 - Marges : 10mm tout autour
 - Couleur : noir sur blanc uniquement (optimisé impression)
 - Séparateurs : lignes `─────` (tirets)
-- Données vente lues sur `Sale` / `SaleLine` / `Payment` (noms de champs en anglais, cf. spec Caisse)
+- Données vente lues sur `Sale` / `SaleLine` / `Payment` (noms de champs en anglais, cf. spec Comptoir)
 
 ### Commandes ESC/POS (`lib/receipt/thermal-printer.ts`)
 
@@ -214,7 +214,7 @@ CASH_DRAWER_OPEN_ON_CASH=true            # ouvrir après vente espèces validée
 └─────────────────────────────────────┘
 ```
 
-### Page ticket `/caisse/tickets/[id]`
+### Page ticket `/comptoir/tickets/[id]`
 - Aperçu HTML fidèle au rendu imprimé
 - Bouton "Télécharger PDF"
 - Bouton "Imprimer" (appelle l'API print ou window.print())
@@ -233,6 +233,6 @@ Ces tests doivent être écrits avant le générateur PDF, les endpoints ticket 
 - [ ] Impression thermique : test connexion imprimante
 - [ ] Impression thermique : ticket complet imprimé (test manuel)
 - [ ] Gestion erreur imprimante non joignable → message d'erreur clair
-- [ ] Ouverture tiroir-caisse après vente CASH → impulsion envoyée
+- [ ] Ouverture tiroir-caisse après vente ESPECES → impulsion envoyée
 - [ ] Ouverture tiroir manuelle sans rôle autorisé → 403
 - [ ] Erreur tiroir-caisse non joignable → vente conservée + message clair

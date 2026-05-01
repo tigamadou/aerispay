@@ -70,7 +70,7 @@ Permettre la gestion complète du catalogue produits et le suivi en temps réel 
 - La marge brute est calculée côté client : `(salePrice - purchasePrice) / salePrice × 100`
 
 ### Code-barres
-- Un produit peut avoir un `barcode` optionnel, unique, utilisé par la douchette lecteur de code-barres en caisse.
+- Un produit peut avoir un `barcode` optionnel, unique, utilisé par la douchette lecteur de code-barres au comptoir.
 - Le POS recherche d’abord par `barcode`, puis par `reference`, puis par texte libre.
 - Un scan ne doit jamais ajouter un produit inactif au panier.
 

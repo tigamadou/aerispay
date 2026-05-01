@@ -60,14 +60,15 @@ export default async function DashboardPage() {
       },
       _sum: { montant: true },
     }),
-    prisma.caisseSession.findMany({
+    prisma.comptoirSession.findMany({
       where: {
         statut: "FERMEE",
         fermetureAt: { gte: startOfDay, lt: endOfDay },
       },
       select: {
         id: true,
-        ecartCaisse: true,
+        ecartCash: true,
+        ecartMobileMoney: true,
         user: { select: { nom: true } },
       },
     }),
@@ -84,7 +85,7 @@ export default async function DashboardPage() {
   let totalManquant = 0;
   let discrepancyCount = 0;
   for (const s of closedSessionsToday) {
-    const ecart = Number(s.ecartCaisse ?? 0);
+    const ecart = Number(s.ecartCash ?? 0) + Number(s.ecartMobileMoney ?? 0);
     if (ecart > 0) {
       totalExcedent += ecart;
       discrepancyCount++;

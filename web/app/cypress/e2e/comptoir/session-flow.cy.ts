@@ -1,16 +1,16 @@
 /**
- * e2e — Flux caissier complet : ouverture session → vente → clôture avec écart.
+ * e2e — Flux caissier complet : ouverture session comptoir → vente → clôture avec écart.
  * La base de test est réinitialisée via `make test-db-reset` avant le run.
  */
 
-describe("Session de caisse — flux complet", () => {
+describe("Session de comptoir — flux complet", () => {
   beforeEach(() => {
     cy.closeOpenSessions("caissier@aerispay.com");
     cy.loginAsCaissier();
   });
 
-  it("ouvre une session de caisse", () => {
-    cy.visit("/caisse/sessions");
+  it("ouvre une session de comptoir", () => {
+    cy.visit("/comptoir/sessions");
     cy.get('[data-testid="sessions-page"]').should("be.visible");
     cy.get('[data-testid="session-open-form"]').should("be.visible");
 
@@ -23,21 +23,21 @@ describe("Session de caisse — flux complet", () => {
 
   it("refuse une seconde session ouverte (409)", () => {
     // Open first session via API
-    cy.request("POST", "/api/caisse/sessions", { montantOuverture: 50000 });
+    cy.request("POST", "/api/comptoir/sessions", { montantOuvertureCash: 50000 });
 
-    cy.visit("/caisse/sessions");
+    cy.visit("/comptoir/sessions");
     cy.get('[data-testid="session-active"]').should("be.visible");
   });
 
-  it("redirige vers sessions si pas de session ouverte sur /caisse", () => {
-    cy.visit("/caisse");
-    cy.contains("Aucune session de caisse ouverte").should("be.visible");
+  it("redirige vers sessions si pas de session ouverte sur /comptoir", () => {
+    cy.visit("/comptoir");
+    cy.contains("Aucune session de comptoir ouverte").should("be.visible");
     cy.contains("a", "Ouvrir une session").should("be.visible");
   });
 
   it("clôture une session — affiche solde théorique et écart", () => {
     // Open session + make a sale via API
-    cy.request("POST", "/api/caisse/sessions", { montantOuverture: 50000 }).then((r1) => {
+    cy.request("POST", "/api/comptoir/sessions", { montantOuvertureCash: 50000 }).then((r1) => {
       const sessionId = r1.body.data.id as string;
 
       cy.task<string>("getProduitIdByReference", "ALM-001").then((produitId) => {
@@ -48,7 +48,7 @@ describe("Session de caisse — flux complet", () => {
           remise: 0,
         });
 
-        cy.visit("/caisse/sessions");
+        cy.visit("/comptoir/sessions");
         cy.get('[data-testid="session-active"]').should("be.visible");
 
         // Open close form
@@ -62,8 +62,8 @@ describe("Session de caisse — flux complet", () => {
         cy.get('[data-testid="input-montant-fermeture"]').type("55000");
 
         // Écart should show (55000 - 55500 = -500 → manquant)
-        cy.get('[data-testid="ecart-caisse"]').should("be.visible");
-        cy.get('[data-testid="ecart-caisse"]').should("contain", "Manquant");
+        cy.get('[data-testid="ecart-comptoir"]').should("be.visible");
+        cy.get('[data-testid="ecart-comptoir"]').should("contain", "Manquant");
 
         // Close
         cy.get('[data-testid="btn-fermer-session"]').click();
@@ -75,17 +75,17 @@ describe("Session de caisse — flux complet", () => {
   });
 
   it("clôture une session équilibrée", () => {
-    cy.request("POST", "/api/caisse/sessions", { montantOuverture: 25000 }).then((r1) => {
+    cy.request("POST", "/api/comptoir/sessions", { montantOuvertureCash: 25000 }).then((r1) => {
       const sessionId = r1.body.data.id as string;
 
       // No sales — solde théorique = 25000
 
-      cy.visit("/caisse/sessions");
+      cy.visit("/comptoir/sessions");
       cy.get('[data-testid="btn-show-close-form"]').click();
 
       cy.get('[data-testid="solde-theorique"]', { timeout: 5_000 }).should("contain", "25 000");
       cy.get('[data-testid="input-montant-fermeture"]').type("25000");
-      cy.get('[data-testid="ecart-caisse"]').should("contain", "équilibrée");
+      cy.get('[data-testid="ecart-comptoir"]').should("contain", "équilibrée");
 
       cy.get('[data-testid="btn-fermer-session"]').click();
       cy.get('[data-testid="session-open-form"]', { timeout: 10_000 }).should("be.visible");
@@ -99,7 +99,7 @@ describe("Déconnexion avec session ouverte", () => {
     cy.loginAsCaissier();
 
     // Open a session
-    cy.request("POST", "/api/caisse/sessions", { montantOuverture: 30000 });
+    cy.request("POST", "/api/comptoir/sessions", { montantOuvertureCash: 30000 });
 
     cy.visit("/");
 
@@ -107,7 +107,7 @@ describe("Déconnexion avec session ouverte", () => {
     cy.contains("button", "Déconnexion").click();
 
     // Modal should appear asking for closing amount
-    cy.contains("Clôturer la session de caisse").should("be.visible");
+    cy.contains("Clôturer la session de comptoir").should("be.visible");
 
     // Solde théorique should load
     cy.get('[data-testid="signout-montant"]').should("be.visible");

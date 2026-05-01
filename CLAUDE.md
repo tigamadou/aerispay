@@ -10,7 +10,7 @@
 **AerisPay** est une application web de caisse enregistreuse et de gestion commerciale destinée aux petits et moyens commerces. La **cible long terme** inclut le déploiement par **plusieurs points de vente** (même **structure** / groupe), le **multi-caissiers** et le **multi-postes** (plusieurs caisses par magasin), une **base de données locale** en magasin, et des **sauvegardes en ligne** + **accès distants** contrôlés — voir `SPECS/MULTI_ORGANISATION.md`. Les **utilisateurs** se répartissent en **deux niveaux** (groupe vs point de vente) : au **PDV** l’équipe compte surtout des **caissiers** ; rôles et matrices : `SPECS/AUTH.md`. Le MVP couvre deux modules fondamentaux :
 
 - **Gestion de Stock** : produits, catégories, mouvements, alertes de rupture
-- **Gestion de Caisse (POS)** : interface point de vente, ventes, paiements, tickets, douchette code-barres, imprimante ticket et tiroir-caisse
+- **Comptoir (POS)** : interface point de vente, ventes, paiements, tickets, douchette code-barres, imprimante ticket et tiroir-caisse
 - **Journal d’activité** : trace d’audit des opérations (consultation `ADMIN` / `MANAGER`)
 
 L'application est développée en **Next.js 14 (App Router) + TypeScript + Prisma + MySQL**.
@@ -55,7 +55,7 @@ aerispay/                              ← racine du dépôt (docker compose, do
 ├── SPECS/
 │   ├── AUTH.md
 │   ├── STOCK.md
-│   ├── CAISSE.md
+│   ├── COMPTOIR.md
 │   ├── IMPRESSION.md
 │   ├── PERIPHERIQUES.md               ← périphériques caisse (web vs serveur, ordre, Docker)
 │   ├── MULTI_ORGANISATION.md          ← multi-magasins, local + sauvegarde ; rôles groupe/PDV → SPECS/AUTH.md
@@ -84,7 +84,7 @@ aerispay/                              ← racine du dépôt (docker compose, do
         │   │   │   ├── nouveau/page.tsx
         │   │   │   ├── categories/page.tsx
         │   │   │   └── mouvements/page.tsx
-        │   │   └── caisse/
+        │   │   └── comptoir/
         │   │       ├── page.tsx       ← interface POS principale
         │   │       ├── sessions/page.tsx
         │   │       ├── ventes/page.tsx
@@ -99,8 +99,8 @@ aerispay/                              ← racine du dépôt (docker compose, do
         │       ├── categories/route.ts
         │       ├── stock/mouvements/route.ts
         │       ├── stock/alertes/route.ts
-        │       ├── caisse/sessions/route.ts
-        │       ├── caisse/sessions/[id]/route.ts
+        │       ├── comptoir/sessions/route.ts
+        │       ├── comptoir/sessions/[id]/route.ts
         │       ├── ventes/route.ts
         │       ├── ventes/[id]/route.ts
         │       ├── ventes/[id]/annuler/route.ts
@@ -115,7 +115,7 @@ aerispay/                              ← racine du dépôt (docker compose, do
         │   │   ├── ProductForm.tsx
         │   │   ├── StockAlertBadge.tsx
         │   │   └── MovementTable.tsx
-        │   ├── caisse/
+        │   ├── comptoir/
         │   │   ├── POSGrid.tsx
         │   │   ├── Cart.tsx
         │   │   ├── PaymentModal.tsx
@@ -160,8 +160,8 @@ aerispay/                              ← racine du dépôt (docker compose, do
 - Toujours lire `ARCHITECTURE_MVP.md` pour le schéma Prisma de référence et la liste des endpoints
 - Toujours lire la spec du module concerné dans `SPECS/`
 - Pour toute **nouvelle page** ou écran du dashboard : vérifier `SPECS/PAGES_MVP.md` (actions, rôles) et `SPECS/DASHBOARD.md` (KPI, visibilité par rôle, API)
-- Pour toute **action métier sensible** (CRUD critique, caisse, auth) : consulter `SPECS/ACTIVITY_LOG.md` et appeler `logActivity` lorsque c’est prévu
-- Pour l’impression ticket, le tiroir-caisse et la douchette : consulter `SPECS/PERIPHERIQUES.md` en plus de `SPECS/CAISSE.md` et `SPECS/IMPRESSION.md`
+- Pour toute **action métier sensible** (CRUD critique, comptoir, auth) : consulter `SPECS/ACTIVITY_LOG.md` et appeler `logActivity` lorsque c’est prévu
+- Pour l’impression ticket, le tiroir-caisse et la douchette : consulter `SPECS/PERIPHERIQUES.md` en plus de `SPECS/COMPTOIR.md` et `SPECS/IMPRESSION.md`
 - Pour le déploiement multi-sites, sauvegarde en ligne et accès distant (sans implémenter avant d’avoir relu la spec) : `SPECS/MULTI_ORGANISATION.md`
 - Pour rôles utilisateurs (groupe **vs** point de vente, caissiers, administrateur local) : `SPECS/AUTH.md`
 - Vérifier `TODO.md` pour savoir quelle tâche est en cours

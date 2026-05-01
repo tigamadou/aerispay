@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { POSInterface } from "@/components/caisse/POSInterface";
+import { POSInterface } from "@/components/comptoir/POSInterface";
 import { hasRole } from "@/lib/permissions";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -10,7 +10,7 @@ import type { Role } from "@prisma/client";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Caisse",
+  title: "Comptoir",
 };
 
 export interface ProduitPOS {
@@ -36,7 +36,7 @@ export interface CategoriePOS {
   couleur: string | null;
 }
 
-export default async function CaissePage() {
+export default async function ComptoirPage() {
   const session = await auth();
   if (!session?.user) {
     redirect("/login");
@@ -47,8 +47,8 @@ export default async function CaissePage() {
   const isCaissier = hasRole(role, ["CAISSIER"]);
 
   // Check if the user has an open cash register session
-  const caisseSession = isCaissier
-    ? await prisma.caisseSession.findFirst({
+  const comptoirSession = isCaissier
+    ? await prisma.comptoirSession.findFirst({
         where: {
           userId,
           statut: "OUVERTE",
@@ -56,13 +56,14 @@ export default async function CaissePage() {
         select: {
           id: true,
           ouvertureAt: true,
-          montantOuverture: true,
+          montantOuvertureCash: true,
+          montantOuvertureMobileMoney: true,
         },
       })
     : null;
 
   // CAISSIER without session → prompt to open one
-  if (isCaissier && !caisseSession) {
+  if (isCaissier && !comptoirSession) {
     return (
       <div className="flex flex-1 items-center justify-center">
         <div className="max-w-md text-center space-y-4">
@@ -82,13 +83,13 @@ export default async function CaissePage() {
             </svg>
           </div>
           <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">
-            Aucune session de caisse ouverte
+            Aucune session de comptoir ouverte
           </h2>
           <p className="text-zinc-500 dark:text-zinc-400">
-            Vous devez ouvrir une session de caisse avant de pouvoir enregistrer des ventes.
+            Vous devez ouvrir une session de comptoir avant de pouvoir enregistrer des ventes.
           </p>
           <Link
-            href="/caisse/sessions"
+            href="/comptoir/sessions"
             className="inline-block rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 transition-colors"
           >
             Ouvrir une session
@@ -155,7 +156,7 @@ export default async function CaissePage() {
     <POSInterface
       produits={serializedProduits}
       categories={serializedCategories}
-      sessionId={caisseSession?.id ?? ""}
+      sessionId={comptoirSession?.id ?? ""}
       readOnly={readOnly}
       taxes={serializedTaxes}
     />

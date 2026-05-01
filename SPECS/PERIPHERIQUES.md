@@ -1,6 +1,6 @@
-# Spec — Périphériques de caisse (implémentation)
+# Spec — Périphériques de comptoir (implémentation)
 
-> Ce document consolide le **plan d’implémentation** des imprimantes tickets ESC/POS, de la douchette code-barres et du tiroir-caisse. Il complète `SPECS/CAISSE.md` et `SPECS/IMPRESSION.md`. Pour **plusieurs postes de caisse** au sein d’un même magasin (config par terminal) et le modèle **structure / magasins** : `SPECS/MULTI_ORGANISATION.md`.
+> Ce document consolide le **plan d’implémentation** des imprimantes tickets ESC/POS, de la douchette code-barres et du tiroir-caisse. Il complète `SPECS/COMPTOIR.md` et `SPECS/IMPRESSION.md`. Pour **plusieurs postes de comptoir** au sein d’un même magasin (config par terminal) et le modèle **structure / magasins** : `SPECS/MULTI_ORGANISATION.md`.
 
 ## Objectif
 
@@ -48,7 +48,7 @@ Noms stables recommandés pour l’implémentation : `PRINTER_*`, `CASH_DRAWER_*
 - Si l’imprimante est sur la machine hôte (macOS) et l’app dans Docker : le conteneur doit atteindre l’hôte, par ex. `tcp://host.docker.internal:9100` (à valider pour votre version de Docker ; sinon utiliser l’IP LAN de l’hôte).
 - **USB / `/dev/usb/*` / série** dans un conteneur : configuration fragile (droits, mapping device). Préférer le réseau ; sinon exécuter l’intégration sur l’**hôte** (sans conteneur pour l’`app`).
 
-Détails généraux : `DOCKER.md` → section *Périphériques de caisse*.
+Détails généraux : `DOCKER.md` → section *Périphériques de comptoir*.
 
 ## Douchette code-barres
 
@@ -67,7 +67,7 @@ Tests : simuler le buffer clavier (RTL) et les réponses d’API mockées (TanSt
 ## Imprimante et tiroir (côté serveur)
 
 - Implémentation cible : `lib/receipt/thermal-printer.ts` (ou équivalent), appelé depuis `POST /api/tickets/[id]/print` et, si séparé, `POST /api/cash-drawer/open`.
-- Après un paiement **CASH** et si `CASH_DRAWER_OPEN_ON_CASH=true` : enchaîner (ou appeler) l’ouverture tiroir **une fois** la vente persistée.
+- Après un paiement **ESPECES** et si `CASH_DRAWER_OPEN_ON_CASH=true` : enchaîner (ou appeler) l’ouverture tiroir **une fois** la vente persistée.
 - Les endpoints et corps de requêtes : voir `SPECS/IMPRESSION.md`.
 
 ## Alignement des routes API (AerisPay)
@@ -84,7 +84,7 @@ Toutes les routes côté projet doivent suivre le préfixe et les noms de `CLAUD
 
 | Sujet | Fichier |
 |------|---------|
-| Règles POS, scan, tiroir après CASH | `SPECS/CAISSE.md` |
+| Règles POS, scan, tiroir après ESPECES | `SPECS/COMPTOIR.md` |
 | PDF, ESC/POS, API print / cash-drawer, variables | `SPECS/IMPRESSION.md` |
 | Champ `barcode` / recherche | `SPECS/STOCK.md` |
 | Schéma Prisma (noms de champs produit) | `ARCHITECTURE_MVP.md` |

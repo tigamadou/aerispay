@@ -128,7 +128,7 @@ export default async function ActivityLogsPage({ searchParams }: ActivityLogsPag
             <option value="StockMovement">Mouvement stock</option>
             <option value="User">Utilisateur</option>
             <option value="Sale">Vente</option>
-            <option value="CashSession">Session caisse</option>
+            <option value="ComptoirSession">Session comptoir</option>
           </select>
         </div>
         <div className="space-y-1">

@@ -73,7 +73,7 @@ const sampleVente = {
   ],
 };
 
-describe("Ticket page (/caisse/tickets/[id])", () => {
+describe("Ticket page (/comptoir/tickets/[id])", () => {
   let getTicketPageData: (id: string) => Promise<typeof sampleVente | null>;
 
   beforeEach(() => {

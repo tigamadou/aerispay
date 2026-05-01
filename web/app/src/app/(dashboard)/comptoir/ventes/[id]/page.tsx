@@ -5,7 +5,7 @@ import { hasPermission, hasRole } from "@/lib/permissions";
 import type { Role } from "@prisma/client";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CancelButtonClient } from "@/components/caisse/CancelButton";
+import { CancelButtonClient } from "@/components/comptoir/CancelButton";
 
 export const dynamic = "force-dynamic";
 
@@ -70,7 +70,7 @@ export default async function VenteDetailPage({ params }: VenteDetailPageProps) 
       },
       paiements: true,
       caissier: { select: { id: true, nom: true, email: true } },
-      session: { select: { id: true, ouvertureAt: true, montantOuverture: true } },
+      session: { select: { id: true, ouvertureAt: true, montantOuvertureCash: true, montantOuvertureMobileMoney: true } },
     },
   });
 
@@ -78,7 +78,7 @@ export default async function VenteDetailPage({ params }: VenteDetailPageProps) 
 
   // CAISSIER can only see their own sales
   if (!hasRole(role, ["ADMIN", "MANAGER"]) && vente.userId !== session.user.id) {
-    redirect("/caisse/ventes");
+    redirect("/comptoir/ventes");
   }
 
   const statut = statutStyle[vente.statut] ?? { text: vente.statut, className: "" };
@@ -90,7 +90,7 @@ export default async function VenteDetailPage({ params }: VenteDetailPageProps) 
       <div className="flex items-start justify-between">
         <div>
           <Link
-            href="/caisse/ventes"
+            href="/comptoir/ventes"
             className="text-sm text-indigo-600 hover:text-indigo-800 dark:text-indigo-400"
           >
             ← Retour aux ventes
@@ -230,7 +230,7 @@ export default async function VenteDetailPage({ params }: VenteDetailPageProps) 
       {/* Actions */}
       <div className="flex gap-3 pt-2">
         <Link
-          href={`/caisse/tickets/${vente.id}`}
+          href={`/comptoir/tickets/${vente.id}`}
           className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
         >
           Voir le ticket

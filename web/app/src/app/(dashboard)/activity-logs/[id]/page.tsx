@@ -27,8 +27,8 @@ const actionLabels: Record<string, { label: string; classes: string }> = {
   CATEGORY_UPDATED: { label: "Categorie modifiee", classes: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300" },
   CATEGORY_DELETED: { label: "Categorie supprimee", classes: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" },
   STOCK_MOVEMENT_CREATED: { label: "Mouvement de stock", classes: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300" },
-  CASH_SESSION_OPENED: { label: "Session de caisse ouverte", classes: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" },
-  CASH_SESSION_CLOSED: { label: "Session de caisse fermee", classes: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300" },
+  COMPTOIR_SESSION_OPENED: { label: "Session de comptoir ouverte", classes: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" },
+  COMPTOIR_SESSION_CLOSED: { label: "Session de comptoir fermee", classes: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300" },
   SALE_COMPLETED: { label: "Vente enregistree", classes: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" },
   SALE_CANCELLED: { label: "Vente annulee", classes: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" },
   TICKET_PDF_DOWNLOADED: { label: "PDF telecharge", classes: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" },
@@ -43,15 +43,13 @@ const entityLinks: Record<string, (id: string) => string> = {
   Category: () => "/stock/categories",
   StockMovement: () => "/stock/mouvements",
   User: (id) => `/users`,
-  Sale: (id) => `/caisse/tickets/${id}`,
-  CashSession: () => "/caisse/sessions",
+  Sale: (id) => `/comptoir/tickets/${id}`,
+  ComptoirSession: () => "/comptoir/sessions",
 };
 
 const modeLabels: Record<string, string> = {
   ESPECES: "Especes",
-  CARTE_BANCAIRE: "Carte bancaire",
   MOBILE_MONEY: "Mobile Money",
-  CHEQUE: "Cheque",
   VIREMENT: "Virement",
   AUTRE: "Autre",
 };
@@ -299,14 +297,18 @@ function CashSessionMetadata({ meta }: { meta: Record<string, unknown> }) {
     <div className="space-y-1">
       {meta.ouvertureAt ? <Row label="Ouverture" value={formatDateTime(String(meta.ouvertureAt))} /> : null}
       {meta.fermetureAt ? <Row label="Fermeture" value={formatDateTime(String(meta.fermetureAt))} /> : null}
-      {meta.montantOuverture != null && <Row label="Fond de caisse" value={formatMontant(Number(meta.montantOuverture))} />}
-      {meta.montantFermeture != null && <Row label="Montant fermeture" value={formatMontant(Number(meta.montantFermeture))} />}
-      {meta.soldeTheorique != null && <Row label="Solde theorique" value={formatMontant(Number(meta.soldeTheorique))} />}
-      {meta.ecartCaisse != null && <Row label="Ecart caisse" value={formatMontant(Number(meta.ecartCaisse))} />}
+      {meta.montantOuvertureCash != null && <Row label="Fond cash" value={formatMontant(Number(meta.montantOuvertureCash))} />}
+      {meta.montantOuvertureMobileMoney != null && <Row label="Fond mobile money" value={formatMontant(Number(meta.montantOuvertureMobileMoney))} />}
+      {meta.montantFermetureCash != null && <Row label="Fermeture cash" value={formatMontant(Number(meta.montantFermetureCash))} />}
+      {meta.montantFermetureMobileMoney != null && <Row label="Fermeture mobile money" value={formatMontant(Number(meta.montantFermetureMobileMoney))} />}
+      {meta.soldeTheoriqueCash != null && <Row label="Solde theorique cash" value={formatMontant(Number(meta.soldeTheoriqueCash))} />}
+      {meta.soldeTheoriqueMobileMoney != null && <Row label="Solde theorique MM" value={formatMontant(Number(meta.soldeTheoriqueMobileMoney))} />}
+      {meta.ecartCash != null && <Row label="Ecart cash" value={formatMontant(Number(meta.ecartCash))} />}
+      {meta.ecartMobileMoney != null && <Row label="Ecart mobile money" value={formatMontant(Number(meta.ecartMobileMoney))} />}
       {meta.nbVentes != null && <Row label="Nb ventes" value={String(meta.nbVentes)} />}
       {meta.caTotal != null && <Row label="CA session" value={formatMontant(Number(meta.caTotal))} />}
       {meta.closedByOwner != null && <Row label="Ferme par le proprietaire" value={meta.closedByOwner ? "Oui" : "Non"} />}
-      <GenericMetadata meta={meta} exclude={["ouvertureAt", "fermetureAt", "montantOuverture", "montantFermeture", "soldeTheorique", "ecartCaisse", "nbVentes", "caTotal", "closedByOwner"]} />
+      <GenericMetadata meta={meta} exclude={["ouvertureAt", "fermetureAt", "montantOuvertureCash", "montantOuvertureMobileMoney", "montantFermetureCash", "montantFermetureMobileMoney", "soldeTheoriqueCash", "soldeTheoriqueMobileMoney", "ecartCash", "ecartMobileMoney", "nbVentes", "caTotal", "closedByOwner"]} />
     </div>
   );
 }

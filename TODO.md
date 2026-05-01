@@ -39,7 +39,7 @@
 Ces éléments sont considérés **à jour** pour le MVP et les jalons v2+ documentés — les évolutions se font par **nouvelle version** de spec (`ROADMAP` / champs *Version* en tête de fichier) :
 
 - [x] `ARCHITECTURE_MVP.md` — schéma, endpoints, rôles §8
-- [x] `SPECS/` — STOCK, CAISSE, AUTH (2 niveaux groupe/PDV), IMPRESSION, ACTIVITY_LOG, PERIPHERIQUES, **MULTI_ORGANISATION**, **PAGES_MVP**, **DASHBOARD** (KPI)
+- [x] `SPECS/` — STOCK, COMPTOIR, AUTH (2 niveaux groupe/PDV), IMPRESSION, ACTIVITY_LOG, PERIPHERIQUES, **MULTI_ORGANISATION**, **PAGES_MVP**, **DASHBOARD** (KPI)
 - [x] `CLAUDE.md`, `CONVENTIONS.md`, `DOCKER.md`
 - [x] Stack Docker (Compose racine, app sous `web/app/`)
 - [x] `ROADMAP.md` v1.1.0 (versionnement + phases **1.0.0** / backlog **2.x+**)
@@ -68,7 +68,7 @@ _Phases 0–4 terminées — reste quelques tickets Phase 3/4 mineurs + Phase 5 
   - [x] Navigation conditionnelle par rôle dans le layout dashboard
   - [x] Seed : 3 comptes (ADMIN, MANAGER, CAISSIER)
 - [x] **SETUP-04** — Layout principal (dashboard)
-  - [x] Navigation conditionnelle par rôle (Stock, Caisse, Utilisateurs, Journal, Parametres, Taxes)
+  - [x] Navigation conditionnelle par rôle (Stock, Comptoir, Utilisateurs, Journal, Parametres, Taxes)
   - [x] Header avec identité utilisateur + déconnexion
 - [x] **SETUP-05** — Seed de base de données
   - [x] 3 comptes (ADMIN, MANAGER, CAISSIER)
@@ -95,18 +95,18 @@ _Phases 0–4 terminées — reste quelques tickets Phase 3/4 mineurs + Phase 5 
 
 ---
 
-## Terminé — Phase 2 (Caisse / Ventes)
+## Terminé — Phase 2 (Comptoir / Ventes)
 
-- [x] **CAISSE-API-01** — `GET/POST /api/caisse/sessions` (ouverture session, activity log)
-- [x] **CAISSE-API-02** — `GET/PUT /api/caisse/sessions/[id]` (fermeture session)
-- [x] **CAISSE-UI-01** — Page sessions `/caisse/sessions`
-- [x] **CAISSE-UI-02** — Interface POS `/caisse` (grille produits, recherche/scanner code-barres, filtre catégorie)
+- [x] **CAISSE-API-01** — `GET/POST /api/comptoir/sessions` (ouverture session, activity log)
+- [x] **CAISSE-API-02** — `GET/PUT /api/comptoir/sessions/[id]` (fermeture session)
+- [x] **CAISSE-UI-01** — Page sessions `/comptoir/sessions`
+- [x] **CAISSE-UI-02** — Interface POS `/comptoir` (grille produits, recherche/scanner code-barres, filtre catégorie)
 - [x] **CAISSE-UI-03** — Composant Cart (Zustand store avec remise, taxes, persist sessionStorage)
-- [x] **CAISSE-UI-04** — PaymentModal (multi-modes : especes, carte, mobile money, cheque, virement)
+- [x] **CAISSE-UI-04** — PaymentModal (modes : especes, mobile money)
 - [x] **CAISSE-API-03** — `POST /api/ventes` (transaction atomique : vente + lignes + paiements + stock + mouvements)
 - [x] **CAISSE-API-04** — `GET /api/ventes`, `GET /api/ventes/[id]`
 - [x] **CAISSE-API-05** — `POST /api/ventes/[id]/annuler` (ADMIN/MANAGER, restauration stock)
-- [x] **CAISSE-UI-05** — Page historique `/caisse/ventes` + détail `/caisse/ventes/[id]`
+- [x] **CAISSE-UI-05** — Page historique `/comptoir/ventes` + détail `/comptoir/ventes/[id]`
 
 ---
 
@@ -114,7 +114,7 @@ _Phases 0–4 terminées — reste quelques tickets Phase 3/4 mineurs + Phase 5 
 
 - [x] **PRINT-01** — `lib/receipt/pdf-generator.tsx` (en-tête commerce, RCCM/NIF, lignes, taxes, paiements, pied de page)
 - [x] **PRINT-02** — `GET /api/tickets/[id]/pdf` (téléchargement PDF avec activity log)
-- [x] **PRINT-03** — Page `/caisse/tickets/[id]` (prévisualisation ticket HTML)
+- [x] **PRINT-03** — Page `/comptoir/tickets/[id]` (prévisualisation ticket HTML)
 - [x] **PRINT-05** — `lib/receipt/thermal-printer.ts` (config env, fallback gracieux, tiroir-caisse)
 - [x] **PRINT-06** — `POST /api/tickets/[id]/print` (impression thermique avec activity log)
 - [x] **PRINT-07** — `TicketActions.tsx` (boutons impression PDF / thermique post-vente)
@@ -133,7 +133,7 @@ _Phases 0–4 terminées — reste quelques tickets Phase 3/4 mineurs + Phase 5 
 - [x] **DASH-01** — `GET /api/dashboard/kpis` (CA, nombre ventes, panier moyen, especes vs autre, alertes stock, status périphériques)
 - [x] **DASH-02** — Page dashboard `/` (cartes KPI, alertes stock, top 5 stock bas ; vue CAISSIER allégée)
 - [x] **LOG-01** — Modèle `ActivityLog` + `logActivity()` (45+ types d'actions, capture IP/user-agent)
-- [x] **LOG-02** — Instrumentation `logActivity` (auth, users, stock, caisse, tickets, taxes, parametres)
+- [x] **LOG-02** — Instrumentation `logActivity` (auth, users, stock, comptoir, tickets, taxes, parametres)
 - [x] **LOG-03** — `GET /api/activity-logs` + page `/activity-logs` + détail `/activity-logs/[id]` (filtres, pagination, badges actions, IP pour ADMIN)
 
 ### Reste Phase 4

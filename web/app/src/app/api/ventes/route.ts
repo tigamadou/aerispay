@@ -81,10 +81,10 @@ export async function POST(req: Request) {
     const { sessionId, lignes, paiements, remise, nomClient, notesCaissier } = parsed.data;
 
     // Verify session is open
-    const session = await prisma.caisseSession.findUnique({ where: { id: sessionId } });
+    const session = await prisma.comptoirSession.findUnique({ where: { id: sessionId } });
     if (!session || session.statut !== "OUVERTE") {
       return Response.json(
-        { error: "Aucune session de caisse ouverte pour cette ID" },
+        { error: "Aucune session de comptoir ouverte pour cette ID" },
         { status: 422 }
       );
     }

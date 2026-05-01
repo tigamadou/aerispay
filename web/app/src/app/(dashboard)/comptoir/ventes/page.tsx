@@ -5,8 +5,8 @@ import { hasPermission, hasRole } from "@/lib/permissions";
 import type { Role, Prisma } from "@prisma/client";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CancelButtonClient } from "@/components/caisse/CancelButton";
-import { VenteFilterDateClient } from "@/components/caisse/VenteFilterDate";
+import { CancelButtonClient } from "@/components/comptoir/CancelButton";
+import { VenteFilterDateClient } from "@/components/comptoir/VenteFilterDate";
 
 export const dynamic = "force-dynamic";
 
@@ -66,9 +66,9 @@ export default async function VentesPage({ searchParams }: VentesPageProps) {
 
   // ─── Find caissier's open session ──────────────────
   const openSession = isCaissier
-    ? await prisma.caisseSession.findFirst({
+    ? await prisma.comptoirSession.findFirst({
         where: { userId: authSession.user.id, statut: "OUVERTE" },
-        select: { id: true, ouvertureAt: true, montantOuverture: true },
+        select: { id: true, ouvertureAt: true, montantOuvertureCash: true, montantOuvertureMobileMoney: true },
       })
     : null;
 
@@ -164,7 +164,7 @@ export default async function VentesPage({ searchParams }: VentesPageProps) {
       if (v) p.set(k, v);
     }
     const qs = p.toString();
-    return `/caisse/ventes${qs ? `?${qs}` : ""}`;
+    return `/comptoir/ventes${qs ? `?${qs}` : ""}`;
   }
 
   return (
@@ -213,7 +213,7 @@ export default async function VentesPage({ searchParams }: VentesPageProps) {
               <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400">Période</label>
               <div className="flex gap-1">
                 <Link
-                  href="/caisse/ventes"
+                  href="/comptoir/ventes"
                   className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
                     showCurrentSession
                       ? "bg-indigo-600 text-white"
@@ -223,7 +223,7 @@ export default async function VentesPage({ searchParams }: VentesPageProps) {
                   Session en cours
                 </Link>
                 <Link
-                  href="/caisse/ventes?session=all"
+                  href="/comptoir/ventes?session=all"
                   className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
                     params.session === "all" && !params.dateFrom && !params.dateTo
                       ? "bg-indigo-600 text-white"
@@ -262,7 +262,7 @@ export default async function VentesPage({ searchParams }: VentesPageProps) {
 
         {(params.userId || params.dateFrom || params.dateTo || params.session) && (
           <Link
-            href="/caisse/ventes"
+            href="/comptoir/ventes"
             className="rounded border border-zinc-300 px-3 py-1.5 text-xs text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
           >
             Réinitialiser
@@ -291,7 +291,7 @@ export default async function VentesPage({ searchParams }: VentesPageProps) {
               return (
                 <tr key={v.id} className="text-zinc-700 dark:text-zinc-300">
                   <td className="px-4 py-3 font-mono text-xs">
-                    <Link href={`/caisse/ventes/${v.id}`} className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400">
+                    <Link href={`/comptoir/ventes/${v.id}`} className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400">
                       {v.numero}
                     </Link>
                   </td>
@@ -315,7 +315,7 @@ export default async function VentesPage({ searchParams }: VentesPageProps) {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <Link
-                        href={`/caisse/tickets/${v.id}`}
+                        href={`/comptoir/tickets/${v.id}`}
                         className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 text-xs font-medium"
                       >
                         Ticket

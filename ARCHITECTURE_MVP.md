@@ -2,14 +2,14 @@
 
 > **Version :** 1.0 — MVP  
 > **Date :** Avril 2026  
-> **Modules couverts :** Gestion de Stock · Gestion de Caisse · Périphériques de caisse · Journal d’activité (audit)  
+> **Modules couverts :** Gestion de Stock · Comptoir (POS) · Périphériques de caisse · Journal d’activité (audit)  
 > **Stack :** Next.js 14 · TypeScript · Prisma · MySQL · Tailwind CSS
 
 ---
 
 ## 1. Vue d'ensemble
 
-AerisPay MVP est une application web de caisse enregistreuse et de gestion commerciale conçue pour les petits et moyens commerces. La première version se concentre sur la **gestion de stock**, la **gestion de caisse**, la compatibilité avec les périphériques de caisse (imprimante ticket, douchette code-barres, tiroir-caisse), l’impression de tickets normalisés (PDF + thermique) et un **journal d’activité** centralisé pour l’audit des opérations.
+AerisPay MVP est une application web de caisse enregistreuse et de gestion commerciale conçue pour les petits et moyens commerces. La première version se concentre sur la **gestion de stock**, le **comptoir (POS)**, la compatibilité avec les périphériques de caisse (imprimante ticket, douchette code-barres, tiroir-caisse), l’impression de tickets normalisés (PDF + thermique) et un **journal d’activité** centralisé pour l’audit des opérations.
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -97,7 +97,7 @@ Le MVP est développé en **Test-Driven Development**. Pour chaque fonctionnalit
 3. Implémenter le code minimal pour faire passer ces tests.
 4. Refactorer sans affaiblir la couverture.
 
-Les API Routes et transactions Prisma sont couvertes par Vitest, les composants et formulaires critiques par React Testing Library, et les parcours de caisse/stock/impression par Playwright lorsque le comportement est de bout en bout.
+Les API Routes et transactions Prisma sont couvertes par Vitest, les composants et formulaires critiques par React Testing Library, et les parcours de comptoir/stock/impression par Playwright lorsque le comportement est de bout en bout.
 
 ---
 
@@ -118,7 +118,7 @@ aerispay/                              # Racine du dépôt
 ├── SPECS/
 │   ├── AUTH.md
 │   ├── STOCK.md
-│   ├── CAISSE.md
+│   ├── COMPTOIR.md
 │   ├── IMPRESSION.md
 │   ├── PERIPHERIQUES.md
 │   ├── MULTI_ORGANISATION.md
@@ -145,7 +145,7 @@ aerispay/                              # Racine du dépôt
         │   │   │   ├── nouveau/page.tsx
         │   │   │   ├── categories/
         │   │   │   └── mouvements/
-        │   │   └── caisse/            # Module Caisse
+        │   │   └── comptoir/           # Module Comptoir (POS)
         │   │       ├── page.tsx       # Interface POS
         │   │       ├── sessions/
         │   │       ├── ventes/
@@ -158,7 +158,7 @@ aerispay/                              # Racine du dépôt
         │       ├── categories/
         │       ├── stock/mouvements/
         │       ├── stock/alertes/
-        │       ├── caisse/sessions/
+        │       ├── comptoir/sessions/
         │       ├── ventes/
         │       ├── ventes/[id]/annuler/
         │       ├── tickets/[id]/pdf/
@@ -172,7 +172,7 @@ aerispay/                              # Racine du dépôt
         │   │   ├── ProductForm.tsx
         │   │   ├── StockAlertBadge.tsx
         │   │   └── MovementTable.tsx
-        │   ├── caisse/
+        │   ├── comptoir/
         │   │   ├── POSGrid.tsx
         │   │   ├── Cart.tsx
         │   │   ├── PaymentModal.tsx
@@ -234,7 +234,7 @@ model User {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  sessions     CaisseSession[]
+  sessions     ComptoirSession[]
   ventes       Vente[]
   activityLogs ActivityLog[]
 
@@ -313,9 +313,9 @@ enum TypeMouvement {
   PERTE         // casse, vol, expiration
 }
 
-// ─── MODULE CAISSE ──────────────────────────────────
+// ─── MODULE COMPTOIR ─────────────────────────────────
 
-model CaisseSession {
+model ComptoirSession {
   id              String    @id @default(cuid())
   ouvertureAt     DateTime  @default(now())
   fermetureAt     DateTime?
@@ -328,7 +328,7 @@ model CaisseSession {
   utilisateur     User      @relation(fields: [userId], references: [id])
   ventes          Vente[]
 
-  @@map("caisse_sessions")
+  @@map("comptoir_sessions")
 }
 
 enum StatutSession {
@@ -350,7 +350,7 @@ model Vente {
   createdAt       DateTime  @default(now())
 
   sessionId       String
-  session         CaisseSession @relation(fields: [sessionId], references: [id])
+  session         ComptoirSession @relation(fields: [sessionId], references: [id])
   userId          String
   caissier        User      @relation(fields: [userId], references: [id])
   lignes          LigneVente[]
@@ -397,11 +397,7 @@ model Paiement {
 
 enum ModePaiement {
   ESPECES
-  CARTE_BANCAIRE
   MOBILE_MONEY   // Wave, Orange Money, etc.
-  CHEQUE
-  VIREMENT
-  AUTRE
 }
 
 // ─── JOURNAL D’ACTIVITÉ (audit) ─────────────────────
@@ -452,7 +448,7 @@ Utilisateur → Formulaire Entrée Stock
 → Réponse → Mise à jour UI (TanStack Query invalidation)
 ```
 
-### 5.2 Module Gestion de Caisse (POS)
+### 5.2 Module Comptoir (POS)
 
 **Fonctionnalités :**
 - Interface POS tactile avec grille de produits
@@ -460,9 +456,9 @@ Utilisateur → Formulaire Entrée Stock
 - Ajout rapide au panier par douchette lecteur de code-barres USB/HID
 - Panier de vente (ajout, suppression, modification quantité)
 - Application de remises (globale ou par ligne)
-- Paiement multi-modes (espèces avec calcul monnaie, carte, mobile money)
+- Paiement multi-modes (espèces avec calcul monnaie, mobile money)
 - Historique des ventes avec filtres
-- Gestion des sessions de caisse (ouverture/fermeture avec fonds)
+- Gestion des sessions de comptoir (ouverture/fermeture avec fonds)
 - Impression ticket (PDF + thermique)
 - Ouverture tiroir-caisse après paiement espèces validé
 
@@ -486,7 +482,7 @@ Caissier → Interface POS
 ### 5.3 Journal d’activité (audit)
 
 **Fonctionnalités :**
-- Enregistrement append-only des actions sensibles et métier (auth, utilisateurs, stock, caisse, tickets)
+- Enregistrement append-only des actions sensibles et métier (auth, utilisateurs, stock, comptoir, tickets)
 - Consultation filtrée par période, acteur, type d’action et entité
 - Détails techniques optionnels : IP, user-agent (audit réseau)
 
@@ -576,12 +572,12 @@ Caissier → Interface POS
 |---|---|---|
 | GET | `/api/activity-logs` | Liste paginée + filtres (période, action, acteur, entité) |
 
-### Caisse
+### Comptoir
 | Méthode | Endpoint | Description |
 |---|---|---|
-| GET | `/api/caisse/sessions` | Liste sessions |
-| POST | `/api/caisse/sessions` | Ouvrir session |
-| PUT | `/api/caisse/sessions/[id]` | Fermer session |
+| GET | `/api/comptoir/sessions` | Liste sessions |
+| POST | `/api/comptoir/sessions` | Ouvrir session |
+| PUT | `/api/comptoir/sessions/[id]` | Fermer session |
 | GET | `/api/ventes` | Historique ventes |
 | POST | `/api/ventes` | Créer une vente |
 | GET | `/api/ventes/[id]` | Détail vente |
@@ -621,7 +617,7 @@ Les rôles `ADMIN`, `MANAGER` et `CAISSIER` en **MVP** sont des comptes **niveau
 ```
 MVP v1.0 (Actuel)
 ├── ✅ Gestion de stock
-├── ✅ Gestion de caisse POS
+├── ✅ Comptoir POS
 ├── ✅ Périphériques caisse (imprimante ticket, douchette, tiroir-caisse)
 ├── ✅ Impression tickets (PDF + thermique)
 └── ✅ Journal d’activité (audit)
@@ -653,7 +649,7 @@ v3.0 — Comptabilité Générale
 4. **Authentification** — Mise en place NextAuth.js avec email/password
 5. **Tests d’abord** — écrire les tests du module avant les API, composants ou flux associés
 6. **Module Stock** — Modèles, API Routes, interfaces CRUD
-7. **Module Caisse** — Interface POS, flux de vente, paiements, scan code-barres
+7. **Module Comptoir** — Interface POS, flux de vente, paiements, scan code-barres
 8. **Impression** — Génération PDF avec @react-pdf/renderer
 9. **Périphériques caisse** — Imprimante ticket ESC/POS, douchette USB/HID, tiroir-caisse
 10. **Impression thermique** — Intégration node-thermal-printer

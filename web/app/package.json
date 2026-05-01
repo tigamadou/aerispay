@@ -13,7 +13,7 @@
     "test:e2e:auth": "cypress run --spec 'cypress/e2e/auth/**/*.cy.ts'",
     "test:e2e:users": "cypress run --spec 'cypress/e2e/users/**/*.cy.ts'",
     "test:e2e:ventes": "cypress run --spec 'cypress/e2e/ventes/**/*.cy.ts'",
-    "test:e2e:caisse": "cypress run --spec 'cypress/e2e/caisse/**/*.cy.ts'",
+    "test:e2e:comptoir": "cypress run --spec 'cypress/e2e/comptoir/**/*.cy.ts'",
     "test:e2e:activity-logs": "cypress run --spec 'cypress/e2e/activity-logs/**/*.cy.ts'",
     "test:e2e:open": "cypress open",
     "type-check": "tsc --noEmit",

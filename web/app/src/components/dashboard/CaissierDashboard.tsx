@@ -15,7 +15,7 @@ interface KpiData {
   averageBasket: number;
   cashTotal: number;
   nonCashTotal: number;
-  openSession: { id: string; ouvertureAt: string; montantOuverture: number } | null;
+  openSession: { id: string; ouvertureAt: string; montantOuvertureCash: number; montantOuvertureMobileMoney: number } | null;
   cashDiscrepancy: {
     sessionsCount: number;
     discrepancyCount: number;
@@ -95,16 +95,16 @@ export function CaissierDashboard({ userName }: CaissierDashboardProps) {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Link
-            href="/caisse/sessions"
+            href="/comptoir/sessions"
             className="inline-flex items-center gap-2 rounded-xl border border-zinc-300 bg-white px-5 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
           >
             Mes sessions
           </Link>
           <Link
-            href="/caisse"
+            href="/comptoir"
             className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
           >
-            Ouvrir la caisse
+            Ouvrir le comptoir
           </Link>
         </div>
       </div>
@@ -205,14 +205,14 @@ export function CaissierDashboard({ userName }: CaissierDashboardProps) {
                   <div className="flex items-center gap-2">
                     <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                     <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-                      Session de caisse ouverte
+                      Session de comptoir ouverte
                     </span>
                   </div>
                   <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">
                     Depuis {new Date(data.openSession.ouvertureAt).toLocaleString("fr-FR", {
                       hour: "2-digit",
                       minute: "2-digit",
-                    })} — Fond de caisse: {formatMontant(data.openSession.montantOuverture)}
+                    })} — Fond cash: {formatMontant(data.openSession.montantOuvertureCash)} / Fond MM: {formatMontant(data.openSession.montantOuvertureMobileMoney)}
                   </p>
                 </div>
                 <SessionChrono startedAt={data.openSession.ouvertureAt} />

@@ -1,14 +1,14 @@
 import { auth } from "@/auth";
 import { redirect, notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { TicketActions } from "@/components/caisse/TicketActions";
+import { TicketActions } from "@/components/comptoir/TicketActions";
 import Link from "next/link";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Ticket de caisse",
+  title: "Ticket de comptoir",
 };
 
 const modeLabel: Record<string, string> = {
@@ -85,7 +85,7 @@ export default async function TicketPage({ params }: TicketPageProps) {
       {/* Back + Actions */}
       <div className="flex items-center justify-between">
         <Link
-          href="/caisse/ventes"
+          href="/comptoir/ventes"
           className="flex items-center gap-1 text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">

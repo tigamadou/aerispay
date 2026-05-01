@@ -47,9 +47,9 @@ describe("Auth — Middleware routing logic", () => {
       expect(result).toEqual({ action: "redirect", target: "/login" });
     });
 
-    it("redirects to /login when accessing /caisse", () => {
+    it("redirects to /login when accessing /comptoir", () => {
       const result = middlewareLogic({
-        pathname: "/caisse",
+        pathname: "/comptoir",
         isLoggedIn: false,
       });
       expect(result).toEqual({ action: "redirect", target: "/login" });
@@ -113,9 +113,9 @@ describe("Auth — Middleware routing logic", () => {
       expect(result).toEqual({ action: "next" });
     });
 
-    it("allows access to /caisse", () => {
+    it("allows access to /comptoir", () => {
       const result = middlewareLogic({
-        pathname: "/caisse",
+        pathname: "/comptoir",
         isLoggedIn: true,
       });
       expect(result).toEqual({ action: "next" });
