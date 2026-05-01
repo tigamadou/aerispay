@@ -140,8 +140,8 @@ export function POSInterface({ produits, categories, sessionId }: POSInterfacePr
     <div className="flex flex-1 flex-col min-h-0 gap-4 lg:flex-row">
       {/* LEFT: Search + Product Grid */}
       <div className="flex flex-1 flex-col min-h-0 min-w-0">
-        {/* Search Bar */}
-        <div className="mb-4">
+        {/* Search Bar (fixed) */}
+        <div className="shrink-0 mb-4">
           <div className="relative">
             <svg
               className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400"
@@ -176,8 +176,8 @@ export function POSInterface({ produits, categories, sessionId }: POSInterfacePr
           )}
         </div>
 
-        {/* Category Tabs */}
-        <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+        {/* Category Tabs (fixed) */}
+        <div className="shrink-0 mb-4 flex gap-2 overflow-x-auto pb-1">
           <button
             onClick={() => setSelectedCategorie(null)}
             className={cn(
@@ -277,10 +277,10 @@ export function POSInterface({ produits, categories, sessionId }: POSInterfacePr
       {/* RIGHT: Cart Panel */}
       <div
         data-testid="pos-cart"
-        className="flex w-full flex-col rounded-lg border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-800 lg:w-96 lg:min-w-[24rem]"
+        className="flex w-full min-h-0 flex-col rounded-lg border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-800 lg:w-96 lg:min-w-[24rem]"
       >
-        {/* Cart Header */}
-        <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
+        {/* Cart Header (pinned) */}
+        <div className="shrink-0 flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
             Panier ({items.length} article{items.length !== 1 ? "s" : ""})
           </h2>
@@ -359,8 +359,8 @@ export function POSInterface({ produits, categories, sessionId }: POSInterfacePr
           )}
         </div>
 
-        {/* Discount + Totals */}
-        <div className="border-t border-zinc-200 px-4 py-3 dark:border-zinc-700">
+        {/* Discount + Totals (pinned) */}
+        <div className="shrink-0 border-t border-zinc-200 px-4 py-3 dark:border-zinc-700">
           {/* Discount input */}
           <div className="mb-3 flex items-center gap-2">
             <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400 shrink-0">
@@ -411,8 +411,8 @@ export function POSInterface({ produits, categories, sessionId }: POSInterfacePr
           </div>
         </div>
 
-        {/* Encaisser Button */}
-        <div className="px-4 pb-4">
+        {/* Encaisser Button (pinned) */}
+        <div className="shrink-0 px-4 pb-4">
           <button
             data-testid="pos-encaisser"
             disabled={items.length === 0}

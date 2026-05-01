@@ -29,7 +29,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   });
 
   return (
-    <div className="min-h-svh flex flex-col">
+    <div className="h-svh flex flex-col overflow-hidden">
       <header className="border-b border-zinc-200 bg-zinc-50/80 dark:border-zinc-800 dark:bg-zinc-950/80">
         <div className="mx-auto flex h-14  items-center justify-between gap-4 px-4">
           <div className="flex items-center gap-6">
@@ -69,7 +69,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full  flex-1 p-4">{children}</main>
+      <main className="mx-auto w-full flex-1 min-h-0 flex flex-col overflow-auto p-4">{children}</main>
     </div>
   );
 }
