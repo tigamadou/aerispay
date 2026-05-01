@@ -1,4 +1,4 @@
-import type { ModePaiement } from "@prisma/client";
+import { Prisma, type ModePaiement } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireAuth, hasRole } from "@/lib/permissions";
 import { declarationCloturSchema } from "@/lib/validations/mouvement-caisse";
@@ -180,9 +180,9 @@ export async function DELETE(
       where: { id },
       data: {
         statut: "OUVERTE",
-        declarationsCaissier: null,
+        declarationsCaissier: Prisma.DbNull,
         demandeCloturAt: null,
-        ecartsParMode: null,
+        ecartsParMode: Prisma.DbNull,
         soldeTheoriqueCash: null,
         soldeTheoriqueMobileMoney: null,
       },

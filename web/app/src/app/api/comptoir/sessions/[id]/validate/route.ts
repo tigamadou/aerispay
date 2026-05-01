@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireAuth, hasPermission } from "@/lib/permissions";
 import { validationAveugSchema } from "@/lib/validations/mouvement-caisse";
@@ -165,7 +166,7 @@ export async function POST(
         where: { id },
         data: {
           tentativesRecomptage: { increment: 1 },
-          declarationsValideur: null, // Clear for next attempt
+          declarationsValideur: Prisma.DbNull, // Clear for next attempt
         },
         include: { user: { select: { id: true, nom: true, email: true } } },
       });

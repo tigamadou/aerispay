@@ -169,10 +169,18 @@ describe("DELETE /api/comptoir/sessions/[id]/closure", () => {
     vi.clearAllMocks();
     DELETE = (await import("@/app/api/comptoir/sessions/[id]/closure/route")).DELETE;
     (prisma.comptoirSession.update as ReturnType<typeof vi.fn>).mockImplementation(
-      async ({ data }: { data: Record<string, unknown> }) => ({
-        ...openSession, ...data,
-        user: { id: "user-1", nom: "Test", email: "t@t.com" },
-      }),
+      async ({ data }: { data: Record<string, unknown> }) => {
+        const resolved = { ...data };
+        for (const [k, v] of Object.entries(resolved)) {
+          if (v !== null && typeof v === "object" && Object.keys(v as object).length === 0) {
+            resolved[k] = null;
+          }
+        }
+        return {
+          ...openSession, ...resolved,
+          user: { id: "user-1", nom: "Test", email: "t@t.com" },
+        };
+      },
     );
   });
 
