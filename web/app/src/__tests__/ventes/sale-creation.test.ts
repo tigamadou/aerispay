@@ -222,9 +222,10 @@ describe("POST /api/ventes (sale creation)", () => {
 
     expect(res.status).toBe(201);
     expect(createData).not.toBeNull();
+    const persisted = createData!;
 
     // Verify taxesDetail was passed to create
-    const detail = (createData as Record<string, unknown>).taxesDetail as Array<{ nom: string; taux: number; montant: number }>;
+    const detail = persisted.taxesDetail as Array<{ nom: string; taux: number; montant: number }>;
     expect(detail).toHaveLength(2);
     expect(detail[0].nom).toBe("TVA");
     expect(detail[0].taux).toBe(18);
@@ -234,7 +235,7 @@ describe("POST /api/ventes (sale creation)", () => {
     expect(detail[1].montant).toBeCloseTo(100, 0);
 
     // Total tva should be sum of all taxes
-    const tvaTotal = (createData as Record<string, unknown>).tva;
+    const tvaTotal = persisted.tva;
     expect(Number(tvaTotal)).toBeCloseTo(460, 0);
   });
 
@@ -279,12 +280,14 @@ describe("POST /api/ventes (sale creation)", () => {
     }));
 
     expect(res.status).toBe(201);
+    expect(createData).not.toBeNull();
+    const persisted = createData!;
 
     // taxesDetail should be undefined (not stored) when no taxes
-    expect((createData as Record<string, unknown>).taxesDetail).toBeUndefined();
+    expect(persisted.taxesDetail).toBeUndefined();
 
     // tva total should be 0
-    expect(Number((createData as Record<string, unknown>).tva)).toBe(0);
+    expect(Number(persisted.tva)).toBe(0);
   });
 
   it("applies taxes on base after discount", async () => {
@@ -333,8 +336,10 @@ describe("POST /api/ventes (sale creation)", () => {
     }));
 
     expect(res.status).toBe(201);
+    expect(createData).not.toBeNull();
+    const persisted = createData!;
 
-    const detail = (createData as Record<string, unknown>).taxesDetail as Array<{ nom: string; taux: number; montant: number }>;
+    const detail = persisted.taxesDetail as Array<{ nom: string; taux: number; montant: number }>;
     expect(detail).toHaveLength(1);
     expect(detail[0].nom).toBe("TVA");
     // base = 2000 - 200 = 1800, 10% of 1800 = 180
