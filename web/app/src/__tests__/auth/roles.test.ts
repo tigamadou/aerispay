@@ -11,7 +11,8 @@ type Permission =
   | "caisse:gerer_session_autre"
   | "ventes:annuler"
   | "activity_logs:consulter"
-  | "rapports:consulter";
+  | "rapports:consulter"
+  | "parametres:manage";
 
 const ROLE_PERMISSIONS: Record<Role, Set<Permission>> = {
   ADMIN: new Set([
@@ -22,6 +23,7 @@ const ROLE_PERMISSIONS: Record<Role, Set<Permission>> = {
     "ventes:annuler",
     "activity_logs:consulter",
     "rapports:consulter",
+    "parametres:manage",
   ]),
   MANAGER: new Set([
     "stock:manage",
@@ -71,6 +73,10 @@ describe("Auth — Role permissions (AUTH.md §3 matrix)", () => {
     it("can view reports", () => {
       expect(hasPermission("ADMIN", "rapports:consulter")).toBe(true);
     });
+
+    it("can manage settings", () => {
+      expect(hasPermission("ADMIN", "parametres:manage")).toBe(true);
+    });
   });
 
   describe("MANAGER", () => {
@@ -100,6 +106,10 @@ describe("Auth — Role permissions (AUTH.md §3 matrix)", () => {
 
     it("can view reports", () => {
       expect(hasPermission("MANAGER", "rapports:consulter")).toBe(true);
+    });
+
+    it("cannot manage settings", () => {
+      expect(hasPermission("MANAGER", "parametres:manage")).toBe(false);
     });
   });
 
@@ -132,6 +142,10 @@ describe("Auth — Role permissions (AUTH.md §3 matrix)", () => {
 
     it("cannot view reports", () => {
       expect(hasPermission("CAISSIER", "rapports:consulter")).toBe(false);
+    });
+
+    it("cannot manage settings", () => {
+      expect(hasPermission("CAISSIER", "parametres:manage")).toBe(false);
     });
   });
 });

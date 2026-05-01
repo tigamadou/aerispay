@@ -36,6 +36,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const role = session.user.role as Role;
   const canManage = hasPermission(role, "stock:manage");
 
+  if (!canManage) {
+    redirect("/");
+  }
+
   const produit = await prisma.produit.findUnique({
     where: { id },
     include: {

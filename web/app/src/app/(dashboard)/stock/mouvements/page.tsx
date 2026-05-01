@@ -26,7 +26,7 @@ interface MouvementsPageProps {
 export default async function MouvementsPage({ searchParams }: MouvementsPageProps) {
   const session = await auth();
   if (!session?.user || !hasPermission(session.user.role as Role, "stock:manage")) {
-    redirect("/stock");
+    redirect("/");
   }
 
   const params = await searchParams;

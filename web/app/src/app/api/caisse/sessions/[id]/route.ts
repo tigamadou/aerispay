@@ -136,6 +136,12 @@ export async function PUT(
       include: { user: { select: { id: true, nom: true, email: true } } },
     });
 
+    const ventesAggClose = await prisma.vente.aggregate({
+      where: { sessionId: id, statut: "VALIDEE" },
+      _count: { id: true },
+      _sum: { total: true },
+    });
+
     await logActivity({
       action: ACTIONS.CASH_SESSION_CLOSED,
       actorId: result.user.id,
@@ -146,6 +152,10 @@ export async function PUT(
         soldeTheorique,
         ecartCaisse,
         closedByOwner: session.userId === result.user.id,
+        ouvertureAt: session.ouvertureAt.toISOString(),
+        fermetureAt: updated.fermetureAt?.toISOString() ?? null,
+        nbVentes: ventesAggClose._count.id,
+        caTotal: Number(ventesAggClose._sum.total ?? 0),
       },
       ipAddress: getClientIp(req),
       userAgent: getClientUserAgent(req),

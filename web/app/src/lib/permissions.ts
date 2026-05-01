@@ -11,7 +11,8 @@ export type Permission =
   | "caisse:gerer_session_autre"
   | "ventes:annuler"
   | "activity_logs:consulter"
-  | "rapports:consulter";
+  | "rapports:consulter"
+  | "parametres:manage";
 
 export const ROLE_PERMISSIONS: Record<Role, Set<Permission>> = {
   ADMIN: new Set([
@@ -22,6 +23,7 @@ export const ROLE_PERMISSIONS: Record<Role, Set<Permission>> = {
     "ventes:annuler",
     "activity_logs:consulter",
     "rapports:consulter",
+    "parametres:manage",
   ]),
   MANAGER: new Set([
     "stock:manage",

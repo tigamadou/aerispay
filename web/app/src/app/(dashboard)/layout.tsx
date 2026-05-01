@@ -19,8 +19,10 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   }
 
   const role = session.user.role as Role;
+  const canManageStock = hasPermission(role, "stock:manage");
   const canManageUsers = hasPermission(role, "users:manage");
   const canViewLogs = hasPermission(role, "activity_logs:consulter");
+  const canManageParametres = hasPermission(role, "parametres:manage");
 
   // Check if user has an open cash session (for sign-out flow)
   const openSession = await prisma.caisseSession.findFirst({
@@ -29,7 +31,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   });
 
   return (
-    <div className="min-h-svh flex flex-col">
+    <div className="h-svh flex flex-col overflow-hidden">
       <header className="border-b border-zinc-200 bg-zinc-50/80 dark:border-zinc-800 dark:bg-zinc-950/80">
         <div className="mx-auto flex h-14  items-center justify-between gap-4 px-4">
           <div className="flex items-center gap-6">
@@ -37,9 +39,11 @@ export default async function DashboardLayout({ children }: { children: ReactNod
               AerisPay
             </Link>
             <nav className="flex items-center gap-3 text-sm" aria-label="Navigation principale">
-              <Link href="/stock" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
-                Stock
-              </Link>
+              {canManageStock && (
+                <Link href="/stock" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
+                  Stock
+                </Link>
+              )}
               <Link href="/caisse" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
                 Caisse
               </Link>
@@ -56,6 +60,16 @@ export default async function DashboardLayout({ children }: { children: ReactNod
                   Journal
                 </Link>
               )}
+              {canManageParametres && (
+                <Link href="/taxes" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
+                  Taxes
+                </Link>
+              )}
+              {canManageParametres && (
+                <Link href="/parametres" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
+                  Parametres
+                </Link>
+              )}
             </nav>
           </div>
           <div className="flex items-center gap-3 text-sm">
@@ -69,7 +83,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full  flex-1 p-4">{children}</main>
+      <main className="mx-auto w-full flex-1 min-h-0 flex flex-col overflow-auto p-4">{children}</main>
     </div>
   );
 }

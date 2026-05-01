@@ -13,7 +13,7 @@ export async function POST(
   const { id } = await params;
 
   try {
-    const vente = await prisma.vente.findUnique({ where: { id } });
+    const vente = await prisma.vente.findUnique({ where: { id }, select: { id: true, numero: true } });
     if (!vente) {
       return Response.json({ error: "Vente introuvable" }, { status: 404 });
     }
@@ -25,7 +25,7 @@ export async function POST(
       actorId: result.user.id,
       entityType: "Sale",
       entityId: id,
-      metadata: { success: printResult.success, message: printResult.message },
+      metadata: { numero: vente.numero, success: printResult.success, message: printResult.message },
       ipAddress: getClientIp(_req),
       userAgent: getClientUserAgent(_req),
     });

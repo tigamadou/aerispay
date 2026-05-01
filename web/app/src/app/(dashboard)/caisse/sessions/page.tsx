@@ -1,8 +1,10 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { hasRole } from "@/lib/permissions";
 import { SessionManager } from "@/components/caisse/SessionManager";
 import type { Metadata } from "next";
+import type { Role } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +16,11 @@ export default async function SessionsPage() {
   const session = await auth();
   if (!session?.user) {
     redirect("/login");
+  }
+
+  const role = session.user.role as Role;
+  if (!hasRole(role, ["CAISSIER"])) {
+    redirect("/caisse");
   }
 
   const userId = session.user.id as string;

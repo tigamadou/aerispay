@@ -41,9 +41,8 @@ function mockAggregates() {
   (prisma.paiement.aggregate as ReturnType<typeof vi.fn>)
     .mockResolvedValueOnce({ _sum: { montant: new Decimal(30000) } })  // espèces
     .mockResolvedValueOnce({ _sum: { montant: new Decimal(30000) } }); // all payments
-  (prisma.vente.aggregate as ReturnType<typeof vi.fn>).mockResolvedValue({
-    _sum: { total: new Decimal(28000) },
-  });
+  (prisma.vente.aggregate as ReturnType<typeof vi.fn>)
+    .mockResolvedValue({ _sum: { total: new Decimal(28000) }, _count: { id: 2 } });
 }
 
 describe("GET /api/caisse/sessions/[id]", () => {

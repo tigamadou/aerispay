@@ -233,6 +233,7 @@ describe("PUT /api/caisse/sessions/[id]", () => {
     });
     (prisma.vente.aggregate as ReturnType<typeof vi.fn>).mockResolvedValue({
       _sum: { total: null },
+      _count: { id: 0 },
     });
   });
 

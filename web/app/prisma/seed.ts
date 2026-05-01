@@ -1,7 +1,7 @@
-import { PrismaClient, Role } from "@prisma/client";
+import { Role } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/db";
+import { seedDefaultParametres } from "@/lib/seed/parametres";
 
 const ROUNDS = 12;
 
@@ -436,6 +436,11 @@ async function main() {
   }
 
   console.log(`\nSeed OK — ${SEED_PRODUITS.length} produits crees/mis a jour`);
+
+  // --- Parametres ---
+  await seedDefaultParametres(prisma);
+
+  console.log(`\nSeed OK — Parametres de la structure crees`);
 }
 
 main()

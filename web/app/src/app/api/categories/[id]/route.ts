@@ -56,7 +56,11 @@ export async function PUT(
       actorId: result.user.id,
       entityType: "Category",
       entityId: id,
-      metadata: updateData,
+      metadata: {
+        nom: updated.nom,
+        changes: Object.keys(updateData),
+        ...updateData,
+      },
       ipAddress: getClientIp(req),
       userAgent: getClientUserAgent(req),
     });
@@ -103,7 +107,12 @@ export async function DELETE(
       actorId: result.user.id,
       entityType: "Category",
       entityId: id,
-      metadata: { nom: existing.nom },
+      metadata: {
+        nom: existing.nom,
+        description: existing.description,
+        couleur: existing.couleur,
+        nbProduits: 0,
+      },
       ipAddress: getClientIp(_req),
       userAgent: getClientUserAgent(_req),
     });

@@ -59,7 +59,11 @@ export async function POST(req: Request) {
       actorId: result.user.id,
       entityType: "Category",
       entityId: categorie.id,
-      metadata: { nom: categorie.nom },
+      metadata: {
+        nom: categorie.nom,
+        description: categorie.description,
+        couleur: categorie.couleur,
+      },
       ipAddress: getClientIp(req),
       userAgent: getClientUserAgent(req),
     });
