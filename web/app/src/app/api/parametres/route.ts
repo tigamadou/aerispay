@@ -11,6 +11,7 @@ const DEFAULT_PARAMETRES = {
   email: "",
   rccm: "",
   nif: "",
+  logo: null as string | null,
 };
 
 export async function GET(_req: Request) {
@@ -55,7 +56,7 @@ export async function PUT(req: Request) {
       actorId: result.user.id,
       entityType: "Parametres",
       entityId: "default",
-      metadata: parsed.data,
+      metadata: { ...parsed.data, logo: parsed.data.logo ? "(logo updated)" : undefined },
       ipAddress: getClientIp(req),
       userAgent: getClientUserAgent(req),
     });

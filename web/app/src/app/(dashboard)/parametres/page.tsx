@@ -32,6 +32,7 @@ export default async function ParametresPage() {
     email: parametres?.email ?? "",
     rccm: parametres?.rccm ?? "",
     nif: parametres?.nif ?? "",
+    logo: parametres?.logo ?? null,
   };
 
   return (

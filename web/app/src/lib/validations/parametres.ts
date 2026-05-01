@@ -7,6 +7,7 @@ export const parametresSchema = z.object({
   email: z.string().email("Email invalide").max(255).or(z.literal("")).default(""),
   rccm: z.string().max(100).default(""),
   nif: z.string().max(100).default(""),
+  logo: z.string().nullable().optional(),
 });
 
 export type ParametresInput = z.infer<typeof parametresSchema>;

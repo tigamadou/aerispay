@@ -75,6 +75,7 @@ export default async function TicketPage({ params }: TicketPageProps) {
   const commerceTel = parametres?.telephone ?? "";
   const commerceRccm = parametres?.rccm ?? "";
   const commerceNif = parametres?.nif ?? "";
+  const commerceLogo = parametres?.logo ?? null;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -98,6 +99,14 @@ export default async function TicketPage({ params }: TicketPageProps) {
       <div className="rounded-xl border border-zinc-200 bg-white font-mono text-sm dark:border-zinc-700 dark:bg-zinc-800">
         {/* Header */}
         <div className="border-b border-dashed border-zinc-300 px-6 py-5 text-center dark:border-zinc-600">
+          {commerceLogo && (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={commerceLogo}
+              alt={commerceNom}
+              className="mx-auto mb-3 h-16 w-auto object-contain"
+            />
+          )}
           <p className="text-base font-bold text-zinc-900 dark:text-zinc-100">{commerceNom}</p>
           {commerceAdresse && (
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{commerceAdresse}</p>
