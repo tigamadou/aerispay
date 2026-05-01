@@ -19,11 +19,15 @@ export interface ProduitPOS {
   reference: string;
   codeBarres: string | null;
   prixVente: number;
-  tva: number;
   stockActuel: number;
   stockMinimum: number;
   actif: boolean;
   categorie: { id: string; nom: string; couleur: string | null };
+}
+
+export interface TaxePOS {
+  nom: string;
+  taux: number;
 }
 
 export interface CategoriePOS {
@@ -97,47 +101,55 @@ export default async function CaissePage() {
   // ADMIN / MANAGER → read-only mode (no session needed)
   const readOnly = !isCaissier;
 
-  // Fetch products with their categories
-  const produits = await prisma.produit.findMany({
-    select: {
-      id: true,
-      nom: true,
-      reference: true,
-      codeBarres: true,
-      prixVente: true,
-      tva: true,
-      stockActuel: true,
-      stockMinimum: true,
-      actif: true,
-      categorie: {
-        select: {
-          id: true,
-          nom: true,
-          couleur: true,
+  // Fetch products, categories, and active taxes in parallel
+  const [produits, categories, activeTaxes] = await Promise.all([
+    prisma.produit.findMany({
+      select: {
+        id: true,
+        nom: true,
+        reference: true,
+        codeBarres: true,
+        prixVente: true,
+        stockActuel: true,
+        stockMinimum: true,
+        actif: true,
+        categorie: {
+          select: {
+            id: true,
+            nom: true,
+            couleur: true,
+          },
         },
       },
-    },
-    orderBy: { nom: "asc" },
-  });
-
-  // Fetch all categories for filters
-  const categories = await prisma.categorie.findMany({
-    select: {
-      id: true,
-      nom: true,
-      couleur: true,
-    },
-    orderBy: { nom: "asc" },
-  });
+      orderBy: { nom: "asc" },
+    }),
+    prisma.categorie.findMany({
+      select: {
+        id: true,
+        nom: true,
+        couleur: true,
+      },
+      orderBy: { nom: "asc" },
+    }),
+    prisma.taxe.findMany({
+      where: { active: true, parametresId: "default" },
+      orderBy: { ordre: "asc" },
+      select: { nom: true, taux: true },
+    }),
+  ]);
 
   // Serialize Decimal fields to numbers
   const serializedProduits: ProduitPOS[] = produits.map((p) => ({
     ...p,
     prixVente: Number(p.prixVente),
-    tva: Number(p.tva),
   }));
 
   const serializedCategories: CategoriePOS[] = categories;
+
+  const serializedTaxes: TaxePOS[] = activeTaxes.map((t) => ({
+    nom: t.nom,
+    taux: Number(t.taux),
+  }));
 
   return (
     <POSInterface
@@ -145,6 +157,7 @@ export default async function CaissePage() {
       categories={serializedCategories}
       sessionId={caisseSession?.id ?? ""}
       readOnly={readOnly}
+      taxes={serializedTaxes}
     />
   );
 }

@@ -41,11 +41,16 @@ export async function GET(
       logo: parametres?.logo ?? null,
     };
 
+    const taxesDetail = Array.isArray(vente.taxesDetail)
+      ? (vente.taxesDetail as { nom: string; taux: number; montant: number }[])
+      : null;
+
     const sale = {
       ...vente,
       sousTotal: Number(vente.sousTotal),
       remise: Number(vente.remise),
       tva: Number(vente.tva),
+      taxesDetail,
       total: Number(vente.total),
       lignes: vente.lignes.map((l) => ({
         ...l,

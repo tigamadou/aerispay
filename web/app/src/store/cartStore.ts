@@ -7,15 +7,26 @@ export interface CartItem {
   produitId: string;
   nom: string;
   prixUnitaire: number;
-  tva: number;
   quantite: number;
   remiseLigne: number;
+}
+
+export interface TaxeConfig {
+  nom: string;
+  taux: number;
+}
+
+export interface TaxeDetail {
+  nom: string;
+  taux: number;
+  montant: number;
 }
 
 interface CartState {
   items: CartItem[];
   remiseGlobale: number;
   typeRemise: "pourcentage" | "fixe";
+  taxes: TaxeConfig[];
 }
 
 interface CartActions {
@@ -23,18 +34,19 @@ interface CartActions {
     id: string;
     nom: string;
     prixVente: number;
-    tva: number;
   }) => void;
   updateQuantity: (produitId: string, quantite: number) => void;
   removeItem: (produitId: string) => void;
   setRemise: (value: number, type: "pourcentage" | "fixe") => void;
+  setTaxes: (taxes: TaxeConfig[]) => void;
   clearCart: () => void;
 }
 
 interface CartComputed {
   sousTotal: () => number;
   montantRemise: () => number;
-  montantTva: () => number;
+  detailTaxes: () => TaxeDetail[];
+  montantTaxes: () => number;
   total: () => number;
 }
 
@@ -46,6 +58,7 @@ export const useCartStore = create<CartStore>()(
       items: [],
       remiseGlobale: 0,
       typeRemise: "pourcentage",
+      taxes: [],
 
       addItem: (product) =>
         set((state) => {
@@ -68,7 +81,6 @@ export const useCartStore = create<CartStore>()(
                 produitId: product.id,
                 nom: product.nom,
                 prixUnitaire: Number(product.prixVente),
-                tva: Number(product.tva),
                 quantite: 1,
                 remiseLigne: 0,
               },
@@ -96,6 +108,8 @@ export const useCartStore = create<CartStore>()(
       setRemise: (value, type) =>
         set({ remiseGlobale: value, typeRemise: type }),
 
+      setTaxes: (taxes) => set({ taxes }),
+
       clearCart: () =>
         set({ items: [], remiseGlobale: 0, typeRemise: "pourcentage" }),
 
@@ -115,25 +129,23 @@ export const useCartStore = create<CartStore>()(
           : remiseGlobale;
       },
 
-      montantTva: () => {
-        const { items, remiseGlobale, typeRemise } = get();
+      detailTaxes: () => {
         const st = get().sousTotal();
-        const discountRatio =
-          typeRemise === "pourcentage"
-            ? 1 - remiseGlobale / 100
-            : st > 0
-              ? (st - remiseGlobale) / st
-              : 1;
+        const remise = get().montantRemise();
+        const base = Math.max(0, st - remise);
+        return get().taxes.map((t) => ({
+          nom: t.nom,
+          taux: t.taux,
+          montant: base * (t.taux / 100),
+        }));
+      },
 
-        return items.reduce((sum, item) => {
-          const lineSub =
-            item.prixUnitaire * item.quantite * (1 - item.remiseLigne / 100);
-          return sum + lineSub * discountRatio * (item.tva / 100);
-        }, 0);
+      montantTaxes: () => {
+        return get().detailTaxes().reduce((sum, t) => sum + t.montant, 0);
       },
 
       total: () => {
-        return get().sousTotal() - get().montantRemise() + get().montantTva();
+        return get().sousTotal() - get().montantRemise() + get().montantTaxes();
       },
     }),
     {

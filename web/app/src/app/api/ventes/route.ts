@@ -89,6 +89,13 @@ export async function POST(req: Request) {
       );
     }
 
+    // Fetch active taxes from config
+    const activeTaxes = await prisma.taxe.findMany({
+      where: { active: true, parametresId: "default" },
+      orderBy: { ordre: "asc" },
+      select: { nom: true, taux: true },
+    });
+
     // Transaction: create sale + lines + payments + decrement stock
     const vente = await prisma.$transaction(async (tx) => {
       // Verify stock and get product data
@@ -119,23 +126,23 @@ export async function POST(req: Request) {
           quantite: l.quantite,
           prixUnitaire: l.prixUnitaire,
           remise: l.remise,
-          tva: l.tva,
+          tva: 0,
           sousTotal: lineSubtotal,
           produitId: p.id,
         };
       });
 
       const montantRemise = new Prisma.Decimal(remise);
-      const baseTva = sousTotal.sub(montantRemise);
+      const base = sousTotal.sub(montantRemise);
+
+      // Compute each tax on the base (sous-total - remise)
+      const taxesDetail: { nom: string; taux: number; montant: number }[] = [];
       let totalTva = new Prisma.Decimal(0);
-      if (baseTva.gt(0)) {
-        for (const l of lignes) {
-          const lineBase =
-            l.prixUnitaire * l.quantite * (1 - l.remise / 100);
-          const ratio = sousTotal.gt(0)
-            ? new Prisma.Decimal(lineBase).div(sousTotal)
-            : new Prisma.Decimal(0);
-          totalTva = totalTva.add(baseTva.mul(ratio).mul(new Prisma.Decimal(l.tva).div(100)));
+      if (base.gt(0)) {
+        for (const t of activeTaxes) {
+          const montant = base.mul(new Prisma.Decimal(t.taux).div(100));
+          taxesDetail.push({ nom: t.nom, taux: Number(t.taux), montant: Number(montant) });
+          totalTva = totalTva.add(montant);
         }
       }
 
@@ -171,6 +178,7 @@ export async function POST(req: Request) {
           sousTotal,
           remise: montantRemise,
           tva: totalTva,
+          taxesDetail: taxesDetail.length > 0 ? taxesDetail : undefined,
           total,
           nomClient: nomClient ?? null,
           notesCaissier: notesCaissier ?? null,

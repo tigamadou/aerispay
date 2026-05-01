@@ -166,12 +166,21 @@ export default async function VenteDetailPage({ params }: VenteDetailPageProps) 
               <span>-{fmt(vente.remise)}</span>
             </div>
           )}
-          {Number(vente.tva) > 0 && (
-            <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
-              <span>TVA</span>
-              <span>{fmt(vente.tva)}</span>
-            </div>
-          )}
+          {Array.isArray(vente.taxesDetail) && (vente.taxesDetail as { nom: string; taux: number; montant: number }[]).length > 0
+            ? (vente.taxesDetail as { nom: string; taux: number; montant: number }[]).map((t) =>
+                t.montant > 0 ? (
+                  <div key={t.nom} className="flex justify-between text-zinc-600 dark:text-zinc-400">
+                    <span>{t.nom} ({t.taux}%)</span>
+                    <span>{fmt(t.montant)}</span>
+                  </div>
+                ) : null
+              )
+            : Number(vente.tva) > 0 ? (
+                <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
+                  <span>TVA</span>
+                  <span>{fmt(vente.tva)}</span>
+                </div>
+              ) : null}
           <div className="flex justify-between font-bold text-zinc-900 dark:text-zinc-100 pt-1 border-t border-zinc-200 dark:border-zinc-700">
             <span>TOTAL TTC</span>
             <span>{fmt(vente.total)}</span>

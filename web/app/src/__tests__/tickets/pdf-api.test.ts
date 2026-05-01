@@ -192,6 +192,90 @@ describe("GET /api/tickets/[id]/pdf", () => {
     }
   });
 
+  it("passes taxesDetail to generator when present on vente", async () => {
+    mockSession("CAISSIER");
+
+    const venteWithTaxes = {
+      ...sampleVente,
+      taxesDetail: [
+        { nom: "TVA", taux: 18, montant: 7884 },
+        { nom: "AIB", taux: 5, montant: 2190 },
+      ],
+    };
+    (prisma.vente.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(venteWithTaxes);
+    (prisma.parametres.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(sampleParametres);
+
+    const { generateReceiptPDF } = await import("@/lib/receipt/pdf-generator");
+    (generateReceiptPDF as ReturnType<typeof vi.fn>).mockResolvedValue(Buffer.from("pdf"));
+
+    const res = await GET(
+      new Request("http://localhost"),
+      { params: Promise.resolve({ id: "v-1" }) }
+    );
+
+    expect(res.status).toBe(200);
+    expect(generateReceiptPDF).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sale: expect.objectContaining({
+          taxesDetail: [
+            { nom: "TVA", taux: 18, montant: 7884 },
+            { nom: "AIB", taux: 5, montant: 2190 },
+          ],
+        }),
+      })
+    );
+  });
+
+  it("passes null taxesDetail when not present on vente", async () => {
+    mockSession("CAISSIER");
+
+    const venteNoTaxes = { ...sampleVente, taxesDetail: null };
+    (prisma.vente.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(venteNoTaxes);
+    (prisma.parametres.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(sampleParametres);
+
+    const { generateReceiptPDF } = await import("@/lib/receipt/pdf-generator");
+    (generateReceiptPDF as ReturnType<typeof vi.fn>).mockResolvedValue(Buffer.from("pdf"));
+
+    const res = await GET(
+      new Request("http://localhost"),
+      { params: Promise.resolve({ id: "v-1" }) }
+    );
+
+    expect(res.status).toBe(200);
+    expect(generateReceiptPDF).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sale: expect.objectContaining({
+          taxesDetail: null,
+        }),
+      })
+    );
+  });
+
+  it("passes null taxesDetail when field is not an array", async () => {
+    mockSession("CAISSIER");
+
+    const venteWeirdTaxes = { ...sampleVente, taxesDetail: "not-an-array" };
+    (prisma.vente.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(venteWeirdTaxes);
+    (prisma.parametres.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(sampleParametres);
+
+    const { generateReceiptPDF } = await import("@/lib/receipt/pdf-generator");
+    (generateReceiptPDF as ReturnType<typeof vi.fn>).mockResolvedValue(Buffer.from("pdf"));
+
+    const res = await GET(
+      new Request("http://localhost"),
+      { params: Promise.resolve({ id: "v-1" }) }
+    );
+
+    expect(res.status).toBe(200);
+    expect(generateReceiptPDF).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sale: expect.objectContaining({
+          taxesDetail: null,
+        }),
+      })
+    );
+  });
+
   it("returns 500 on generator failure", async () => {
     mockSession("CAISSIER");
     (prisma.vente.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(sampleVente);

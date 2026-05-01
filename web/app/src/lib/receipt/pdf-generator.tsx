@@ -25,6 +25,12 @@ interface Payment {
   reference: string | null;
 }
 
+interface TaxeDetailLine {
+  nom: string;
+  taux: number;
+  montant: number;
+}
+
 interface ReceiptSale {
   id: string;
   numero: string;
@@ -32,6 +38,7 @@ interface ReceiptSale {
   sousTotal: number;
   remise: number;
   tva: number;
+  taxesDetail?: TaxeDetailLine[] | null;
   total: number;
   lignes: SaleLine[];
   paiements: Payment[];
@@ -251,12 +258,21 @@ function ReceiptDocument({ data }: { data: ReceiptData }) {
               <Text style={s.totalValue}>-{fmt(Number(sale.remise))}</Text>
             </View>
           )}
-          {Number(sale.tva) > 0 && (
-            <View style={s.totalRow}>
-              <Text style={s.totalLabel}>TVA</Text>
-              <Text style={s.totalValue}>{fmt(Number(sale.tva))}</Text>
-            </View>
-          )}
+          {sale.taxesDetail && sale.taxesDetail.length > 0
+            ? sale.taxesDetail.map((t) =>
+                t.montant > 0 ? (
+                  <View key={t.nom} style={s.totalRow}>
+                    <Text style={s.totalLabel}>{t.nom} ({t.taux}%)</Text>
+                    <Text style={s.totalValue}>{fmt(t.montant)}</Text>
+                  </View>
+                ) : null
+              )
+            : Number(sale.tva) > 0 ? (
+                <View style={s.totalRow}>
+                  <Text style={s.totalLabel}>TVA</Text>
+                  <Text style={s.totalValue}>{fmt(Number(sale.tva))}</Text>
+                </View>
+              ) : null}
           <View style={s.grandTotalRow}>
             <Text style={s.grandTotalLabel}>TOTAL TTC</Text>
             <Text style={s.grandTotalValue}>{fmt(Number(sale.total))}</Text>

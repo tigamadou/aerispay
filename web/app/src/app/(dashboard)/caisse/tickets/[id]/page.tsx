@@ -66,6 +66,9 @@ export default async function TicketPage({ params }: TicketPageProps) {
   const sousTotal = Number(vente.sousTotal);
   const remise = Number(vente.remise);
   const tva = Number(vente.tva);
+  const taxesDetail = Array.isArray(vente.taxesDetail)
+    ? (vente.taxesDetail as { nom: string; taux: number; montant: number }[])
+    : null;
   const total = Number(vente.total);
   const statut = statutLabel[vente.statut] ?? { text: vente.statut, className: "" };
 
@@ -184,12 +187,21 @@ export default async function TicketPage({ params }: TicketPageProps) {
                 <span>-{fmt(remise)}</span>
               </div>
             )}
-            {tva > 0 && (
-              <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
-                <span>TVA</span>
-                <span>{fmt(tva)}</span>
-              </div>
-            )}
+            {taxesDetail && taxesDetail.length > 0
+              ? taxesDetail.map((t) =>
+                  t.montant > 0 ? (
+                    <div key={t.nom} className="flex justify-between text-zinc-600 dark:text-zinc-400">
+                      <span>{t.nom} ({t.taux}%)</span>
+                      <span>{fmt(t.montant)}</span>
+                    </div>
+                  ) : null
+                )
+              : tva > 0 ? (
+                  <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
+                    <span>TVA</span>
+                    <span>{fmt(tva)}</span>
+                  </div>
+                ) : null}
             <div className="flex justify-between border-t border-double border-zinc-400 pt-2 text-lg font-bold text-zinc-900 dark:border-zinc-500 dark:text-zinc-100">
               <span>TOTAL TTC</span>
               <span>{fmt(total)}</span>
