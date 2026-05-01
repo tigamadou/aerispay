@@ -143,10 +143,6 @@ describe("POST /api/comptoir/sessions", () => {
   it("creates session with montantOuvertureCash for CAISSIER", async () => {
     mockSession("CAISSIER");
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-    // $transaction executes the callback with prisma as tx
-    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
-      async (cb: (tx: typeof prisma) => Promise<unknown>) => cb(prisma)
-    );
     (prisma.comptoirSession.create as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
 
     const res = await POST(
@@ -382,7 +378,7 @@ describe("Comptoir error handling", () => {
   it("POST /api/comptoir/sessions returns 500 on DB error", async () => {
     mockSession("CAISSIER");
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-    (prisma.$transaction as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
+    (prisma.comptoirSession.create as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
     const { POST } = await import("@/app/api/comptoir/sessions/route");
     const res = await POST(new Request("http://localhost/api/comptoir/sessions", {
       method: "POST", headers: { "Content-Type": "application/json" },

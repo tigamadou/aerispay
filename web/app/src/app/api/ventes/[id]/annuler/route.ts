@@ -29,6 +29,10 @@ export async function POST(
       );
     }
 
+    // Resolve caisse
+    const caisse = await prisma.caisse.findFirst({ where: { active: true }, select: { id: true } });
+    const caisseId = caisse?.id ?? "";
+
     const updated = await prisma.$transaction(async (tx) => {
       // Cancel the sale
       const cancelled = await tx.vente.update({
@@ -69,6 +73,7 @@ export async function POST(
           type: "REMBOURSEMENT",
           mode: paiement.mode,
           montant: -Math.abs(Number(paiement.montant)),
+          caisseId,
           sessionId: vente.sessionId,
           auteurId: result.user.id,
           venteId: vente.id,

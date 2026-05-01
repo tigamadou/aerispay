@@ -7,8 +7,9 @@ interface CreateMovementParams {
   type: TypeMouvementCaisse;
   mode: ModePaiement;
   montant: number;
-  sessionId: string;
+  caisseId: string;
   auteurId: string;
+  sessionId?: string;
   venteId?: string;
   motif?: string;
   reference?: string;
@@ -36,7 +37,8 @@ export async function createMovementInTx(
       type: params.type,
       mode: params.mode,
       montant: params.montant,
-      sessionId: params.sessionId,
+      caisseId: params.caisseId,
+      sessionId: params.sessionId ?? null,
       auteurId: params.auteurId,
       venteId: params.venteId ?? null,
       motif: params.motif ?? null,
@@ -56,7 +58,8 @@ export async function createMovement(params: CreateMovementParams) {
       type: params.type,
       mode: params.mode,
       montant: params.montant,
-      sessionId: params.sessionId,
+      caisseId: params.caisseId,
+      sessionId: params.sessionId ?? null,
       auteurId: params.auteurId,
       venteId: params.venteId ?? null,
       motif: params.motif ?? null,
@@ -68,12 +71,33 @@ export async function createMovement(params: CreateMovementParams) {
 }
 
 /**
- * Compute theoretical balance per payment mode for a session,
+ * Compute theoretical balance per payment mode for a caisse,
  * by summing all cash movements algebraically.
- *
- * Positive movements (FOND_INITIAL, VENTE, APPORT) add to the balance.
- * Negative movements (REMBOURSEMENT, RETRAIT, DEPENSE) subtract from the balance.
- * CORRECTION can be positive or negative.
+ */
+export async function computeSoldeCaisseParMode(
+  caisseId: string,
+): Promise<SoldeTheoriqueParMode[]> {
+  const mouvements = await prisma.mouvementCaisse.findMany({
+    where: { caisseId },
+    select: { mode: true, montant: true },
+  });
+
+  const soldes = new Map<ModePaiement, number>();
+
+  for (const m of mouvements) {
+    const current = soldes.get(m.mode) ?? 0;
+    soldes.set(m.mode, current + Number(m.montant));
+  }
+
+  return Array.from(soldes.entries()).map(([mode, solde]) => ({
+    mode,
+    solde,
+  }));
+}
+
+/**
+ * Compute theoretical balance per payment mode for a session period,
+ * by summing movements linked to that session.
  */
 export async function computeSoldeTheoriqueParMode(
   sessionId: string,
@@ -98,7 +122,6 @@ export async function computeSoldeTheoriqueParMode(
 
 /**
  * Compute theoretical balance for legacy cash/mobile money fields.
- * Returns the same shape as the old computeSoldeTheorique for backward compat.
  */
 export async function computeSoldeTheoriqueLegacy(
   sessionId: string,
@@ -112,7 +135,6 @@ export async function computeSoldeTheoriqueLegacy(
     if (s.mode === "ESPECES") {
       cash = s.solde;
     } else {
-      // All non-cash modes contribute to mobileMoney for legacy compat
       mobileMoney += s.solde;
     }
   }
@@ -127,6 +149,20 @@ export async function listMovements(sessionId: string) {
   return prisma.mouvementCaisse.findMany({
     where: { sessionId },
     orderBy: { createdAt: "asc" },
+    include: {
+      auteur: { select: { id: true, nom: true } },
+      vente: { select: { id: true, numero: true } },
+    },
+  });
+}
+
+/**
+ * List all movements for a caisse, ordered by creation time (desc).
+ */
+export async function listCaisseMovements(caisseId: string) {
+  return prisma.mouvementCaisse.findMany({
+    where: { caisseId },
+    orderBy: { createdAt: "desc" },
     include: {
       auteur: { select: { id: true, nom: true } },
       vente: { select: { id: true, numero: true } },

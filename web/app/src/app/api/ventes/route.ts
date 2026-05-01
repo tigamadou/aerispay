@@ -90,6 +90,13 @@ export async function POST(req: Request) {
       );
     }
 
+    // Resolve caisse (first active caisse)
+    const caisse = await prisma.caisse.findFirst({ where: { active: true }, select: { id: true } });
+    if (!caisse) {
+      return Response.json({ error: "Aucune caisse active configuree" }, { status: 422 });
+    }
+    const caisseId = caisse.id;
+
     // Fetch active taxes from config
     const activeTaxes = await prisma.taxe.findMany({
       where: { active: true, parametresId: "default" },
@@ -236,6 +243,7 @@ export async function POST(req: Request) {
             type: "VENTE",
             mode: createdPaiement.mode,
             montant: paiementMontant,
+            caisseId,
             sessionId,
             auteurId: result.user.id,
             venteId: newVente.id,

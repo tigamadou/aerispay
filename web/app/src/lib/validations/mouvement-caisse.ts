@@ -64,6 +64,21 @@ export const correctiveSessionSchema = z.object({
   })).min(1, "Au moins un mouvement correctif requis"),
 });
 
+// Schema pour creation de mouvement sur une caisse (sans session)
+export const createMouvementCaisseSchema = z.object({
+  type: z.enum(TYPE_MOUVEMENT_MANUEL, {
+    errorMap: () => ({ message: "Type de mouvement invalide (APPORT, RETRAIT ou DEPENSE)" }),
+  }),
+  mode: z.enum(MODE_PAIEMENT_VALUES, {
+    errorMap: () => ({ message: "Mode de paiement invalide" }),
+  }),
+  montant: z.number().positive("Le montant doit etre > 0"),
+  motif: z.string().min(1, "Le motif est requis").max(500),
+  reference: z.string().max(100).optional(),
+  justificatif: z.string().optional(),
+});
+
+export type CreateMouvementCaisseInput = z.infer<typeof createMouvementCaisseSchema>;
 export type CreateMouvementManuelInput = z.infer<typeof createMouvementManuelSchema>;
 export type DeclarationCloturInput = z.infer<typeof declarationCloturSchema>;
 export type ValidationAveugInput = z.infer<typeof validationAveugSchema>;

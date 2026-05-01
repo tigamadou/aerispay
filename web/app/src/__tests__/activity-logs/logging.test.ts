@@ -12,6 +12,7 @@ vi.mock("@/lib/db", () => ({
     mouvementStock: { findMany: vi.fn(), count: vi.fn() },
     vente: { findUnique: vi.fn(), create: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), count: vi.fn(), aggregate: vi.fn() },
     comptoirSession: { findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+    caisse: { findFirst: vi.fn() },
     paiement: { aggregate: vi.fn() },
     activityLog: { create: vi.fn() },
     $transaction: vi.fn(),
@@ -146,7 +147,10 @@ describe("User activity logging", () => {
 // ─── SALE LOGGING ───────────────────────────────────
 
 describe("Sale activity logging", () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
+  });
 
   it("logs SALE_CANCELLED on POST /api/ventes/[id]/annuler", async () => {
     mockSession("ADMIN");

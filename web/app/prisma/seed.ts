@@ -442,6 +442,15 @@ async function main() {
 
   console.log(`\nSeed OK — Parametres de la structure crees`);
 
+  // --- Caisse par defaut ---
+  const caisse = await prisma.caisse.upsert({
+    where: { id: "caisse-principale" },
+    create: { id: "caisse-principale", nom: "Caisse principale", active: true },
+    update: { nom: "Caisse principale", active: true },
+  });
+  console.log(`  > Caisse: ${caisse.nom} (${caisse.id})`);
+  console.log(`\nSeed OK — Caisse par defaut creee`);
+
   // --- Seuils de caisse ---
   const SEUILS = [
     { id: "THRESHOLD_DISCREPANCY_MINOR", valeur: 500, description: "Ecart mineur tolere automatiquement (FCFA)" },

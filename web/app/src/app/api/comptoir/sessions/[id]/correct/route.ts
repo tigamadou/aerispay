@@ -70,6 +70,10 @@ export async function POST(
       );
     }
 
+    // Resolve caisse
+    const caisse = await prisma.caisse.findFirst({ where: { active: true }, select: { id: true } });
+    const caisseId = caisse?.id ?? "";
+
     // Create corrective session + movements in a transaction
     const correctiveSession = await prisma.$transaction(async (tx) => {
       const corrective = await tx.comptoirSession.create({
@@ -90,6 +94,7 @@ export async function POST(
           type: "CORRECTION",
           mode: mvt.mode as ModePaiement,
           montant: mvt.montant,
+          caisseId,
           sessionId: corrective.id,
           auteurId: result.user.id,
           motif: mvt.motif,

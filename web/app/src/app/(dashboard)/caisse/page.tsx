@@ -24,6 +24,10 @@ export default async function CaissePage() {
   if (!session?.user) redirect("/login");
 
   const role = session.user.role as Role;
+
+  // CAISSIER n'a pas acces au module caisse — uniquement au POS/comptoir
+  if (!hasPermission(role, "rapports:consulter")) redirect("/comptoir");
+
   const isCaissier = hasRole(role, ["CAISSIER"]);
   const canViewReports = hasPermission(role, "rapports:consulter");
   const canVerifyIntegrity = hasPermission(role, "comptoir:verifier_integrite");

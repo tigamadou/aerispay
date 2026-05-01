@@ -1,6 +1,8 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
+import type { Role } from "@prisma/client";
+import { hasPermission } from "@/lib/permissions";
 import { MouvementsListe } from "@/components/caisse/MouvementsListe";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +14,8 @@ export const metadata: Metadata = {
 export default async function MouvementsCaissePage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
+
+  if (!hasPermission(session.user.role as Role, "rapports:consulter")) redirect("/comptoir");
 
   return (
     <div className="space-y-6">

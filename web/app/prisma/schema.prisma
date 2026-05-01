@@ -104,14 +104,27 @@ enum TypeMouvement {
   PERTE
 }
 
-// ─── MODULE COMPTOIR / CAISSE ────────────────────────
+// ─── MODULE CAISSE ────────────────────────────────────
+
+model Caisse {
+  id        String   @id @default(cuid())
+  nom       String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  mouvements MouvementCaisse[]
+
+  @@map("caisses")
+}
+
+// ─── MODULE COMPTOIR / SESSIONS ──────────────────────
 
 model ComptoirSession {
   id          String    @id @default(cuid())
   ouvertureAt DateTime  @default(now())
   fermetureAt DateTime?
 
-  // Montants d'ouverture (fond de caisse, conservés pour rétrocompatibilité)
+  // Montants declares a l'ouverture (snapshot de ce que le caissier compte)
   montantOuvertureCash        Decimal @db.Decimal(10, 2)
   montantOuvertureMobileMoney Decimal @default(0) @db.Decimal(10, 2)
 
@@ -187,13 +200,16 @@ model MouvementCaisse {
   offline      Boolean             @default(false)
   createdAt    DateTime            @default(now())
 
-  sessionId String
-  session   ComptoirSession @relation(fields: [sessionId], references: [id])
+  caisseId  String
+  caisse    Caisse          @relation(fields: [caisseId], references: [id])
+  sessionId String?
+  session   ComptoirSession? @relation(fields: [sessionId], references: [id])
   venteId   String?
-  vente     Vente?          @relation(fields: [venteId], references: [id])
+  vente     Vente?           @relation(fields: [venteId], references: [id])
   auteurId  String
-  auteur    User            @relation("MouvementCaisseAuteur", fields: [auteurId], references: [id])
+  auteur    User             @relation("MouvementCaisseAuteur", fields: [auteurId], references: [id])
 
+  @@index([caisseId])
   @@index([sessionId])
   @@index([venteId])
   @@index([auteurId])

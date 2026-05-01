@@ -6,6 +6,7 @@ import type { Role } from "@prisma/client";
 vi.mock("@/lib/db", () => ({
   prisma: {
     comptoirSession: { findUnique: vi.fn() },
+    caisse: { findFirst: vi.fn() },
     mouvementCaisse: { create: vi.fn(), findMany: vi.fn() },
     seuilCaisse: { findMany: vi.fn() },
   },
@@ -23,9 +24,9 @@ vi.mock("@/lib/activity-log", () => ({
 vi.mock("@/lib/services/cash-movement", () => ({
   createMovement: vi.fn().mockResolvedValue({
     id: "mv-1", type: "APPORT", mode: "ESPECES", montant: 5000,
-    sessionId: "s-1", auteurId: "user-1", createdAt: new Date(),
+    caisseId: "caisse-1", auteurId: "user-1", createdAt: new Date(),
   }),
-  computeSoldeTheoriqueParMode: vi.fn().mockResolvedValue([
+  computeSoldeCaisseParMode: vi.fn().mockResolvedValue([
     { mode: "ESPECES", solde: 50000 },
   ]),
 }));
@@ -42,7 +43,7 @@ vi.mock("@/lib/services/seuils", () => ({
 
 import { prisma } from "@/lib/db";
 import { auth } from "@/auth";
-import { createMovement, computeSoldeTheoriqueParMode } from "@/lib/services/cash-movement";
+import { createMovement, computeSoldeCaisseParMode } from "@/lib/services/cash-movement";
 
 function mockSession(role: Role, id = "user-1") {
   (auth as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -59,6 +60,7 @@ function jsonReq(body: Record<string, unknown>): Request {
 }
 
 const openSession = { id: "s-1", statut: "OUVERTE", userId: "user-1" };
+const fakeCaisse = { id: "caisse-1" };
 
 const validApport = {
   sessionId: "s-1",
@@ -75,12 +77,12 @@ describe("POST /api/comptoir/movements", () => {
     vi.clearAllMocks();
     POST = (await import("@/app/api/comptoir/movements/route")).POST;
     (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(openSession);
-    // Restore default mocks after clearAllMocks
+    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(fakeCaisse);
     (createMovement as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: "mv-1", type: "APPORT", mode: "ESPECES", montant: 5000,
-      sessionId: "s-1", auteurId: "user-1", createdAt: new Date(),
+      caisseId: "caisse-1", auteurId: "user-1", createdAt: new Date(),
     });
-    (computeSoldeTheoriqueParMode as ReturnType<typeof vi.fn>).mockResolvedValue([
+    (computeSoldeCaisseParMode as ReturnType<typeof vi.fn>).mockResolvedValue([
       { mode: "ESPECES", solde: 50000 },
     ]);
   });
@@ -100,7 +102,7 @@ describe("POST /api/comptoir/movements", () => {
     const res = await POST(jsonReq(validApport));
     expect(res.status).toBe(201);
     expect(createMovement).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "APPORT", mode: "ESPECES", montant: 5000 }),
+      expect.objectContaining({ type: "APPORT", mode: "ESPECES", montant: 5000, caisseId: "caisse-1" }),
     );
   });
 
@@ -124,7 +126,6 @@ describe("POST /api/comptoir/movements", () => {
       ...validApport, type: "RETRAIT", montant: 8000, motif: "Retrait courant",
     }));
     expect(res.status).toBe(201);
-    // Signed montant is negative for outflow
     expect(createMovement).toHaveBeenCalledWith(
       expect.objectContaining({ type: "RETRAIT", montant: -8000 }),
     );
@@ -150,7 +151,7 @@ describe("POST /api/comptoir/movements", () => {
 
   it("RETRAIT exceeding cash balance returns 422", async () => {
     mockSession("MANAGER");
-    (computeSoldeTheoriqueParMode as ReturnType<typeof vi.fn>).mockResolvedValue([
+    (computeSoldeCaisseParMode as ReturnType<typeof vi.fn>).mockResolvedValue([
       { mode: "ESPECES", solde: 5000 },
     ]);
     const res = await POST(jsonReq({

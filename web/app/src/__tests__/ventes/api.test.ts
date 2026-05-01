@@ -29,6 +29,7 @@ vi.mock("@/lib/db", () => ({
       create: vi.fn(),
       deleteMany: vi.fn(),
     },
+    caisse: { findFirst: vi.fn() },
     taxe: { findMany: vi.fn().mockResolvedValue([]) },
     $transaction: vi.fn(),
   },
@@ -266,6 +267,7 @@ describe("POST /api/ventes", () => {
     vi.clearAllMocks();
     const mod = await import("@/app/api/ventes/route");
     POST = mod.POST;
+    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
   });
 
   const validVenteBody = {
@@ -443,6 +445,7 @@ describe("POST /api/ventes/[id]/annuler", () => {
     vi.clearAllMocks();
     const mod = await import("@/app/api/ventes/[id]/annuler/route");
     POST = mod.POST;
+    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
   });
 
   it("returns 401 if not authenticated", async () => {

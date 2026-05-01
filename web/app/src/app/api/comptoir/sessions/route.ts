@@ -2,7 +2,6 @@ import { prisma } from "@/lib/db";
 import { requireAuth, requireRole } from "@/lib/permissions";
 import { openSessionSchema } from "@/lib/validations/session";
 import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
-import { createMovementInTx } from "@/lib/services/cash-movement";
 
 export async function GET() {
   const result = await requireAuth();
@@ -46,39 +45,15 @@ export async function POST(req: Request) {
       );
     }
 
-    const session = await prisma.$transaction(async (tx) => {
-      const sess = await tx.comptoirSession.create({
-        data: {
-          montantOuvertureCash: parsed.data.montantOuvertureCash,
-          montantOuvertureMobileMoney: parsed.data.montantOuvertureMobileMoney,
-          userId: result.user.id,
-        },
-        include: { user: { select: { id: true, nom: true, email: true } } },
-      });
-
-      // RULE-OPEN-002 : fond de caisse = mouvement FOND_INITIAL par mode > 0
-      if (parsed.data.montantOuvertureCash > 0) {
-        await createMovementInTx(tx, {
-          type: "FOND_INITIAL",
-          mode: "ESPECES",
-          montant: parsed.data.montantOuvertureCash,
-          sessionId: sess.id,
-          auteurId: result.user.id,
-          motif: "Fond de caisse initial",
-        });
-      }
-      if (parsed.data.montantOuvertureMobileMoney > 0) {
-        await createMovementInTx(tx, {
-          type: "FOND_INITIAL",
-          mode: "MOBILE_MONEY_MTN",
-          montant: parsed.data.montantOuvertureMobileMoney,
-          sessionId: sess.id,
-          auteurId: result.user.id,
-          motif: "Fond de caisse initial Mobile Money",
-        });
-      }
-
-      return sess;
+    // La session stocke les montants declares a l'ouverture (snapshot)
+    // mais ne cree plus de mouvements FOND_INITIAL — les soldes vivent sur la Caisse
+    const session = await prisma.comptoirSession.create({
+      data: {
+        montantOuvertureCash: parsed.data.montantOuvertureCash,
+        montantOuvertureMobileMoney: parsed.data.montantOuvertureMobileMoney,
+        userId: result.user.id,
+      },
+      include: { user: { select: { id: true, nom: true, email: true } } },
     });
 
     await logActivity({
