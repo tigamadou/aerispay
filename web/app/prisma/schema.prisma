@@ -192,7 +192,7 @@ enum StatutSession {
 model MouvementCaisse {
   id           String              @id @default(cuid())
   type         TypeMouvementCaisse
-  mode         ModePaiement
+  mode         String
   montant      Decimal             @db.Decimal(10, 2)
   motif        String?
   reference    String?
@@ -304,9 +304,9 @@ model LigneVente {
 }
 
 model Paiement {
-  id        String       @id @default(cuid())
-  mode      ModePaiement
-  montant   Decimal      @db.Decimal(10, 2)
+  id        String  @id @default(cuid())
+  mode      String
+  montant   Decimal @db.Decimal(10, 2)
   reference String?
   createdAt DateTime     @default(now())
 
@@ -314,14 +314,6 @@ model Paiement {
   vente   Vente  @relation(fields: [venteId], references: [id], onDelete: Cascade)
 
   @@map("paiements")
-}
-
-enum ModePaiement {
-  ESPECES
-  MOBILE_MONEY // conservé pour rétrocompatibilité données existantes
-  MOBILE_MONEY_MTN
-  MOBILE_MONEY_MOOV
-  CARTE_BANCAIRE
 }
 
 // ─── PARAMÈTRES STRUCTURE ────────────────────────────
@@ -338,9 +330,25 @@ model Parametres {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  taxes Taxe[]
+  taxes          Taxe[]
+  modesPaiement  ModePaiementConfig[]
 
   @@map("parametres")
+}
+
+model ModePaiementConfig {
+  id     String  @id @default(cuid())
+  code   String  @unique
+  label  String
+  active Boolean @default(true)
+  ordre  Int     @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parametresId String     @default("default")
+  parametres   Parametres @relation(fields: [parametresId], references: [id])
+
+  @@map("modes_paiement")
 }
 
 model Taxe {

@@ -1,11 +1,11 @@
-import type { Prisma, ModePaiement, TypeMouvementCaisse } from "@prisma/client";
+import type { Prisma, TypeMouvementCaisse } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
 // ─── Types ──────────────────────────────────────────
 
 interface CreateMovementParams {
   type: TypeMouvementCaisse;
-  mode: ModePaiement;
+  mode: string;
   montant: number;
   caisseId: string;
   auteurId: string;
@@ -18,7 +18,7 @@ interface CreateMovementParams {
 }
 
 interface SoldeTheoriqueParMode {
-  mode: ModePaiement;
+  mode: string;
   solde: number;
 }
 
@@ -82,7 +82,7 @@ export async function computeSoldeCaisseParMode(
     select: { mode: true, montant: true },
   });
 
-  const soldes = new Map<ModePaiement, number>();
+  const soldes = new Map<string, number>();
 
   for (const m of mouvements) {
     const current = soldes.get(m.mode) ?? 0;
@@ -107,7 +107,7 @@ export async function computeSoldeTheoriqueParMode(
     select: { mode: true, montant: true },
   });
 
-  const soldes = new Map<ModePaiement, number>();
+  const soldes = new Map<string, number>();
 
   for (const m of mouvements) {
     const current = soldes.get(m.mode) ?? 0;

@@ -30,6 +30,11 @@ export interface TaxePOS {
   taux: number;
 }
 
+export interface ModePaiementPOS {
+  code: string;
+  label: string;
+}
+
 export interface CategoriePOS {
   id: string;
   nom: string;
@@ -103,7 +108,7 @@ export default async function ComptoirPage() {
   const readOnly = !isCaissier;
 
   // Fetch products, categories, and active taxes in parallel
-  const [produits, categories, activeTaxes] = await Promise.all([
+  const [produits, categories, activeTaxes, modesPaiement] = await Promise.all([
     prisma.produit.findMany({
       select: {
         id: true,
@@ -137,6 +142,11 @@ export default async function ComptoirPage() {
       orderBy: { ordre: "asc" },
       select: { nom: true, taux: true },
     }),
+    prisma.modePaiementConfig.findMany({
+      where: { active: true },
+      orderBy: { ordre: "asc" },
+      select: { code: true, label: true },
+    }),
   ]);
 
   // Serialize Decimal fields to numbers
@@ -152,6 +162,8 @@ export default async function ComptoirPage() {
     taux: Number(t.taux),
   }));
 
+  const serializedModes: ModePaiementPOS[] = modesPaiement;
+
   return (
     <POSInterface
       produits={serializedProduits}
@@ -159,6 +171,7 @@ export default async function ComptoirPage() {
       sessionId={comptoirSession?.id ?? ""}
       readOnly={readOnly}
       taxes={serializedTaxes}
+      modesPaiement={serializedModes}
     />
   );
 }

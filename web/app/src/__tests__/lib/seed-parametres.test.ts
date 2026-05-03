@@ -2,11 +2,16 @@ import { describe, it, expect, vi } from "vitest";
 import type { PrismaClient } from "@prisma/client";
 import { seedDefaultParametres } from "@/lib/seed/parametres";
 
+function createMockPrisma() {
+  return {
+    parametres: { upsert: vi.fn().mockResolvedValue({}) },
+    modePaiementConfig: { upsert: vi.fn().mockResolvedValue({}) },
+  } as unknown as PrismaClient;
+}
+
 describe("seedDefaultParametres", () => {
   it("appelle upsert avec id 'default' et les données correctes", async () => {
-    const mockPrisma = {
-      parametres: { upsert: vi.fn().mockResolvedValue({}) },
-    } as unknown as PrismaClient;
+    const mockPrisma = createMockPrisma();
 
     await seedDefaultParametres(mockPrisma);
 
@@ -26,13 +31,24 @@ describe("seedDefaultParametres", () => {
   });
 
   it("utilise un update vide (no-op si déjà existant)", async () => {
-    const mockPrisma = {
-      parametres: { upsert: vi.fn().mockResolvedValue({}) },
-    } as unknown as PrismaClient;
+    const mockPrisma = createMockPrisma();
 
     await seedDefaultParametres(mockPrisma);
 
     const call = (mockPrisma.parametres.upsert as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(call.update).toEqual({});
+  });
+
+  it("cree les 4 modes de paiement par defaut", async () => {
+    const mockPrisma = createMockPrisma();
+
+    await seedDefaultParametres(mockPrisma);
+
+    expect(mockPrisma.modePaiementConfig.upsert).toHaveBeenCalledTimes(4);
+
+    const codes = (mockPrisma.modePaiementConfig.upsert as ReturnType<typeof vi.fn>).mock.calls.map(
+      (call: [{ where: { code: string } }]) => call[0].where.code,
+    );
+    expect(codes).toEqual(["ESPECES", "MOBILE_MONEY_MTN", "MOBILE_MONEY_MOOV", "CELTIS_CASH"]);
   });
 });

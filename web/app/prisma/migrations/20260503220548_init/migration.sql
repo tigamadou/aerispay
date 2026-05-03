@@ -66,6 +66,16 @@ CREATE TABLE `mouvements_stock` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
+CREATE TABLE `caisses` (
+    `id` VARCHAR(191) NOT NULL,
+    `nom` VARCHAR(191) NOT NULL,
+    `active` BOOLEAN NOT NULL DEFAULT true,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
 CREATE TABLE `comptoir_sessions` (
     `id` VARCHAR(191) NOT NULL,
     `ouvertureAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -100,17 +110,19 @@ CREATE TABLE `comptoir_sessions` (
 CREATE TABLE `mouvements_caisse` (
     `id` VARCHAR(191) NOT NULL,
     `type` ENUM('FOND_INITIAL', 'VENTE', 'REMBOURSEMENT', 'APPORT', 'RETRAIT', 'DEPENSE', 'CORRECTION') NOT NULL,
-    `mode` ENUM('ESPECES', 'MOBILE_MONEY', 'MOBILE_MONEY_MTN', 'MOBILE_MONEY_MOOV', 'CARTE_BANCAIRE') NOT NULL,
+    `mode` VARCHAR(191) NOT NULL,
     `montant` DECIMAL(10, 2) NOT NULL,
     `motif` VARCHAR(191) NULL,
     `reference` VARCHAR(191) NULL,
     `justificatif` TEXT NULL,
     `offline` BOOLEAN NOT NULL DEFAULT false,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `sessionId` VARCHAR(191) NOT NULL,
+    `caisseId` VARCHAR(191) NOT NULL,
+    `sessionId` VARCHAR(191) NULL,
     `venteId` VARCHAR(191) NULL,
     `auteurId` VARCHAR(191) NOT NULL,
 
+    INDEX `mouvements_caisse_caisseId_idx`(`caisseId`),
     INDEX `mouvements_caisse_sessionId_idx`(`sessionId`),
     INDEX `mouvements_caisse_venteId_idx`(`venteId`),
     INDEX `mouvements_caisse_auteurId_idx`(`auteurId`),
@@ -126,6 +138,21 @@ CREATE TABLE `seuils_caisse` (
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `events_caisse` (
+    `id` VARCHAR(191) NOT NULL,
+    `type` VARCHAR(191) NOT NULL,
+    `sessionId` VARCHAR(191) NULL,
+    `payload` JSON NOT NULL,
+    `consumed` BOOLEAN NOT NULL DEFAULT false,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    INDEX `events_caisse_type_idx`(`type`),
+    INDEX `events_caisse_sessionId_idx`(`sessionId`),
+    INDEX `events_caisse_consumed_createdAt_idx`(`consumed`, `createdAt`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -167,7 +194,7 @@ CREATE TABLE `lignes_vente` (
 -- CreateTable
 CREATE TABLE `paiements` (
     `id` VARCHAR(191) NOT NULL,
-    `mode` ENUM('ESPECES', 'MOBILE_MONEY', 'MOBILE_MONEY_MTN', 'MOBILE_MONEY_MOOV', 'CARTE_BANCAIRE') NOT NULL,
+    `mode` VARCHAR(191) NOT NULL,
     `montant` DECIMAL(10, 2) NOT NULL,
     `reference` VARCHAR(191) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -189,6 +216,21 @@ CREATE TABLE `parametres` (
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `modes_paiement` (
+    `id` VARCHAR(191) NOT NULL,
+    `code` VARCHAR(191) NOT NULL,
+    `label` VARCHAR(191) NOT NULL,
+    `active` BOOLEAN NOT NULL DEFAULT true,
+    `ordre` INTEGER NOT NULL DEFAULT 0,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+    `parametresId` VARCHAR(191) NOT NULL DEFAULT 'default',
+
+    UNIQUE INDEX `modes_paiement_code_key`(`code`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -244,7 +286,10 @@ ALTER TABLE `comptoir_sessions` ADD CONSTRAINT `comptoir_sessions_valideurId_fke
 ALTER TABLE `comptoir_sessions` ADD CONSTRAINT `comptoir_sessions_sessionCorrigeeId_fkey` FOREIGN KEY (`sessionCorrigeeId`) REFERENCES `comptoir_sessions`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `mouvements_caisse` ADD CONSTRAINT `mouvements_caisse_sessionId_fkey` FOREIGN KEY (`sessionId`) REFERENCES `comptoir_sessions`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `mouvements_caisse` ADD CONSTRAINT `mouvements_caisse_caisseId_fkey` FOREIGN KEY (`caisseId`) REFERENCES `caisses`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `mouvements_caisse` ADD CONSTRAINT `mouvements_caisse_sessionId_fkey` FOREIGN KEY (`sessionId`) REFERENCES `comptoir_sessions`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `mouvements_caisse` ADD CONSTRAINT `mouvements_caisse_venteId_fkey` FOREIGN KEY (`venteId`) REFERENCES `ventes`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
@@ -266,6 +311,9 @@ ALTER TABLE `lignes_vente` ADD CONSTRAINT `lignes_vente_produitId_fkey` FOREIGN 
 
 -- AddForeignKey
 ALTER TABLE `paiements` ADD CONSTRAINT `paiements_venteId_fkey` FOREIGN KEY (`venteId`) REFERENCES `ventes`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `modes_paiement` ADD CONSTRAINT `modes_paiement_parametresId_fkey` FOREIGN KEY (`parametresId`) REFERENCES `parametres`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `taxes` ADD CONSTRAINT `taxes_parametresId_fkey` FOREIGN KEY (`parametresId`) REFERENCES `parametres`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;

@@ -65,8 +65,8 @@ describe("createMouvementManuelSchema", () => {
     expect(r.success).toBe(false);
   });
 
-  it("rejects old MOBILE_MONEY mode", () => {
-    const r = createMouvementManuelSchema.safeParse({ ...valid, mode: "MOBILE_MONEY" });
+  it("rejects empty mode string", () => {
+    const r = createMouvementManuelSchema.safeParse({ ...valid, mode: "" });
     expect(r.success).toBe(false);
   });
 
@@ -80,8 +80,13 @@ describe("createMouvementManuelSchema", () => {
     expect(r.success).toBe(true);
   });
 
-  it("accepts CARTE_BANCAIRE mode", () => {
-    const r = createMouvementManuelSchema.safeParse({ ...valid, mode: "CARTE_BANCAIRE" });
+  it("accepts CELTIS_CASH mode", () => {
+    const r = createMouvementManuelSchema.safeParse({ ...valid, mode: "CELTIS_CASH" });
+    expect(r.success).toBe(true);
+  });
+
+  it("accepts any dynamic mode string", () => {
+    const r = createMouvementManuelSchema.safeParse({ ...valid, mode: "WAVE_SENEGAL" });
     expect(r.success).toBe(true);
   });
 

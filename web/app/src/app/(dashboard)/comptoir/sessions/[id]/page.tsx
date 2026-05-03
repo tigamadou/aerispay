@@ -46,11 +46,11 @@ const typeLabel: Record<string, string> = {
 };
 
 const modeLabel: Record<string, string> = {
-  ESPECES: "Especes",
+  ESPECES: "Cash",
   MOBILE_MONEY: "Mobile Money",
-  MOBILE_MONEY_MTN: "MTN Money",
-  MOBILE_MONEY_MOOV: "Moov Money",
-  CARTE_BANCAIRE: "Carte bancaire",
+  MOBILE_MONEY_MTN: "MomoPay",
+  MOBILE_MONEY_MOOV: "MoovMoney",
+  CELTIS_CASH: "Celtis Cash",
 };
 
 function formatMontant(n: number): string {

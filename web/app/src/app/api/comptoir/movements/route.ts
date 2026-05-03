@@ -1,4 +1,4 @@
-import type { ModePaiement, TypeMouvementCaisse, Prisma } from "@prisma/client";
+import type { TypeMouvementCaisse, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireAuth, hasPermission } from "@/lib/permissions";
 import { createMouvementManuelSchema } from "@/lib/validations/mouvement-caisse";
@@ -9,8 +9,8 @@ import { getSeuil } from "@/lib/services/seuils";
 const VALID_TYPES: TypeMouvementCaisse[] = [
   "FOND_INITIAL", "VENTE", "REMBOURSEMENT", "APPORT", "RETRAIT", "DEPENSE", "CORRECTION",
 ];
-const VALID_MODES: ModePaiement[] = [
-  "ESPECES", "MOBILE_MONEY_MTN", "MOBILE_MONEY_MOOV", "CARTE_BANCAIRE",
+const VALID_MODES: string[] = [
+  "ESPECES", "MOBILE_MONEY_MTN", "MOBILE_MONEY_MOOV", "CELTIS_CASH",
 ];
 
 export async function GET(req: Request) {
@@ -40,8 +40,8 @@ export async function GET(req: Request) {
       where.type = typeParam as TypeMouvementCaisse;
     }
 
-    if (modeParam && VALID_MODES.includes(modeParam as ModePaiement)) {
-      where.mode = modeParam as ModePaiement;
+    if (modeParam && VALID_MODES.includes(modeParam as string)) {
+      where.mode = modeParam as string;
     }
 
     if (sessionId) {
@@ -105,7 +105,7 @@ export async function POST(req: Request) {
 
     const { sessionId, montant, motif, reference, justificatif } = parsed.data;
     const type = parsed.data.type as TypeMouvementCaisse;
-    const mode = parsed.data.mode as ModePaiement;
+    const mode = parsed.data.mode as string;
 
     // Verify session exists and is OPEN
     const session = await prisma.comptoirSession.findUnique({

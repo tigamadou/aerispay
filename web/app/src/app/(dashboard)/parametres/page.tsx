@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { hasPermission } from "@/lib/permissions";
 import { ParametresForm } from "@/components/parametres/ParametresForm";
+import { ModesPaiementSection } from "@/components/parametres/ModesPaiementSection";
 import type { Role } from "@prisma/client";
 import type { Metadata } from "next";
 
@@ -21,9 +22,14 @@ export default async function ParametresPage() {
     redirect("/");
   }
 
-  const parametres = await prisma.parametres.findUnique({
-    where: { id: "default" },
-  });
+  const [parametres, modesPaiement] = await Promise.all([
+    prisma.parametres.findUnique({ where: { id: "default" } }),
+    prisma.modePaiementConfig.findMany({
+      where: { parametresId: "default" },
+      orderBy: { ordre: "asc" },
+      select: { id: true, code: true, label: true, active: true, ordre: true },
+    }),
+  ]);
 
   const data = {
     nomCommerce: parametres?.nomCommerce ?? "",
@@ -47,6 +53,8 @@ export default async function ParametresPage() {
       </div>
 
       <ParametresForm initialData={data} />
+
+      <ModesPaiementSection initialModes={modesPaiement} />
     </div>
   );
 }

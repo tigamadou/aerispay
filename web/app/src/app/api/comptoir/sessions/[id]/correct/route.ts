@@ -1,4 +1,3 @@
-import type { ModePaiement } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/permissions";
 import { correctiveSessionSchema } from "@/lib/validations/mouvement-caisse";
@@ -92,7 +91,7 @@ export async function POST(
       for (const mvt of parsed.data.mouvements) {
         await createMovementInTx(tx, {
           type: "CORRECTION",
-          mode: mvt.mode as ModePaiement,
+          mode: mvt.mode as string,
           montant: mvt.montant,
           caisseId,
           sessionId: corrective.id,

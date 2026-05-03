@@ -127,8 +127,8 @@ describe("ReconciliationService", () => {
   it("handles modes present only in declarations", async () => {
     const result = await reconcile(
       [{ mode: "ESPECES", solde: 50000 }],
-      { ESPECES: 50000, CARTE_BANCAIRE: 0 },
-      { ESPECES: 50000, CARTE_BANCAIRE: 0 },
+      { ESPECES: 50000, CELTIS_CASH: 0 },
+      { ESPECES: 50000, CELTIS_CASH: 0 },
       0,
     );
     expect(result.outcome).toBe("VALIDATED");

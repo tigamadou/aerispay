@@ -1,4 +1,4 @@
-import { Prisma, type ModePaiement } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireAuth, hasRole } from "@/lib/permissions";
 import { declarationCloturSchema } from "@/lib/validations/mouvement-caisse";

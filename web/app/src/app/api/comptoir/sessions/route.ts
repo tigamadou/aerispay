@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { requireAuth, requireRole } from "@/lib/permissions";
 import { openSessionSchema } from "@/lib/validations/session";
 import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
+import { computeSoldeCaisseParMode } from "@/lib/services/cash-movement";
 
 export async function GET() {
   const result = await requireAuth();
@@ -45,8 +46,24 @@ export async function POST(req: Request) {
       );
     }
 
-    // La session stocke les montants declares a l'ouverture (snapshot)
-    // mais ne cree plus de mouvements FOND_INITIAL — les soldes vivent sur la Caisse
+    // Verifier qu'une caisse active existe et a un solde > 0
+    const caisse = await prisma.caisse.findFirst({ where: { active: true }, select: { id: true } });
+    if (!caisse) {
+      return Response.json(
+        { error: "Aucune caisse active configuree" },
+        { status: 422 },
+      );
+    }
+
+    const soldes = await computeSoldeCaisseParMode(caisse.id);
+    const soldeTotal = soldes.reduce((sum, s) => sum + s.solde, 0);
+    if (soldeTotal <= 0) {
+      return Response.json(
+        { error: "Impossible d'ouvrir une session : le solde de la caisse est a zero. Effectuez un apport de fonds d'abord." },
+        { status: 422 },
+      );
+    }
+
     const session = await prisma.comptoirSession.create({
       data: {
         montantOuvertureCash: parsed.data.montantOuvertureCash,

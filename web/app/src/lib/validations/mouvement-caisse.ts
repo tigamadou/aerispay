@@ -1,12 +1,5 @@
 import { z } from "zod";
 
-export const MODE_PAIEMENT_VALUES = [
-  "ESPECES",
-  "MOBILE_MONEY_MTN",
-  "MOBILE_MONEY_MOOV",
-  "CARTE_BANCAIRE",
-] as const;
-
 export const TYPE_MOUVEMENT_MANUEL = [
   "APPORT",
   "RETRAIT",
@@ -18,9 +11,7 @@ export const createMouvementManuelSchema = z.object({
   type: z.enum(TYPE_MOUVEMENT_MANUEL, {
     errorMap: () => ({ message: "Type de mouvement invalide (APPORT, RETRAIT ou DEPENSE)" }),
   }),
-  mode: z.enum(MODE_PAIEMENT_VALUES, {
-    errorMap: () => ({ message: "Mode de paiement invalide" }),
-  }),
+  mode: z.string().min(1, "Mode de paiement requis"),
   montant: z.number().positive("Le montant doit être > 0"),
   motif: z.string().min(1, "Le motif est requis").max(500),
   reference: z.string().max(100).optional(),
@@ -29,7 +20,7 @@ export const createMouvementManuelSchema = z.object({
 
 export const declarationCloturSchema = z.object({
   declarations: z.record(
-    z.enum(MODE_PAIEMENT_VALUES),
+    z.string().min(1),
     z.number().min(0, "Le montant déclaré doit être positif ou nul"),
   ).refine(
     (obj) => Object.keys(obj).length > 0,
@@ -39,7 +30,7 @@ export const declarationCloturSchema = z.object({
 
 export const validationAveugSchema = z.object({
   declarations: z.record(
-    z.enum(MODE_PAIEMENT_VALUES),
+    z.string().min(1),
     z.number().min(0, "Le montant déclaré doit être positif ou nul"),
   ).refine(
     (obj) => Object.keys(obj).length > 0,
@@ -56,9 +47,7 @@ export const correctiveSessionSchema = z.object({
   motif: z.string().min(10, "Le motif doit contenir au moins 10 caractères").max(1000),
   motDePasse: z.string().min(1, "Le mot de passe est requis pour la ré-authentification"),
   mouvements: z.array(z.object({
-    mode: z.enum(MODE_PAIEMENT_VALUES, {
-      errorMap: () => ({ message: "Mode de paiement invalide" }),
-    }),
+    mode: z.string().min(1, "Mode de paiement requis"),
     montant: z.number({ message: "Le montant est requis" }),
     motif: z.string().min(1, "Le motif du mouvement est requis").max(500),
   })).min(1, "Au moins un mouvement correctif requis"),
@@ -69,9 +58,7 @@ export const createMouvementCaisseSchema = z.object({
   type: z.enum(TYPE_MOUVEMENT_MANUEL, {
     errorMap: () => ({ message: "Type de mouvement invalide (APPORT, RETRAIT ou DEPENSE)" }),
   }),
-  mode: z.enum(MODE_PAIEMENT_VALUES, {
-    errorMap: () => ({ message: "Mode de paiement invalide" }),
-  }),
+  mode: z.string().min(1, "Mode de paiement requis"),
   montant: z.number().positive("Le montant doit etre > 0"),
   motif: z.string().min(1, "Le motif est requis").max(500),
   reference: z.string().max(100).optional(),

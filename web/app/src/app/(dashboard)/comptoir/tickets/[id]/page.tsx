@@ -12,12 +12,11 @@ export const metadata: Metadata = {
 };
 
 const modeLabel: Record<string, string> = {
-  ESPECES: "Especes",
-  CARTE_BANCAIRE: "Carte bancaire",
+  ESPECES: "Cash",
   MOBILE_MONEY: "Mobile Money",
-  CHEQUE: "Cheque",
-  VIREMENT: "Virement",
-  AUTRE: "Autre",
+  MOBILE_MONEY_MTN: "MomoPay",
+  MOBILE_MONEY_MOOV: "MoovMoney",
+  CELTIS_CASH: "Celtis Cash",
 };
 
 const statutLabel: Record<string, { text: string; className: string }> = {

@@ -48,11 +48,11 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const MODE_LABELS: Record<string, string> = {
-  ESPECES: "Especes",
+  ESPECES: "Cash",
   MOBILE_MONEY: "Mobile Money",
-  MOBILE_MONEY_MTN: "MTN MoMo",
-  MOBILE_MONEY_MOOV: "Moov Money",
-  CARTE_BANCAIRE: "Carte bancaire",
+  MOBILE_MONEY_MTN: "MomoPay",
+  MOBILE_MONEY_MOOV: "MoovMoney",
+  CELTIS_CASH: "Celtis Cash",
 };
 
 const TYPE_COLORS: Record<string, string> = {
@@ -69,7 +69,7 @@ const MODE_COLORS: Record<string, string> = {
   ESPECES: "bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800",
   MOBILE_MONEY_MTN: "bg-yellow-50 border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800",
   MOBILE_MONEY_MOOV: "bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800",
-  CARTE_BANCAIRE: "bg-purple-50 border-purple-200 dark:bg-purple-950 dark:border-purple-800",
+  CELTIS_CASH: "bg-purple-50 border-purple-200 dark:bg-purple-950 dark:border-purple-800",
 };
 
 export function MouvementsListe() {
