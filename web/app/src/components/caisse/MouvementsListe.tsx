@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, useRef } from "react";
+import Link from "next/link";
 
 interface CaisseInfo {
   id: string;
@@ -47,13 +48,10 @@ const TYPE_LABELS: Record<string, string> = {
   CORRECTION: "Correction",
 };
 
-const MODE_LABELS: Record<string, string> = {
-  ESPECES: "Cash",
-  MOBILE_MONEY: "Mobile Money",
-  MOBILE_MONEY_MTN: "MomoPay",
-  MOBILE_MONEY_MOOV: "MoovMoney",
-  CELTIS_CASH: "Celtis Cash",
-};
+interface ModePaiementOption {
+  code: string;
+  label: string;
+}
 
 const TYPE_COLORS: Record<string, string> = {
   FOND_INITIAL: "bg-blue-100 text-blue-800",
@@ -88,20 +86,13 @@ export function MouvementsListe() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
-  // Form
-  const [showForm, setShowForm] = useState(false);
-  const [formType, setFormType] = useState<"APPORT" | "RETRAIT" | "DEPENSE">("APPORT");
-  const [formMode, setFormMode] = useState("ESPECES");
-  const [formMontant, setFormMontant] = useState("");
-  const [formMotif, setFormMotif] = useState("");
-  const [formReference, setFormReference] = useState("");
-  const [formSubmitting, setFormSubmitting] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [formSuccess, setFormSuccess] = useState<string | null>(null);
+  // Dynamic payment modes
+  const [modesPaiement, setModesPaiement] = useState<ModePaiementOption[]>([]);
+  const modeLabels = Object.fromEntries(modesPaiement.map((m) => [m.code, m.label]));
 
   const initialized = useRef(false);
 
-  // Fetch caisses list on mount
+  // Fetch caisses list + payment modes on mount
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
@@ -116,6 +107,11 @@ export function MouvementsListe() {
         }
       })
       .catch(() => setCaisses([]));
+
+    fetch("/api/parametres/modes-paiement")
+      .then((r) => r.json())
+      .then((body) => setModesPaiement(body.data ?? []))
+      .catch(() => setModesPaiement([]));
   }, []);
 
   // Fetch soldes when caisse changes
@@ -172,47 +168,6 @@ export function MouvementsListe() {
     load();
   }, [selectedCaisseId, fetchSoldes, fetchMouvements]);
 
-  // Submit movement
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!selectedCaisseId) return;
-
-    setFormSubmitting(true);
-    setFormError(null);
-    setFormSuccess(null);
-
-    try {
-      const res = await fetch(`/api/caisse/${selectedCaisseId}/mouvements`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: formType,
-          mode: formMode,
-          montant: parseFloat(formMontant),
-          motif: formMotif,
-          reference: formReference || undefined,
-        }),
-      });
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? `Erreur ${res.status}`);
-      }
-
-      setFormSuccess(`${TYPE_LABELS[formType]} de ${parseFloat(formMontant).toLocaleString("fr-FR")} F enregistre`);
-      setFormMontant("");
-      setFormMotif("");
-      setFormReference("");
-
-      fetchSoldes();
-      fetchMouvements(1);
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Erreur inconnue");
-    } finally {
-      setFormSubmitting(false);
-    }
-  };
-
   const formatMontant = (montant: number) => {
     const abs = Math.abs(montant);
     const formatted = abs.toLocaleString("fr-FR");
@@ -259,12 +214,12 @@ export function MouvementsListe() {
                 </select>
               )}
             </div>
-            <button
-              onClick={() => setShowForm(!showForm)}
+            <Link
+              href="/caisse/mouvements/nouveau"
               className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 transition"
             >
-              {showForm ? "Fermer" : "Nouveau mouvement"}
-            </button>
+              Nouveau mouvement
+            </Link>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -274,7 +229,7 @@ export function MouvementsListe() {
                 className={`rounded-lg border p-4 ${MODE_COLORS[s.mode] ?? "bg-white border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800"}`}
               >
                 <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                  {MODE_LABELS[s.mode] ?? s.mode}
+                  {modeLabels[s.mode] ?? s.mode}
                 </p>
                 <p className={`text-xl font-bold font-mono ${s.solde < 0 ? "text-red-600" : "text-zinc-900 dark:text-zinc-100"}`}>
                   {s.solde.toLocaleString("fr-FR")} F
@@ -290,98 +245,6 @@ export function MouvementsListe() {
           </div>
         </div>
       ) : null}
-
-      {/* Movement creation form */}
-      {showForm && selectedCaisseId && (
-        <div className="rounded-lg border border-indigo-200 bg-indigo-50/50 p-4 dark:border-indigo-900 dark:bg-indigo-950/30">
-          <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-3">
-            Nouveau mouvement
-          </h3>
-
-          {formError && (
-            <div className="mb-3 rounded-md border border-red-200 bg-red-50 p-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
-              {formError}
-            </div>
-          )}
-          {formSuccess && (
-            <div className="mb-3 rounded-md border border-green-200 bg-green-50 p-2 text-sm text-green-700 dark:border-green-900 dark:bg-green-950 dark:text-green-300">
-              {formSuccess}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
-            <div>
-              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Type</label>
-              <select
-                value={formType}
-                onChange={(e) => setFormType(e.target.value as "APPORT" | "RETRAIT" | "DEPENSE")}
-                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-              >
-                <option value="APPORT">Apport</option>
-                <option value="RETRAIT">Retrait</option>
-                <option value="DEPENSE">Depense</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Mode</label>
-              <select
-                value={formMode}
-                onChange={(e) => setFormMode(e.target.value)}
-                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-              >
-                {Object.entries(MODE_LABELS).filter(([k]) => k !== "MOBILE_MONEY").map(([val, label]) => (
-                  <option key={val} value={val}>{label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Montant (FCFA)</label>
-              <input
-                type="number"
-                min="1"
-                step="1"
-                required
-                value={formMontant}
-                onChange={(e) => setFormMontant(e.target.value)}
-                placeholder="0"
-                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Motif</label>
-              <input
-                type="text"
-                required
-                maxLength={500}
-                value={formMotif}
-                onChange={(e) => setFormMotif(e.target.value)}
-                placeholder="Raison du mouvement"
-                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Reference</label>
-              <input
-                type="text"
-                maxLength={100}
-                value={formReference}
-                onChange={(e) => setFormReference(e.target.value)}
-                placeholder="Optionnel"
-                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-              />
-            </div>
-            <div className="flex items-end">
-              <button
-                type="submit"
-                disabled={formSubmitting || !formMontant || !formMotif}
-                className="w-full rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
-              >
-                {formSubmitting ? "Envoi..." : "Enregistrer"}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
 
       {/* Filters */}
       <div className="flex flex-wrap items-end gap-3 rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
@@ -400,8 +263,8 @@ export function MouvementsListe() {
           <select value={modeFilter} onChange={(e) => setModeFilter(e.target.value)}
             className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100">
             <option value="">Tous</option>
-            {Object.entries(MODE_LABELS).map(([val, label]) => (
-              <option key={val} value={val}>{label}</option>
+            {modesPaiement.map((m) => (
+              <option key={m.code} value={m.code}>{m.label}</option>
             ))}
           </select>
         </div>
@@ -456,7 +319,7 @@ export function MouvementsListe() {
                       {TYPE_LABELS[m.type] ?? m.type}
                     </span>
                   </td>
-                  <td className="px-4 py-2 text-zinc-700 dark:text-zinc-300">{MODE_LABELS[m.mode] ?? m.mode}</td>
+                  <td className="px-4 py-2 text-zinc-700 dark:text-zinc-300">{modeLabels[m.mode] ?? m.mode}</td>
                   <td className={`px-4 py-2 text-right font-mono font-medium whitespace-nowrap ${Number(m.montant) < 0 ? "text-red-600" : "text-green-600"}`}>
                     {formatMontant(Number(m.montant))}
                   </td>
