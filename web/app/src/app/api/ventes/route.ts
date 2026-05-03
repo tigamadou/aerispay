@@ -148,7 +148,7 @@ export async function POST(req: Request) {
       let totalTva = new Prisma.Decimal(0);
       if (base.gt(0)) {
         for (const t of activeTaxes) {
-          const montant = base.mul(new Prisma.Decimal(t.taux).div(100));
+          const montant = base.mul(new Prisma.Decimal(t.taux).div(100)).round();
           taxesDetail.push({ nom: t.nom, taux: Number(t.taux), montant: Number(montant) });
           totalTva = totalTva.add(montant);
         }
