@@ -54,6 +54,10 @@ Cypress.Commands.add("ensureCaisseFunded", () => {
   cy.task("ensureCaisseHasFunds", null);
 });
 
+Cypress.Commands.add("restockProduct", (reference: string) => {
+  cy.task("restockProduct", reference);
+});
+
 export {};
 
 declare global {
@@ -64,6 +68,7 @@ declare global {
       loginAsCaissier(): Chainable<void>;
       closeOpenSessions(email: string): Chainable<void>;
       ensureCaisseFunded(): Chainable<void>;
+      restockProduct(reference: string): Chainable<void>;
     }
   }
 }

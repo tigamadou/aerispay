@@ -39,8 +39,9 @@ export async function GET(
 
     if (session.statut === "OUVERTE" || session.statut === "EN_ATTENTE_CLOTURE" || session.statut === "EN_ATTENTE_VALIDATION") {
       const legacy = await computeSoldeTheoriqueLegacy(id);
-      soldeTheoriqueCash = legacy.cash;
-      soldeTheoriqueMobileMoney = legacy.mobileMoney;
+      // Include opening fund in theoretical balance (matching PUT close logic)
+      soldeTheoriqueCash = Number(session.montantOuvertureCash) + legacy.cash;
+      soldeTheoriqueMobileMoney = Number(session.montantOuvertureMobileMoney) + legacy.mobileMoney;
     } else {
       soldeTheoriqueCash = session.soldeTheoriqueCash ? Number(session.soldeTheoriqueCash) : null;
       soldeTheoriqueMobileMoney = session.soldeTheoriqueMobileMoney ? Number(session.soldeTheoriqueMobileMoney) : null;
