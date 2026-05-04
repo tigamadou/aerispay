@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -21,6 +21,11 @@ interface SerializedComptoirSession {
   _sum?: { total: string | null };
 }
 
+interface ModePaiementOption {
+  code: string;
+  label: string;
+}
+
 interface SessionManagerProps {
   initialSession: SerializedComptoirSession | null;
 }
@@ -29,7 +34,6 @@ interface SessionManagerProps {
 
 function formatFCFA(value: string | number): string {
   const num = typeof value === "string" ? parseFloat(value) : value;
-  // Replace narrow no-break space (U+202F) with regular space for consistent rendering
   return `${new Intl.NumberFormat("fr-FR").format(num).replace(/\u202F/g, " ")} FCFA`;
 }
 
@@ -44,52 +48,76 @@ function formatDateTime(iso: string): string {
 
 export function SessionManager({ initialSession }: SessionManagerProps) {
   const [session, setSession] = useState<SerializedComptoirSession | null>(initialSession);
-  const [montantOuvertureCash, setMontantOuvertureCash] = useState("");
-  const [montantOuvertureMobileMoney, setMontantOuvertureMobileMoney] = useState("");
-  const [montantFermetureCash, setMontantFermetureCash] = useState("");
-  const [montantFermetureMobileMoney, setMontantFermetureMobileMoney] = useState("");
-  const [notesFermeture, setNotesFermeture] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showCloseForm, setShowCloseForm] = useState(false);
-  const [soldeTheoriqueCash, setSoldeTheoriqueCash] = useState<number | null>(
-    session?.soldeTheoriqueCash ?? null
-  );
-  const [soldeTheoriqueMobileMoney, setSoldeTheoriqueMobileMoney] = useState<number | null>(
-    session?.soldeTheoriqueMobileMoney ?? null
-  );
 
-  // Fetch live solde théorique when opening close form
+  // Dynamic payment modes
+  const [modesPaiement, setModesPaiement] = useState<ModePaiementOption[]>([]);
+  const modesInitialized = useRef(false);
+
+  // Ouverture: montant par mode { code: "valeur" }
+  const [montantsOuverture, setMontantsOuverture] = useState<Record<string, string>>({});
+
+  // Fermeture: montant par mode
+  const [montantsFermeture, setMontantsFermeture] = useState<Record<string, string>>({});
+  const [notesFermeture, setNotesFermeture] = useState("");
+
+  // Solde theorique par mode (live)
+  const [soldesTheoriques, setSoldesTheoriques] = useState<Record<string, number>>({});
+
+  // Fetch payment modes on mount
+  useEffect(() => {
+    if (modesInitialized.current) return;
+    modesInitialized.current = true;
+
+    fetch("/api/parametres/modes-paiement")
+      .then((r) => r.json())
+      .then((body) => {
+        const modes: ModePaiementOption[] = body.data ?? [];
+        setModesPaiement(modes);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Fetch live solde theorique when opening close form
   useEffect(() => {
     if (!showCloseForm || !session) return;
     let cancelled = false;
     fetch(`/api/comptoir/sessions/${session.id}`)
       .then((r) => r.json())
       .then((json) => {
-        if (!cancelled) {
-          if (json.data?.soldeTheoriqueCash != null) {
-            setSoldeTheoriqueCash(json.data.soldeTheoriqueCash);
-          }
-          if (json.data?.soldeTheoriqueMobileMoney != null) {
-            setSoldeTheoriqueMobileMoney(json.data.soldeTheoriqueMobileMoney);
+        if (cancelled) return;
+        const soldes: Record<string, number> = {};
+        if (json.data?.soldeTheoriqueCash != null) {
+          soldes.ESPECES = Number(json.data.soldeTheoriqueCash);
+        }
+        if (json.data?.soldeTheoriqueMobileMoney != null) {
+          // Distribute across non-ESPECES modes
+          const nonCashModes = modesPaiement.filter((m) => m.code !== "ESPECES");
+          if (nonCashModes.length > 0) {
+            // For now, show total on first non-cash mode
+            soldes[nonCashModes[0].code] = Number(json.data.soldeTheoriqueMobileMoney);
           }
         }
+        // Also try ecartsParMode if available
+        if (json.data?.ecartsParMode) {
+          try {
+            const epm = typeof json.data.ecartsParMode === "string"
+              ? JSON.parse(json.data.ecartsParMode)
+              : json.data.ecartsParMode;
+            for (const [mode, data] of Object.entries(epm)) {
+              if (data && typeof data === "object" && "theorique" in data) {
+                soldes[mode] = Number((data as { theorique: number }).theorique);
+              }
+            }
+          } catch { /* ignore */ }
+        }
+        setSoldesTheoriques(soldes);
       })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [showCloseForm, session]);
-
-  const montantCompteCash = parseFloat(montantFermetureCash);
-  const ecartCash =
-    !isNaN(montantCompteCash) && soldeTheoriqueCash !== null
-      ? montantCompteCash - soldeTheoriqueCash
-      : null;
-
-  const montantCompteMobileMoney = parseFloat(montantFermetureMobileMoney);
-  const ecartMobileMoney =
-    !isNaN(montantCompteMobileMoney) && soldeTheoriqueMobileMoney !== null
-      ? montantCompteMobileMoney - soldeTheoriqueMobileMoney
-      : null;
+  }, [showCloseForm, session, modesPaiement]);
 
   // ── Open session ──
 
@@ -98,23 +126,29 @@ export function SessionManager({ initialSession }: SessionManagerProps) {
       e.preventDefault();
       setError(null);
 
-      const cash = parseFloat(montantOuvertureCash);
-      const mobileMoney = parseFloat(montantOuvertureMobileMoney || "0");
-      if (isNaN(cash) || cash < 0) {
-        setError("Veuillez saisir un montant valide pour les espèces.");
-        return;
+      // Validate all amounts
+      for (const mode of modesPaiement) {
+        const val = parseFloat(montantsOuverture[mode.code] || "0");
+        if (isNaN(val) || val < 0) {
+          setError(`Montant invalide pour ${mode.label}.`);
+          return;
+        }
       }
-      if (isNaN(mobileMoney) || mobileMoney < 0) {
-        setError("Veuillez saisir un montant valide pour le mobile money.");
-        return;
-      }
+
+      const cashAmount = parseFloat(montantsOuverture.ESPECES || "0");
+      const mobileMoneyAmount = modesPaiement
+        .filter((m) => m.code !== "ESPECES")
+        .reduce((sum, m) => sum + parseFloat(montantsOuverture[m.code] || "0"), 0);
 
       setLoading(true);
       try {
         const res = await fetch("/api/comptoir/sessions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ montantOuvertureCash: cash, montantOuvertureMobileMoney: mobileMoney }),
+          body: JSON.stringify({
+            montantOuvertureCash: cashAmount,
+            montantOuvertureMobileMoney: mobileMoneyAmount,
+          }),
         });
 
         const json = await res.json();
@@ -125,15 +159,14 @@ export function SessionManager({ initialSession }: SessionManagerProps) {
         }
 
         setSession(json.data);
-        setMontantOuvertureCash("");
-        setMontantOuvertureMobileMoney("");
+        setMontantsOuverture({});
       } catch {
-        setError("Erreur réseau. Veuillez réessayer.");
+        setError("Erreur reseau. Veuillez reessayer.");
       } finally {
         setLoading(false);
       }
     },
-    [montantOuvertureCash, montantOuvertureMobileMoney],
+    [montantsOuverture, modesPaiement],
   );
 
   // ── Close session ──
@@ -144,16 +177,18 @@ export function SessionManager({ initialSession }: SessionManagerProps) {
       if (!session) return;
       setError(null);
 
-      const cash = parseFloat(montantFermetureCash);
-      const mobileMoney = parseFloat(montantFermetureMobileMoney || "0");
-      if (isNaN(cash) || cash < 0) {
-        setError("Veuillez saisir le montant compté (espèces).");
-        return;
+      for (const mode of modesPaiement) {
+        const val = parseFloat(montantsFermeture[mode.code] || "0");
+        if (isNaN(val) || val < 0) {
+          setError(`Montant invalide pour ${mode.label}.`);
+          return;
+        }
       }
-      if (isNaN(mobileMoney) || mobileMoney < 0) {
-        setError("Veuillez saisir le montant compté (mobile money).");
-        return;
-      }
+
+      const cashAmount = parseFloat(montantsFermeture.ESPECES || "0");
+      const mobileMoneyAmount = modesPaiement
+        .filter((m) => m.code !== "ESPECES")
+        .reduce((sum, m) => sum + parseFloat(montantsFermeture[m.code] || "0"), 0);
 
       setLoading(true);
       try {
@@ -161,8 +196,8 @@ export function SessionManager({ initialSession }: SessionManagerProps) {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            montantFermetureCash: cash,
-            montantFermetureMobileMoney: mobileMoney,
+            montantFermetureCash: cashAmount,
+            montantFermetureMobileMoney: mobileMoneyAmount,
             ...(notesFermeture.trim() ? { notes: notesFermeture.trim() } : {}),
           }),
         });
@@ -175,17 +210,16 @@ export function SessionManager({ initialSession }: SessionManagerProps) {
         }
 
         setSession(null);
-        setMontantFermetureCash("");
-        setMontantFermetureMobileMoney("");
+        setMontantsFermeture({});
         setNotesFermeture("");
         setShowCloseForm(false);
       } catch {
-        setError("Erreur réseau. Veuillez réessayer.");
+        setError("Erreur reseau. Veuillez reessayer.");
       } finally {
         setLoading(false);
       }
     },
-    [session, montantFermetureCash, montantFermetureMobileMoney, notesFermeture],
+    [session, montantsFermeture, modesPaiement, notesFermeture],
   );
 
   // ── Render: No active session → Open form ──
@@ -198,7 +232,7 @@ export function SessionManager({ initialSession }: SessionManagerProps) {
             Ouvrir une session de comptoir
           </h2>
           <p className="mb-6 text-sm text-zinc-500 dark:text-zinc-400">
-            Saisissez les montants du fond de comptoir pour démarrer.
+            Saisissez les montants du fond de comptoir pour demarrer.
           </p>
 
           {error && (
@@ -211,51 +245,41 @@ export function SessionManager({ initialSession }: SessionManagerProps) {
           )}
 
           <form onSubmit={handleOpen} className="space-y-4">
-            <div>
-              <label
-                htmlFor="montantOuvertureCash"
-                className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
-              >
-                Fond de caisse (Espèces)
-              </label>
-              <input
-                id="montantOuvertureCash"
-                data-testid="input-montant-ouverture-cash"
-                type="number"
-                min="0"
-                step="1"
-                required
-                value={montantOuvertureCash}
-                onChange={(e) => setMontantOuvertureCash(e.target.value)}
-                placeholder="0"
-                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 dark:placeholder:text-zinc-500"
-              />
-            </div>
+            {modesPaiement.map((mode) => (
+              <div key={mode.code}>
+                <label
+                  htmlFor={`ouverture-${mode.code}`}
+                  className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
+                >
+                  Fond de caisse ({mode.label})
+                </label>
+                <input
+                  id={`ouverture-${mode.code}`}
+                  data-testid={`input-montant-ouverture-${mode.code.toLowerCase()}`}
+                  type="number"
+                  min="0"
+                  step="1"
+                  required={mode.code === "ESPECES"}
+                  value={montantsOuverture[mode.code] ?? ""}
+                  onChange={(e) =>
+                    setMontantsOuverture((prev) => ({ ...prev, [mode.code]: e.target.value }))
+                  }
+                  placeholder="0"
+                  className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+                />
+              </div>
+            ))}
 
-            <div>
-              <label
-                htmlFor="montantOuvertureMobileMoney"
-                className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
-              >
-                Fond de caisse (Mobile Money)
-              </label>
-              <input
-                id="montantOuvertureMobileMoney"
-                data-testid="input-montant-ouverture-mobile-money"
-                type="number"
-                min="0"
-                step="1"
-                value={montantOuvertureMobileMoney}
-                onChange={(e) => setMontantOuvertureMobileMoney(e.target.value)}
-                placeholder="0"
-                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 dark:placeholder:text-zinc-500"
-              />
-            </div>
+            {modesPaiement.length === 0 && (
+              <div className="text-sm text-zinc-500 dark:text-zinc-400 animate-pulse">
+                Chargement des modes de paiement...
+              </div>
+            )}
 
             <button
               type="submit"
               data-testid="btn-ouvrir-session"
-              disabled={loading}
+              disabled={loading || modesPaiement.length === 0}
               className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? "Ouverture en cours..." : "Ouvrir le comptoir"}
@@ -296,7 +320,7 @@ export function SessionManager({ initialSession }: SessionManagerProps) {
             </dd>
           </div>
           <div>
-            <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Fond de caisse (Espèces)</dt>
+            <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Fond de caisse (Cash)</dt>
             <dd
               data-testid="session-montant-ouverture-cash"
               className="mt-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100"
@@ -304,15 +328,17 @@ export function SessionManager({ initialSession }: SessionManagerProps) {
               {formatFCFA(session.montantOuvertureCash)}
             </dd>
           </div>
-          <div>
-            <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Fond de caisse (Mobile Money)</dt>
-            <dd
-              data-testid="session-montant-ouverture-mobile-money"
-              className="mt-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100"
-            >
-              {formatFCFA(session.montantOuvertureMobileMoney)}
-            </dd>
-          </div>
+          {parseFloat(session.montantOuvertureMobileMoney) > 0 && (
+            <div>
+              <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Fond de caisse (Autres)</dt>
+              <dd
+                data-testid="session-montant-ouverture-mobile-money"
+                className="mt-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100"
+              >
+                {formatFCFA(session.montantOuvertureMobileMoney)}
+              </dd>
+            </div>
+          )}
           <div>
             <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Total ventes</dt>
             <dd
@@ -362,153 +388,97 @@ export function SessionManager({ initialSession }: SessionManagerProps) {
             Fermeture de session
           </h3>
 
-          {/* Solde théorique */}
-          {(soldeTheoriqueCash !== null || soldeTheoriqueMobileMoney !== null) && (
-            <div className="space-y-3">
-              {soldeTheoriqueCash !== null && (
-                <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/50">
-                  <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                    Solde théorique en comptoir (Espèces)
+          {/* Soldes theoriques par mode */}
+          {Object.keys(soldesTheoriques).length > 0 && (
+            <div className="mb-4 space-y-3">
+              {modesPaiement.map((mode) => {
+                const solde = soldesTheoriques[mode.code];
+                if (solde == null) return null;
+                return (
+                  <div key={`solde-${mode.code}`} className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/50">
+                    <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                      Solde theorique ({mode.label})
+                    </div>
+                    <div className="mt-0.5 text-lg font-bold text-zinc-900 dark:text-zinc-100" data-testid={`solde-theorique-${mode.code.toLowerCase()}`}>
+                      {formatFCFA(solde)}
+                    </div>
                   </div>
-                  <div className="mt-0.5 text-lg font-bold text-zinc-900 dark:text-zinc-100" data-testid="solde-theorique-cash">
-                    {formatFCFA(soldeTheoriqueCash)}
-                  </div>
-                  <div className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
-                    Fond de caisse + espèces encaissées − monnaie rendue
-                  </div>
-                </div>
-              )}
-              {soldeTheoriqueMobileMoney !== null && (
-                <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/50">
-                  <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                    Solde théorique en comptoir (Mobile Money)
-                  </div>
-                  <div className="mt-0.5 text-lg font-bold text-zinc-900 dark:text-zinc-100" data-testid="solde-theorique-mobile-money">
-                    {formatFCFA(soldeTheoriqueMobileMoney)}
-                  </div>
-                  <div className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
-                    Fond mobile money + paiements mobile money reçus
-                  </div>
-                </div>
-              )}
+                );
+              })}
             </div>
           )}
 
           <form onSubmit={handleClose} className="space-y-4">
-            <div>
-              <label
-                htmlFor="montantFermetureCash"
-                className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
-              >
-                Montant compté (Espèces)
-              </label>
-              <input
-                id="montantFermetureCash"
-                data-testid="input-montant-fermeture-cash"
-                type="number"
-                min="0"
-                step="1"
-                required
-                value={montantFermetureCash}
-                onChange={(e) => setMontantFermetureCash(e.target.value)}
-                placeholder="0"
-                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 dark:placeholder:text-zinc-500"
-              />
-            </div>
+            {/* Un champ par mode de paiement */}
+            {modesPaiement.map((mode) => {
+              const montantCompte = parseFloat(montantsFermeture[mode.code] || "");
+              const soldeTheorique = soldesTheoriques[mode.code];
+              const ecart = !isNaN(montantCompte) && soldeTheorique != null
+                ? montantCompte - soldeTheorique
+                : null;
 
-            <div>
-              <label
-                htmlFor="montantFermetureMobileMoney"
-                className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
-              >
-                Montant compté (Mobile Money)
-              </label>
-              <input
-                id="montantFermetureMobileMoney"
-                data-testid="input-montant-fermeture-mobile-money"
-                type="number"
-                min="0"
-                step="1"
-                value={montantFermetureMobileMoney}
-                onChange={(e) => setMontantFermetureMobileMoney(e.target.value)}
-                placeholder="0"
-                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 dark:placeholder:text-zinc-500"
-              />
-            </div>
+              return (
+                <div key={`fermeture-${mode.code}`}>
+                  <label
+                    htmlFor={`fermeture-${mode.code}`}
+                    className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
+                  >
+                    Montant compte ({mode.label})
+                  </label>
+                  <input
+                    id={`fermeture-${mode.code}`}
+                    data-testid={`input-montant-fermeture-${mode.code.toLowerCase()}`}
+                    type="number"
+                    min="0"
+                    step="1"
+                    required={mode.code === "ESPECES"}
+                    value={montantsFermeture[mode.code] ?? ""}
+                    onChange={(e) =>
+                      setMontantsFermeture((prev) => ({ ...prev, [mode.code]: e.target.value }))
+                    }
+                    placeholder="0"
+                    className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+                  />
 
-            {/* Écart espèces — affiché en temps réel */}
-            {ecartCash !== null && (
-              <div
-                data-testid="ecart-cash"
-                className={`rounded-lg border px-4 py-3 ${
-                  ecartCash === 0
-                    ? "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-900/20"
-                    : ecartCash > 0
-                      ? "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20"
-                      : "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20"
-                }`}
-              >
-                <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                  Écart espèces
+                  {/* Ecart en temps reel */}
+                  {ecart !== null && (
+                    <div
+                      data-testid={`ecart-${mode.code.toLowerCase()}`}
+                      className={`mt-2 rounded-lg border px-4 py-3 ${
+                        ecart === 0
+                          ? "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-900/20"
+                          : ecart > 0
+                            ? "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20"
+                            : "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20"
+                      }`}
+                    >
+                      <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                        Ecart {mode.label}
+                      </div>
+                      <div
+                        className={`mt-0.5 text-lg font-bold ${
+                          ecart === 0
+                            ? "text-emerald-700 dark:text-emerald-400"
+                            : ecart > 0
+                              ? "text-blue-700 dark:text-blue-400"
+                              : "text-red-700 dark:text-red-400"
+                        }`}
+                      >
+                        {ecart > 0 ? "+" : ""}
+                        {formatFCFA(ecart)}
+                      </div>
+                      <div className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
+                        {ecart === 0
+                          ? "Equilibre"
+                          : ecart > 0
+                            ? `Excedent ${mode.label.toLowerCase()}`
+                            : `Manquant ${mode.label.toLowerCase()}`}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div
-                  className={`mt-0.5 text-lg font-bold ${
-                    ecartCash === 0
-                      ? "text-emerald-700 dark:text-emerald-400"
-                      : ecartCash > 0
-                        ? "text-blue-700 dark:text-blue-400"
-                        : "text-red-700 dark:text-red-400"
-                  }`}
-                >
-                  {ecartCash > 0 ? "+" : ""}
-                  {formatFCFA(ecartCash)}
-                </div>
-                <div className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
-                  {ecartCash === 0
-                    ? "Comptoir équilibré"
-                    : ecartCash > 0
-                      ? "Excédent espèces"
-                      : "Manquant espèces"}
-                </div>
-              </div>
-            )}
-
-            {/* Écart mobile money — affiché en temps réel */}
-            {ecartMobileMoney !== null && (
-              <div
-                data-testid="ecart-mobile-money"
-                className={`rounded-lg border px-4 py-3 ${
-                  ecartMobileMoney === 0
-                    ? "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-900/20"
-                    : ecartMobileMoney > 0
-                      ? "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20"
-                      : "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20"
-                }`}
-              >
-                <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                  Écart mobile money
-                </div>
-                <div
-                  className={`mt-0.5 text-lg font-bold ${
-                    ecartMobileMoney === 0
-                      ? "text-emerald-700 dark:text-emerald-400"
-                      : ecartMobileMoney > 0
-                        ? "text-blue-700 dark:text-blue-400"
-                        : "text-red-700 dark:text-red-400"
-                  }`}
-                >
-                  {ecartMobileMoney > 0 ? "+" : ""}
-                  {formatFCFA(ecartMobileMoney)}
-                </div>
-                <div className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
-                  {ecartMobileMoney === 0
-                    ? "Comptoir équilibré"
-                    : ecartMobileMoney > 0
-                      ? "Excédent mobile money"
-                      : "Manquant mobile money"}
-                </div>
-              </div>
-            )}
+              );
+            })}
 
             <div>
               <label
