@@ -30,9 +30,16 @@ const DEV_USERS = [
   },
 ];
 
+interface SeedUser {
+  email: string;
+  password: string;
+  nom: string;
+  role: Role;
+}
+
 async function upsertUsers(
   prisma: PrismaClient,
-  users: typeof PROD_USERS,
+  users: SeedUser[],
 ): Promise<void> {
   for (const user of users) {
     const hash = await bcrypt.hash(user.password, ROUNDS);

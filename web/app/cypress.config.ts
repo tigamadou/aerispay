@@ -86,6 +86,29 @@ export default defineConfig({
           await getPrismaPlugin().activityLog.deleteMany({});
           return null;
         },
+        async ensureCaisseHasFunds(_: null) {
+          const prisma = getPrismaPlugin();
+          const caisse = await prisma.caisse.findFirst({ where: { active: true } });
+          if (!caisse) throw new Error("Aucune caisse active");
+          // Check if there are already movements
+          const count = await prisma.mouvementCaisse.count({ where: { caisseId: caisse.id } });
+          if (count > 0) return caisse.id;
+          // Get admin user
+          const admin = await prisma.user.findFirst({ where: { role: "ADMIN" } });
+          if (!admin) throw new Error("Aucun admin en base");
+          // Create initial fund
+          await prisma.mouvementCaisse.create({
+            data: {
+              type: "FOND_INITIAL",
+              mode: "ESPECES",
+              montant: 100000,
+              caisseId: caisse.id,
+              auteurId: admin.id,
+              motif: "Fond initial e2e",
+            },
+          });
+          return caisse.id;
+        },
         async closeOpenSessions(email: string) {
           const prisma = getPrismaPlugin();
           const user = await prisma.user.findFirst({ where: { email } });

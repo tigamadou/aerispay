@@ -8,6 +8,7 @@ describe("Caisse — API mouvements", () => {
   before(() => {
     cy.closeOpenSessions("caissier@aerispay.com");
     cy.loginAsCaissier();
+    cy.ensureCaisseFunded();
     cy.request("POST", "/api/comptoir/sessions", {
       montantOuvertureCash: 50_000,
     }).then((res) => {

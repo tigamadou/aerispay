@@ -23,10 +23,11 @@ describe("Ventes — UI & navigation", () => {
   it("CAISSIER : affiche une vente créée et le détail", () => {
     cy.closeOpenSessions("caissier@aerispay.com");
     cy.loginAsCaissier();
+    cy.ensureCaisseFunded();
     cy.request("POST", "/api/comptoir/sessions", { montantOuvertureCash: 50_000 }).then((r1) => {
       expect(r1.status).to.eq(201);
       const sessionId = r1.body.data.id as string;
-      cy.task<string>("getProduitIdByReference", "ALM-001").then((produitId) => {
+      cy.task<string>("getProduitIdByReference", "SEC-001").then((produitId) => {
         cy.request("POST", "/api/ventes", {
           sessionId,
           lignes: [
@@ -72,9 +73,10 @@ describe("Ventes — API", () => {
   it("POST /api/ventes/:id/annuler renvoie 403 pour un CAISSIER", () => {
     cy.closeOpenSessions("caissier@aerispay.com");
     cy.loginAsCaissier();
+    cy.ensureCaisseFunded();
     cy.request("POST", "/api/comptoir/sessions", { montantOuvertureCash: 50_000 }).then((r1) => {
       const sessionId = r1.body.data.id as string;
-      cy.task<string>("getProduitIdByReference", "ALM-001").then((produitId) => {
+      cy.task<string>("getProduitIdByReference", "SEC-001").then((produitId) => {
         cy.request("POST", "/api/ventes", {
           sessionId,
           lignes: [
@@ -101,9 +103,10 @@ describe("Ventes — annulation (MANAGER)", () => {
   it("peut annuler une vente validée depuis la liste", () => {
     cy.closeOpenSessions("caissier@aerispay.com");
     cy.loginAsCaissier();
+    cy.ensureCaisseFunded();
     cy.request("POST", "/api/comptoir/sessions", { montantOuvertureCash: 50_000 }).then((r1) => {
       const sessionId = r1.body.data.id as string;
-      cy.task<string>("getProduitIdByReference", "ALM-001").then((produitId) => {
+      cy.task<string>("getProduitIdByReference", "SEC-001").then((produitId) => {
         cy.request("POST", "/api/ventes", {
           sessionId,
           lignes: [
