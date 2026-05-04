@@ -3,7 +3,7 @@
 > **Date de lancement :** 4 mai 2026
 > **Branche :** `development`
 > **Approche :** C — Audit parallele → Plan unifie → Execution par vague
-> **Statut global :** EN COURS — Vague 2 (pret pour execution)
+> **Statut global :** TERMINE — Toutes les vagues completees
 
 ---
 
@@ -302,9 +302,9 @@ Meme protocole que vague 2 + verification de non-regression apres chaque modific
 |-------|--------|------------|----------|-------|
 | Vague 0 — Audit | [x] TERMINE | 4 mai 2026 | 4 mai 2026 | 4 agents paralleles — 23+14+6+13 problemes identifies |
 | Vague 1 — Plan | [x] TERMINE | 4 mai 2026 | 4 mai 2026 | 44 tickets dedupliques (7 P0, 13 P1, 14 P2, 10 P3) |
-| Vague 2 — P0/P1 | [ ] PRET | - | - | 20 tickets (7 P0 + 13 P1) |
-| Vague 3 — P2/P3 | [ ] En attente | - | - | 24 tickets (14 P2 + 10 P3) |
-| Vague 4 — Revue | [ ] En attente | - | - | |
+| Vague 2 — P0/P1 | [x] TERMINE | 4 mai 2026 | 4 mai 2026 | 20 tickets corriges, 67 nouveaux tests, 722 passes |
+| Vague 3 — P2/P3 | [x] TERMINE | 4 mai 2026 | 4 mai 2026 | 23 tickets traites, 75 nouveaux tests, 797 passes |
+| Vague 4 — Revue | [x] TERMINE | 4 mai 2026 | 4 mai 2026 | 0 erreur TS, 797 tests verts, rapport final ecrit |
 
 ### Log des modifications
 
@@ -316,6 +316,9 @@ Meme protocole que vague 2 + verification de non-regression apres chaque modific
 | 2026-05-04 | 0 | Audit couverture tests termine (6 echecs, 0 RTL) | `docs/audit/rapports/03-couverture-tests.md` |
 | 2026-05-04 | 0 | Audit qualite code termine (13 problemes) | `docs/audit/rapports/04-qualite-code.md` |
 | 2026-05-04 | 1 | Plan d'execution consolide (44 tickets dedupliques) | `docs/audit/rapports/05-plan-execution.md` |
+| 2026-05-04 | 2 | Corrections P0+P1 (20 tickets, 67 tests) | 19 fichiers source + 13 fichiers test |
+| 2026-05-04 | 3 | Refactorisations P2+P3 (23 tickets, 75 tests) | 48 fichiers modifies |
+| 2026-05-04 | 4 | Revue finale : 797 tests, 0 erreur TS, rapport | `docs/audit/RAPPORT-FINAL.md` |
 
 ---
 

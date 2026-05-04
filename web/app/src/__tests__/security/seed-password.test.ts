@@ -16,10 +16,7 @@ describe("seed users — production password safety (P1-010)", () => {
   });
 
   it("throws in production if SEED_ADMIN_PASSWORD is not set", async () => {
-    // Set NODE_ENV to production, unset SEED_ADMIN_PASSWORD
-    const originalNodeEnv = process.env.NODE_ENV;
-    const originalSeedPwd = process.env.SEED_ADMIN_PASSWORD;
-    process.env.NODE_ENV = "production";
+    vi.stubEnv("NODE_ENV", "production");
     delete process.env.SEED_ADMIN_PASSWORD;
 
     try {
@@ -32,17 +29,12 @@ describe("seed users — production password safety (P1-010)", () => {
         /SEED_ADMIN_PASSWORD/
       );
     } finally {
-      process.env.NODE_ENV = originalNodeEnv;
-      if (originalSeedPwd !== undefined) {
-        process.env.SEED_ADMIN_PASSWORD = originalSeedPwd;
-      }
+      vi.unstubAllEnvs();
     }
   });
 
   it("does NOT throw in development without SEED_ADMIN_PASSWORD", async () => {
-    const originalNodeEnv = process.env.NODE_ENV;
-    const originalSeedPwd = process.env.SEED_ADMIN_PASSWORD;
-    process.env.NODE_ENV = "development";
+    vi.stubEnv("NODE_ENV", "development");
     delete process.env.SEED_ADMIN_PASSWORD;
 
     try {
@@ -53,18 +45,13 @@ describe("seed users — production password safety (P1-010)", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await expect(mod.seedProdUsers(mockPrisma as any)).resolves.not.toThrow();
     } finally {
-      process.env.NODE_ENV = originalNodeEnv;
-      if (originalSeedPwd !== undefined) {
-        process.env.SEED_ADMIN_PASSWORD = originalSeedPwd;
-      }
+      vi.unstubAllEnvs();
     }
   });
 
   it("works in production when SEED_ADMIN_PASSWORD is set", async () => {
-    const originalNodeEnv = process.env.NODE_ENV;
-    const originalSeedPwd = process.env.SEED_ADMIN_PASSWORD;
-    process.env.NODE_ENV = "production";
-    process.env.SEED_ADMIN_PASSWORD = "SecureP@ss123";
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("SEED_ADMIN_PASSWORD", "SecureP@ss123");
 
     try {
       const mod = await import("@/lib/seed/users");
@@ -74,12 +61,7 @@ describe("seed users — production password safety (P1-010)", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await expect(mod.seedProdUsers(mockPrisma as any)).resolves.not.toThrow();
     } finally {
-      process.env.NODE_ENV = originalNodeEnv;
-      if (originalSeedPwd !== undefined) {
-        process.env.SEED_ADMIN_PASSWORD = originalSeedPwd;
-      } else {
-        delete process.env.SEED_ADMIN_PASSWORD;
-      }
+      vi.unstubAllEnvs();
     }
   });
 });
