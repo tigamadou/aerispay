@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/permissions";
 
-export async function GET(req: Request) {
+export async function GET(req: Request): Promise<Response> {
   const result = await requireRole("ADMIN", "MANAGER");
   if (!result.authenticated) return result.response;
 

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { requireAuth, requireRole } from "@/lib/permissions";
+import { requireAuth, hasPermission } from "@/lib/permissions";
 import { openSessionSchema } from "@/lib/validations/session";
 import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
 import { computeSoldeCaisseParMode } from "@/lib/services/cash-movement";
@@ -9,7 +9,13 @@ export async function GET() {
   if (!result.authenticated) return result.response;
 
   try {
+    // IDOR protection: CAISSIER can only list their own sessions
+    const where = result.user.role === "CAISSIER"
+      ? { userId: result.user.id }
+      : {};
+
     const sessions = await prisma.comptoirSession.findMany({
+      where,
       orderBy: { ouvertureAt: "desc" },
       include: { user: { select: { id: true, nom: true, email: true } } },
     });
@@ -22,8 +28,11 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const result = await requireRole("CAISSIER");
+  const result = await requireAuth();
   if (!result.authenticated) return result.response;
+  if (!hasPermission(result.user.role, "comptoir:vendre")) {
+    return Response.json({ error: "Acces refuse" }, { status: 403 });
+  }
 
   try {
     const body = await req.json();
@@ -32,17 +41,6 @@ export async function POST(req: Request) {
       return Response.json(
         { error: "Données invalides", details: parsed.error.flatten() },
         { status: 400 }
-      );
-    }
-
-    // Check for existing open session
-    const existing = await prisma.comptoirSession.findFirst({
-      where: { userId: result.user.id, statut: "OUVERTE" },
-    });
-    if (existing) {
-      return Response.json(
-        { error: "Vous avez déjà une session de comptoir ouverte" },
-        { status: 409 }
       );
     }
 
@@ -71,14 +69,31 @@ export async function POST(req: Request) {
     const ecartOuvertureAutres = parsed.data.montantOuvertureMobileMoney - soldeCaisseAutres;
     const hasEcartOuverture = Math.abs(ecartOuvertureCash) > 0.01 || Math.abs(ecartOuvertureAutres) > 0.01;
 
-    const session = await prisma.comptoirSession.create({
-      data: {
-        montantOuvertureCash: parsed.data.montantOuvertureCash,
-        montantOuvertureMobileMoney: parsed.data.montantOuvertureMobileMoney,
-        userId: result.user.id,
-      },
-      include: { user: { select: { id: true, nom: true, email: true } } },
+    // Atomically check for existing open session + create (prevents race condition)
+    const session = await prisma.$transaction(async (tx) => {
+      const existing = await tx.comptoirSession.findFirst({
+        where: { userId: result.user.id, statut: "OUVERTE" },
+      });
+      if (existing) {
+        return null; // Signal that a session already exists
+      }
+
+      return tx.comptoirSession.create({
+        data: {
+          montantOuvertureCash: parsed.data.montantOuvertureCash,
+          montantOuvertureMobileMoney: parsed.data.montantOuvertureMobileMoney,
+          userId: result.user.id,
+        },
+        include: { user: { select: { id: true, nom: true, email: true } } },
+      });
     });
+
+    if (!session) {
+      return Response.json(
+        { error: "Vous avez déjà une session de comptoir ouverte" },
+        { status: 409 }
+      );
+    }
 
     const logMetadata: Record<string, unknown> = {
       montantOuvertureCash: Number(session.montantOuvertureCash),

@@ -23,7 +23,7 @@ export async function POST(
   try {
     const session = await prisma.comptoirSession.findUnique({
       where: { id },
-      select: { id: true, statut: true, userId: true },
+      select: { id: true, statut: true, userId: true, montantOuvertureCash: true, montantOuvertureMobileMoney: true },
     });
 
     if (!session) {
@@ -58,6 +58,26 @@ export async function POST(
       soldesMap.set(s.mode, s.solde);
     }
 
+    // P0-004: Add opening fund to theoretical balances
+    const fondCash = Number(session.montantOuvertureCash ?? 0);
+    if (fondCash > 0) {
+      soldesMap.set("ESPECES", (soldesMap.get("ESPECES") ?? 0) + fondCash);
+    }
+    const fondMobile = Number(session.montantOuvertureMobileMoney ?? 0);
+    if (fondMobile > 0) {
+      // Distribute mobile money opening to the first non-ESPECES mode, or create a generic one
+      const mobileModes = [...soldesMap.keys()].filter((m) => m !== "ESPECES");
+      if (mobileModes.length === 1) {
+        soldesMap.set(mobileModes[0], (soldesMap.get(mobileModes[0]) ?? 0) + fondMobile);
+      } else if (mobileModes.length > 1) {
+        // Split equally (or add to first mobile mode)
+        soldesMap.set(mobileModes[0], (soldesMap.get(mobileModes[0]) ?? 0) + fondMobile);
+      } else {
+        // No mobile mode in movements yet — add as MOBILE_MONEY_MTN
+        soldesMap.set("MOBILE_MONEY_MTN", (soldesMap.get("MOBILE_MONEY_MTN") ?? 0) + fondMobile);
+      }
+    }
+
     // Compute preliminary discrepancies
     const ecartsParMode: Record<string, { theorique: number; declare: number; ecart: number }> = {};
     const declarations = parsed.data.declarations as Record<string, number>;
@@ -78,14 +98,12 @@ export async function POST(
       };
     }
 
-    // Compute legacy cash/mobileMoney totals for backward compat
-    let soldeTheoriqueCash = 0;
+    // Compute legacy cash/mobileMoney totals for backward compat (using updated soldesMap)
+    let soldeTheoriqueCash = soldesMap.get("ESPECES") ?? 0;
     let soldeTheoriqueMobileMoney = 0;
-    for (const s of soldesParMode) {
-      if (s.mode === "ESPECES") {
-        soldeTheoriqueCash = s.solde;
-      } else {
-        soldeTheoriqueMobileMoney += s.solde;
+    for (const [mode, solde] of soldesMap.entries()) {
+      if (mode !== "ESPECES") {
+        soldeTheoriqueMobileMoney += solde;
       }
     }
 

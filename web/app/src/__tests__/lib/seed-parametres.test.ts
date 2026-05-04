@@ -47,7 +47,7 @@ describe("seedDefaultParametres", () => {
     expect(mockPrisma.modePaiementConfig.upsert).toHaveBeenCalledTimes(4);
 
     const codes = (mockPrisma.modePaiementConfig.upsert as ReturnType<typeof vi.fn>).mock.calls.map(
-      (call: [{ where: { code: string } }]) => call[0].where.code,
+      (call: Array<{ where: { code: string } }>) => call[0].where.code,
     );
     expect(codes).toEqual(["ESPECES", "MOBILE_MONEY_MTN", "MOBILE_MONEY_MOOV", "CELTIS_CASH"]);
   });

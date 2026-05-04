@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/db", () => ({
   prisma: {
-    mouvementCaisse: { create: vi.fn(), findMany: vi.fn() },
+    mouvementCaisse: { create: vi.fn(), findMany: vi.fn(), groupBy: vi.fn() },
   },
 }));
 
@@ -117,11 +117,10 @@ describe("cash-movement service", () => {
   });
 
   describe("computeSoldeCaisseParMode", () => {
-    it("groupe par mode et somme les montants", async () => {
-      (prisma.mouvementCaisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
-        { mode: "ESPECES", montant: 5000 },
-        { mode: "ESPECES", montant: 3000 },
-        { mode: "MOBILE_MONEY", montant: 2000 },
+    it("groupe par mode et somme les montants (via groupBy)", async () => {
+      (prisma.mouvementCaisse.groupBy as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { mode: "ESPECES", _sum: { montant: 8000 } },
+        { mode: "MOBILE_MONEY", _sum: { montant: 2000 } },
       ]);
 
       const result = await computeSoldeCaisseParMode("c-1");
@@ -131,10 +130,17 @@ describe("cash-movement service", () => {
           { mode: "MOBILE_MONEY", solde: 2000 },
         ]),
       );
+
+      // Verify it uses groupBy, not findMany
+      expect(prisma.mouvementCaisse.groupBy).toHaveBeenCalledWith({
+        by: ["mode"],
+        where: { caisseId: "c-1" },
+        _sum: { montant: true },
+      });
     });
 
     it("renvoie un tableau vide sans mouvements", async () => {
-      (prisma.mouvementCaisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+      (prisma.mouvementCaisse.groupBy as ReturnType<typeof vi.fn>).mockResolvedValue([]);
       const result = await computeSoldeCaisseParMode("c-1");
       expect(result).toEqual([]);
     });

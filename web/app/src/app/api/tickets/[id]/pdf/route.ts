@@ -29,6 +29,11 @@ export async function GET(
       return Response.json({ error: "Vente introuvable" }, { status: 404 });
     }
 
+    // IDOR protection: CAISSIER can only download their own tickets
+    if (result.user.role === "CAISSIER" && vente.userId !== result.user.id) {
+      return Response.json({ error: "Acces refuse" }, { status: 403 });
+    }
+
     const parametres = await prisma.parametres.findUnique({ where: { id: "default" } });
 
     const business = {

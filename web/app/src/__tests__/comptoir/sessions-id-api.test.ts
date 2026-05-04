@@ -5,7 +5,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 vi.mock("@/lib/db", () => ({
   prisma: {
     comptoirSession: { findUnique: vi.fn(), update: vi.fn() },
-    paiement: { aggregate: vi.fn() },
+    paiement: { aggregate: vi.fn(), findMany: vi.fn() },
     vente: { aggregate: vi.fn() },
     mouvementCaisse: { findMany: vi.fn() },
   },
@@ -74,12 +74,14 @@ describe("GET /api/comptoir/sessions/[id]", () => {
   it("returns open session with computed soldeTheoriqueCash", async () => {
     mockSession("CAISSIER");
     (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
+    (prisma.mouvementCaisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prisma.paiement.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 
     const res = await GET(new Request("http://localhost"), { params: Promise.resolve({ id: "s-1" }) });
     expect(res.status).toBe(200);
     const body = await res.json();
-    // solde comes from mocked computeSoldeTheoriqueLegacy returning { cash: 78000, mobileMoney: 0 }
-    expect(body.data.soldeTheoriqueCash).toBe(78000);
+    // solde = montantOuvertureCash (50000) + computeSoldeTheoriqueLegacy.cash (78000) = 128000
+    expect(body.data.soldeTheoriqueCash).toBe(128000);
     expect(body.data.soldesParMode).toBeDefined();
   });
 
@@ -91,6 +93,8 @@ describe("GET /api/comptoir/sessions/[id]", () => {
       soldeTheoriqueCash: new Decimal(78000),
       ecartCash: new Decimal(-2000),
     });
+    (prisma.mouvementCaisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prisma.paiement.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 
     const res = await GET(new Request("http://localhost"), { params: Promise.resolve({ id: "s-1" }) });
     expect(res.status).toBe(200);

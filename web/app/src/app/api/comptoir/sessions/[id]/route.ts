@@ -31,6 +31,11 @@ export async function GET(
       return Response.json({ error: "Session introuvable" }, { status: 404 });
     }
 
+    // IDOR protection: CAISSIER can only see their own sessions
+    if (result.user.role === "CAISSIER" && session.userId !== result.user.id) {
+      return Response.json({ error: "Acces refuse" }, { status: 403 });
+    }
+
     // Compute theoretical balance from cash movements
     const soldesParMode = await computeSoldeTheoriqueParMode(id);
 

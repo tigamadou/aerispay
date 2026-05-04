@@ -34,10 +34,6 @@ export default async function StockPage({ searchParams }: StockPageProps) {
   const role = session.user.role as Role;
   const canManage = hasPermission(role, "stock:manage");
 
-  if (!canManage) {
-    redirect("/");
-  }
-
   const params = await searchParams;
   const page = Math.max(1, parseInt(params.page ?? "1"));
   const pageSize = 20;

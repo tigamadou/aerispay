@@ -48,7 +48,7 @@ export const correctiveSessionSchema = z.object({
   motDePasse: z.string().min(1, "Le mot de passe est requis pour la ré-authentification"),
   mouvements: z.array(z.object({
     mode: z.string().min(1, "Mode de paiement requis"),
-    montant: z.number({ message: "Le montant est requis" }),
+    montant: z.number({ message: "Le montant est requis" }).refine(v => v !== 0, { message: "Le montant ne peut pas etre 0" }),
     motif: z.string().min(1, "Le motif du mouvement est requis").max(500),
   })).min(1, "Au moins un mouvement correctif requis"),
 });

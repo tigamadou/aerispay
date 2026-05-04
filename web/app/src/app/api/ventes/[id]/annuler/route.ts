@@ -29,9 +29,25 @@ export async function POST(
       );
     }
 
-    // Resolve caisse
+    // P0-005: Resolve caisse with early return if none active
     const caisse = await prisma.caisse.findFirst({ where: { active: true }, select: { id: true } });
-    const caisseId = caisse?.id ?? "";
+    if (!caisse) {
+      return Response.json({ error: "Aucune caisse active configuree" }, { status: 422 });
+    }
+    const caisseId = caisse.id;
+
+    // P0-003: Verify session is still open
+    const session = await prisma.comptoirSession.findUnique({
+      where: { id: vente.sessionId },
+      select: { id: true, statut: true },
+    });
+
+    if (!session || session.statut !== "OUVERTE") {
+      return Response.json(
+        { error: "Impossible d'annuler une vente dont la session est fermee" },
+        { status: 422 }
+      );
+    }
 
     const updated = await prisma.$transaction(async (tx) => {
       // Cancel the sale
@@ -67,19 +83,26 @@ export async function POST(
         });
       }
 
-      // RULE-MVT-003 : mouvement REMBOURSEMENT (négatif) par paiement
+      // P0-002: RULE-MVT-003 : mouvement REMBOURSEMENT (négatif) par paiement
+      // Cap each refund to the sale total (like POST /api/ventes L234-255)
+      const totalNum = Number(vente.total);
+      let remainingTotal = totalNum;
       for (const paiement of cancelled.paiements) {
-        await createMovementInTx(tx, {
-          type: "REMBOURSEMENT",
-          mode: paiement.mode,
-          montant: -Math.abs(Number(paiement.montant)),
-          caisseId,
-          sessionId: vente.sessionId,
-          auteurId: result.user.id,
-          venteId: vente.id,
-          motif: `Annulation vente ${vente.numero}`,
-          reference: paiement.reference ?? undefined,
-        });
+        const paiementMontant = Math.min(Math.abs(Number(paiement.montant)), remainingTotal);
+        if (paiementMontant > 0) {
+          await createMovementInTx(tx, {
+            type: "REMBOURSEMENT",
+            mode: paiement.mode,
+            montant: -paiementMontant,
+            caisseId,
+            sessionId: vente.sessionId,
+            auteurId: result.user.id,
+            venteId: vente.id,
+            motif: `Annulation vente ${vente.numero}`,
+            reference: paiement.reference ?? undefined,
+          });
+          remainingTotal -= paiementMontant;
+        }
       }
 
       return cancelled;

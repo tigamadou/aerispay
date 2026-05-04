@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { requireAuth } from "@/lib/permissions";
 import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
+import { prisma } from "@/lib/db";
 
 const syncOperationSchema = z.object({
   id: z.string().min(1, "Identifiant offline requis"),
   type: z.enum(["VENTE", "MOUVEMENT_MANUEL"]),
-  payload: z.record(z.unknown()),
+  payload: z.object({}).passthrough(),
   createdAt: z.string(),
 });
 
@@ -15,7 +16,7 @@ const syncRequestSchema = z.object({
 
 interface SyncResult {
   operationId: string;
-  status: "ok" | "conflict" | "error";
+  status: "ok" | "conflict" | "error" | "already_processed";
   error?: string;
 }
 
@@ -43,6 +44,13 @@ export async function POST(req: Request) {
 
     for (const op of parsed.data.operations) {
       try {
+        // P1-009: Idempotency check — skip if already processed
+        const alreadyProcessed = await checkAlreadyProcessed(op.id, op.type);
+        if (alreadyProcessed) {
+          results.push({ operationId: op.id, status: "already_processed" });
+          continue;
+        }
+
         if (op.type === "VENTE") {
           // Replay sale by calling the ventes API internally
           const saleRes = await fetch(new URL("/api/ventes", req.url).href, {
@@ -51,7 +59,7 @@ export async function POST(req: Request) {
               "Content-Type": "application/json",
               cookie: req.headers.get("cookie") ?? "",
             },
-            body: JSON.stringify(op.payload),
+            body: JSON.stringify({ ...op.payload, offlineId: op.id }),
           });
 
           if (saleRes.ok) {
@@ -71,7 +79,7 @@ export async function POST(req: Request) {
               "Content-Type": "application/json",
               cookie: req.headers.get("cookie") ?? "",
             },
-            body: JSON.stringify(op.payload),
+            body: JSON.stringify({ ...op.payload, reference: `offline:${op.id}` }),
           });
 
           if (mvtRes.ok) {
@@ -126,5 +134,28 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error("[POST /api/comptoir/sync]", error);
     return Response.json({ error: "Erreur serveur" }, { status: 500 });
+  }
+}
+
+/**
+ * P1-009: Check if an offline operation has already been synced.
+ * Uses offlineId field on Vente or reference field on MouvementCaisse.
+ */
+async function checkAlreadyProcessed(offlineId: string, type: "VENTE" | "MOUVEMENT_MANUEL"): Promise<boolean> {
+  if (type === "VENTE") {
+    // Check if a sale with this offlineId was already created
+    // offlineId is stored in notesCaissier with the prefix "offline:"
+    const existing = await prisma.vente.findFirst({
+      where: { notesCaissier: { contains: `offline:${offlineId}` } },
+      select: { id: true },
+    });
+    return existing !== null;
+  } else {
+    // For movements, offlineId is stored in the reference field with prefix "offline:"
+    const existing = await prisma.mouvementCaisse.findFirst({
+      where: { reference: `offline:${offlineId}` },
+      select: { id: true },
+    });
+    return existing !== null;
   }
 }
