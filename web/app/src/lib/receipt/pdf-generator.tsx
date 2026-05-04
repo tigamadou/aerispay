@@ -63,12 +63,11 @@ export interface ReceiptData {
 // ─── Helpers ─────────────────────────────────────────
 
 const MODE_LABELS: Record<string, string> = {
-  ESPECES: "Especes",
-  CARTE_BANCAIRE: "Carte bancaire",
+  ESPECES: "Cash",
   MOBILE_MONEY: "Mobile Money",
-  CHEQUE: "Cheque",
-  VIREMENT: "Virement",
-  AUTRE: "Autre",
+  MOBILE_MONEY_MTN: "MomoPay",
+  MOBILE_MONEY_MOOV: "MoovMoney",
+  CELTIS_CASH: "Celtis Cash",
 };
 
 function fmt(n: number): string {

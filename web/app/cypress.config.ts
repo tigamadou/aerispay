@@ -1,5 +1,24 @@
 import { defineConfig } from "cypress";
 import { PrismaClient } from "@prisma/client";
+import { readFileSync } from "fs";
+import { resolve } from "path";
+
+// Load .env from project root (two levels up from web/app)
+try {
+  const envPath = resolve(__dirname, "../../.env");
+  const envContent = readFileSync(envPath, "utf-8");
+  for (const line of envContent.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eqIdx = trimmed.indexOf("=");
+    if (eqIdx === -1) continue;
+    const key = trimmed.slice(0, eqIdx).trim();
+    const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, "");
+    if (!process.env[key]) {
+      process.env[key] = val;
+    }
+  }
+} catch { /* .env not found — rely on existing env vars */ }
 
 const adminEmail = process.env.CYPRESS_ADMIN_EMAIL ?? "admin@aerispay.com";
 const adminPassword = process.env.CYPRESS_ADMIN_PASSWORD ?? "Admin@1234";
@@ -84,6 +103,37 @@ export default defineConfig({
         },
         async clearActivityLogs(_: null) {
           await getPrismaPlugin().activityLog.deleteMany({});
+          return null;
+        },
+        async ensureCaisseHasFunds(_: null) {
+          const prisma = getPrismaPlugin();
+          const caisse = await prisma.caisse.findFirst({ where: { active: true } });
+          if (!caisse) throw new Error("Aucune caisse active");
+          // Check if there are already movements
+          const count = await prisma.mouvementCaisse.count({ where: { caisseId: caisse.id } });
+          if (count > 0) return caisse.id;
+          // Get admin user
+          const admin = await prisma.user.findFirst({ where: { role: "ADMIN" } });
+          if (!admin) throw new Error("Aucun admin en base");
+          // Create initial fund
+          await prisma.mouvementCaisse.create({
+            data: {
+              type: "FOND_INITIAL",
+              mode: "ESPECES",
+              montant: 100000,
+              caisseId: caisse.id,
+              auteurId: admin.id,
+              motif: "Fond initial e2e",
+            },
+          });
+          return caisse.id;
+        },
+        async restockProduct(reference: string) {
+          const prisma = getPrismaPlugin();
+          await prisma.produit.updateMany({
+            where: { reference },
+            data: { stockActuel: 100 },
+          });
           return null;
         },
         async closeOpenSessions(email: string) {

@@ -44,8 +44,13 @@ export default async function DashboardLayout({ children }: { children: ReactNod
                   Stock
                 </Link>
               )}
+              {hasPermission(role, "rapports:consulter") && (
+                <Link href="/caisse" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
+                  Caisse
+                </Link>
+              )}
               <Link href="/comptoir" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
-                Comptoir
+                POS
               </Link>
               <Link href="/comptoir/ventes" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
                 Ventes

@@ -136,7 +136,7 @@ export const useCartStore = create<CartStore>()(
         return get().taxes.map((t) => ({
           nom: t.nom,
           taux: t.taux,
-          montant: base * (t.taux / 100),
+          montant: Math.round(base * (t.taux / 100)),
         }));
       },
 

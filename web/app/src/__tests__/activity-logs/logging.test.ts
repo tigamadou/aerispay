@@ -12,6 +12,7 @@ vi.mock("@/lib/db", () => ({
     mouvementStock: { findMany: vi.fn(), count: vi.fn() },
     vente: { findUnique: vi.fn(), create: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), count: vi.fn(), aggregate: vi.fn() },
     comptoirSession: { findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+    caisse: { findFirst: vi.fn() },
     paiement: { aggregate: vi.fn() },
     activityLog: { create: vi.fn() },
     $transaction: vi.fn(),
@@ -54,6 +55,13 @@ vi.mock("@/lib/activity-log", () => ({
 vi.mock("@/lib/receipt/thermal-printer", () => ({
   printReceipt: vi.fn().mockResolvedValue({ success: true, message: "OK" }),
   openCashDrawer: vi.fn().mockResolvedValue({ success: true, message: "OK" }),
+}));
+
+vi.mock("@/lib/services/cash-movement", () => ({
+  createMovementInTx: vi.fn(),
+  computeSoldeTheoriqueLegacy: vi.fn().mockResolvedValue({ cash: 0, mobileMoney: 0 }),
+  computeSoldeTheoriqueParMode: vi.fn().mockResolvedValue([]),
+  computeSoldeCaisseParMode: vi.fn().mockResolvedValue([{ mode: "ESPECES", solde: 50000 }]),
 }));
 
 import { prisma } from "@/lib/db";
@@ -140,7 +148,10 @@ describe("User activity logging", () => {
 // ─── SALE LOGGING ───────────────────────────────────
 
 describe("Sale activity logging", () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
+  });
 
   it("logs SALE_CANCELLED on POST /api/ventes/[id]/annuler", async () => {
     mockSession("ADMIN");
@@ -176,11 +187,16 @@ describe("Cash session activity logging", () => {
   it("logs COMPTOIR_SESSION_OPENED on POST /api/comptoir/sessions", async () => {
     mockSession("CAISSIER");
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-    (prisma.comptoirSession.create as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: "s-1", montantOuvertureCash: new Decimal(50000), userId: "user-1",
+    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
+    const mockCreatedSession = {
+      id: "s-1", montantOuvertureCash: new Decimal(50000), montantOuvertureMobileMoney: new Decimal(0), userId: "user-1",
       ouvertureAt: new Date("2026-04-23T08:00:00Z"),
       user: { id: "user-1", nom: "Test", email: "test@test.com" },
-    });
+    };
+    (prisma.comptoirSession.create as ReturnType<typeof vi.fn>).mockResolvedValue(mockCreatedSession);
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+      async (cb: (tx: typeof prisma) => Promise<unknown>) => cb(prisma)
+    );
 
     const { POST } = await import("@/app/api/comptoir/sessions/route");
     const res = await POST(jsonReq("http://localhost/api/comptoir/sessions", "POST", { montantOuvertureCash: 50000 }));

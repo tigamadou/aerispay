@@ -3,6 +3,7 @@ import { requireAuth, hasRole } from "@/lib/permissions";
 import { createVenteSchema } from "@/lib/validations/vente";
 import { Prisma } from "@prisma/client";
 import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
+import { createMovementInTx } from "@/lib/services/cash-movement";
 
 function genererNumeroVente(sequence: number): string {
   return `VTE-${new Date().getFullYear()}-${String(sequence).padStart(5, "0")}`;
@@ -89,6 +90,13 @@ export async function POST(req: Request) {
       );
     }
 
+    // Resolve caisse (first active caisse)
+    const caisse = await prisma.caisse.findFirst({ where: { active: true }, select: { id: true } });
+    if (!caisse) {
+      return Response.json({ error: "Aucune caisse active configuree" }, { status: 422 });
+    }
+    const caisseId = caisse.id;
+
     // Fetch active taxes from config
     const activeTaxes = await prisma.taxe.findMany({
       where: { active: true, parametresId: "default" },
@@ -140,7 +148,7 @@ export async function POST(req: Request) {
       let totalTva = new Prisma.Decimal(0);
       if (base.gt(0)) {
         for (const t of activeTaxes) {
-          const montant = base.mul(new Prisma.Decimal(t.taux).div(100));
+          const montant = base.mul(new Prisma.Decimal(t.taux).div(100)).round();
           taxesDetail.push({ nom: t.nom, taux: Number(t.taux), montant: Number(montant) });
           totalTva = totalTva.add(montant);
         }
@@ -200,7 +208,7 @@ export async function POST(req: Request) {
         },
       });
 
-      // Decrement stock + create movements
+      // Decrement stock + create stock movements
       for (let i = 0; i < lignes.length; i++) {
         const l = lignes[i];
         const p = produits[i];
@@ -221,6 +229,29 @@ export async function POST(req: Request) {
             venteId: newVente.id,
           },
         });
+      }
+
+      // RULE-MVT-002 + RULE-MVT-005 : mouvement VENTE par paiement
+      // Le montant enregistré = part de la vente couverte par ce paiement (pas le montant reçu)
+      const totalNum = Number(total);
+      let remainingTotal = totalNum;
+      for (const createdPaiement of newVente.paiements) {
+        // Each payment covers at most the remaining total of the sale
+        const paiementMontant = Math.min(Number(createdPaiement.montant), remainingTotal);
+        if (paiementMontant > 0) {
+          await createMovementInTx(tx, {
+            type: "VENTE",
+            mode: createdPaiement.mode,
+            montant: paiementMontant,
+            caisseId,
+            sessionId,
+            auteurId: result.user.id,
+            venteId: newVente.id,
+            motif: `Vente ${numero}`,
+            reference: createdPaiement.reference ?? undefined,
+          });
+          remainingTotal -= paiementMontant;
+        }
       }
 
       return newVente;

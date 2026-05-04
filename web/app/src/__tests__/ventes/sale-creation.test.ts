@@ -8,6 +8,7 @@ vi.mock("@/lib/db", () => ({
     vente: { findFirst: vi.fn(), create: vi.fn(), findMany: vi.fn(), count: vi.fn() },
     produit: { findUnique: vi.fn(), update: vi.fn() },
     mouvementStock: { create: vi.fn() },
+    caisse: { findFirst: vi.fn() },
     taxe: { findMany: vi.fn().mockResolvedValue([]) },
     $transaction: vi.fn(),
   },
@@ -19,6 +20,9 @@ vi.mock("@/lib/activity-log", () => ({
   ACTIONS: { SALE_COMPLETED: "SALE_COMPLETED" },
   getClientIp: vi.fn(),
   getClientUserAgent: vi.fn(),
+}));
+vi.mock("@/lib/services/cash-movement", () => ({
+  createMovementInTx: vi.fn(),
 }));
 
 import { prisma } from "@/lib/db";
@@ -48,6 +52,7 @@ describe("POST /api/ventes (sale creation)", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     POST = (await import("@/app/api/ventes/route")).POST;
+    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
   });
 
   it("returns 422 if session is not open", async () => {

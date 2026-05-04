@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/permissions";
 import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
+import { createMovementInTx } from "@/lib/services/cash-movement";
 
 export async function POST(
   _req: Request,
@@ -14,7 +15,7 @@ export async function POST(
   try {
     const vente = await prisma.vente.findUnique({
       where: { id },
-      include: { lignes: true },
+      include: { lignes: true, paiements: true },
     });
 
     if (!vente) {
@@ -27,6 +28,10 @@ export async function POST(
         { status: 422 }
       );
     }
+
+    // Resolve caisse
+    const caisse = await prisma.caisse.findFirst({ where: { active: true }, select: { id: true } });
+    const caisseId = caisse?.id ?? "";
 
     const updated = await prisma.$transaction(async (tx) => {
       // Cancel the sale
@@ -59,6 +64,21 @@ export async function POST(
             produitId: ligne.produitId,
             venteId: vente.id,
           },
+        });
+      }
+
+      // RULE-MVT-003 : mouvement REMBOURSEMENT (négatif) par paiement
+      for (const paiement of cancelled.paiements) {
+        await createMovementInTx(tx, {
+          type: "REMBOURSEMENT",
+          mode: paiement.mode,
+          montant: -Math.abs(Number(paiement.montant)),
+          caisseId,
+          sessionId: vente.sessionId,
+          auteurId: result.user.id,
+          venteId: vente.id,
+          motif: `Annulation vente ${vente.numero}`,
+          reference: paiement.reference ?? undefined,
         });
       }
 

@@ -1,64 +1,11 @@
 import { prisma } from "@/lib/db";
-import { requireAuth } from "@/lib/permissions";
-import { hasRole } from "@/lib/permissions";
+import { requireAuth, hasRole } from "@/lib/permissions";
 import { closeSessionSchema } from "@/lib/validations/session";
 import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
-
-interface SoldeTheorique {
-  cash: number;
-  mobileMoney: number;
-}
-
-async function computeSoldeTheorique(
-  sessionId: string,
-  montantOuvertureCash: number,
-  montantOuvertureMobileMoney: number
-): Promise<SoldeTheorique> {
-  // Espèces encaissées
-  const especesAgg = await prisma.paiement.aggregate({
-    where: {
-      mode: "ESPECES",
-      vente: { sessionId, statut: "VALIDEE" },
-    },
-    _sum: { montant: true },
-  });
-
-  // Mobile Money encaissé
-  const mobileMoneyAgg = await prisma.paiement.aggregate({
-    where: {
-      mode: "MOBILE_MONEY",
-      vente: { sessionId, statut: "VALIDEE" },
-    },
-    _sum: { montant: true },
-  });
-
-  // Total des ventes validées
-  const ventesAgg = await prisma.vente.aggregate({
-    where: { sessionId, statut: "VALIDEE" },
-    _sum: { total: true },
-  });
-
-  // Total de TOUS les paiements des ventes validées
-  const totalPaiementsAgg = await prisma.paiement.aggregate({
-    where: {
-      vente: { sessionId, statut: "VALIDEE" },
-    },
-    _sum: { montant: true },
-  });
-
-  const especesRecues = Number(especesAgg._sum.montant ?? 0);
-  const mobileMoneyRecu = Number(mobileMoneyAgg._sum.montant ?? 0);
-  const totalVentes = Number(ventesAgg._sum.total ?? 0);
-  const totalPaiements = Number(totalPaiementsAgg._sum.montant ?? 0);
-
-  // Monnaie rendue = excédent payé (uniquement en espèces)
-  const monnaieRendue = totalPaiements - totalVentes;
-
-  return {
-    cash: montantOuvertureCash + especesRecues - monnaieRendue,
-    mobileMoney: montantOuvertureMobileMoney + mobileMoneyRecu,
-  };
-}
+import {
+  computeSoldeTheoriqueLegacy,
+  computeSoldeTheoriqueParMode,
+} from "@/lib/services/cash-movement";
 
 export async function GET(
   _req: Request,
@@ -84,26 +31,80 @@ export async function GET(
       return Response.json({ error: "Session introuvable" }, { status: 404 });
     }
 
+    // Compute theoretical balance from cash movements
+    const soldesParMode = await computeSoldeTheoriqueParMode(id);
+
     let soldeTheoriqueCash: number | null = null;
     let soldeTheoriqueMobileMoney: number | null = null;
-    if (session.statut === "OUVERTE") {
-      const solde = await computeSoldeTheorique(
-        id,
-        Number(session.montantOuvertureCash),
-        Number(session.montantOuvertureMobileMoney)
-      );
-      soldeTheoriqueCash = solde.cash;
-      soldeTheoriqueMobileMoney = solde.mobileMoney;
+
+    if (session.statut === "OUVERTE" || session.statut === "EN_ATTENTE_CLOTURE" || session.statut === "EN_ATTENTE_VALIDATION") {
+      const legacy = await computeSoldeTheoriqueLegacy(id);
+      // Include opening fund in theoretical balance (matching PUT close logic)
+      soldeTheoriqueCash = Number(session.montantOuvertureCash) + legacy.cash;
+      soldeTheoriqueMobileMoney = Number(session.montantOuvertureMobileMoney) + legacy.mobileMoney;
     } else {
       soldeTheoriqueCash = session.soldeTheoriqueCash ? Number(session.soldeTheoriqueCash) : null;
       soldeTheoriqueMobileMoney = session.soldeTheoriqueMobileMoney ? Number(session.soldeTheoriqueMobileMoney) : null;
     }
+
+    // Build detailed breakdown: session movements aggregated by type × mode
+    const mouvements = await prisma.mouvementCaisse.findMany({
+      where: { sessionId: id },
+      select: { type: true, mode: true, montant: true },
+    });
+
+    // Aggregate: { [mode]: { VENTE, REMBOURSEMENT, APPORT, RETRAIT, DEPENSE, CORRECTION } }
+    const recapParMode: Record<string, Record<string, number>> = {};
+    for (const m of mouvements) {
+      if (!recapParMode[m.mode]) {
+        recapParMode[m.mode] = {};
+      }
+      recapParMode[m.mode][m.type] = (recapParMode[m.mode][m.type] ?? 0) + Number(m.montant);
+    }
+
+    // Sales from Paiement table (source of truth for sales breakdown by mode)
+    const paiements = await prisma.paiement.findMany({
+      where: {
+        vente: { sessionId: id, statut: "VALIDEE" },
+      },
+      select: { mode: true, montant: true },
+    });
+
+    const ventesParMode: Record<string, number> = {};
+    for (const p of paiements) {
+      ventesParMode[p.mode] = (ventesParMode[p.mode] ?? 0) + Number(p.montant);
+    }
+
+    // Opening fund declared by cashier (two buckets: cash / autres)
+    const fondCash = Number(session.montantOuvertureCash);
+    const fondAutres = Number(session.montantOuvertureMobileMoney);
+
+    // Montant attendu: two buckets matching the close endpoint (ESPECES vs everything else)
+    let mvtsCash = 0;
+    let mvtsAutres = 0;
+    for (const m of mouvements) {
+      const val = Number(m.montant);
+      if (m.mode === "ESPECES") {
+        mvtsCash += val;
+      } else {
+        mvtsAutres += val;
+      }
+    }
+
+    const montantAttenduCash = fondCash + mvtsCash;
+    const montantAttenduAutres = fondAutres + mvtsAutres;
 
     return Response.json({
       data: {
         ...session,
         soldeTheoriqueCash,
         soldeTheoriqueMobileMoney,
+        soldesParMode,
+        recapParMode,
+        ventesParMode,
+        fondOuverture: { cash: fondCash, autres: fondAutres },
+        montantAttenduCash,
+        montantAttenduAutres,
         ecartCash: session.ecartCash ? Number(session.ecartCash) : null,
         ecartMobileMoney: session.ecartMobileMoney ? Number(session.ecartMobileMoney) : null,
       },
@@ -129,8 +130,10 @@ export async function PUT(
       return Response.json({ error: "Session introuvable" }, { status: 404 });
     }
 
-    if (session.statut === "FERMEE") {
-      return Response.json({ error: "Cette session est déjà fermée" }, { status: 422 });
+    // Legacy PUT only works on OUVERTE sessions. For the new multi-step closure flow,
+    // use POST /api/comptoir/sessions/[id]/closure instead.
+    if (session.statut !== "OUVERTE") {
+      return Response.json({ error: "Cette session n'est pas ouverte (utilisez le flux de clôture multi-étapes)" }, { status: 422 });
     }
 
     // CAISSIER can only close their own session
@@ -150,13 +153,15 @@ export async function PUT(
       );
     }
 
-    const solde = await computeSoldeTheorique(
-      id,
-      Number(session.montantOuvertureCash),
-      Number(session.montantOuvertureMobileMoney)
-    );
-    const ecartCash = parsed.data.montantFermetureCash - solde.cash;
-    const ecartMobileMoney = parsed.data.montantFermetureMobileMoney - solde.mobileMoney;
+    // Montant attendu = fond déclaré à l'ouverture + mouvements de la session
+    const solde = await computeSoldeTheoriqueLegacy(id);
+    const fondCash = Number(session.montantOuvertureCash);
+    const fondMM = Number(session.montantOuvertureMobileMoney);
+    const attenduCash = fondCash + solde.cash;
+    const attenduMM = fondMM + solde.mobileMoney;
+
+    const ecartCash = parsed.data.montantFermetureCash - attenduCash;
+    const ecartMobileMoney = parsed.data.montantFermetureMobileMoney - attenduMM;
 
     const updated = await prisma.comptoirSession.update({
       where: { id },
@@ -165,8 +170,8 @@ export async function PUT(
         fermetureAt: new Date(),
         montantFermetureCash: parsed.data.montantFermetureCash,
         montantFermetureMobileMoney: parsed.data.montantFermetureMobileMoney,
-        soldeTheoriqueCash: solde.cash,
-        soldeTheoriqueMobileMoney: solde.mobileMoney,
+        soldeTheoriqueCash: attenduCash,
+        soldeTheoriqueMobileMoney: attenduMM,
         ecartCash,
         ecartMobileMoney,
         notes: parsed.data.notes,
@@ -188,8 +193,10 @@ export async function PUT(
       metadata: {
         montantFermetureCash: parsed.data.montantFermetureCash,
         montantFermetureMobileMoney: parsed.data.montantFermetureMobileMoney,
-        soldeTheoriqueCash: solde.cash,
-        soldeTheoriqueMobileMoney: solde.mobileMoney,
+        fondOuvertureCash: fondCash,
+        fondOuvertureMobileMoney: fondMM,
+        montantAttenduCash: attenduCash,
+        montantAttenduMobileMoney: attenduMM,
         ecartCash,
         ecartMobileMoney,
         closedByOwner: session.userId === result.user.id,

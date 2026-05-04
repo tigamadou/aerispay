@@ -68,7 +68,13 @@ export async function GET(req: Request) {
       ...(isCaissier ? { userId: result.user.id } : {}),
     };
 
-    const [salesAgg, cashAgg, openSession, closedSessions] = await Promise.all([
+    // Date range for last 7 days (for charts — ADMIN/MANAGER only)
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+
+    const [salesAgg, cashAgg, openSession, closedSessions, ...chartData] = await Promise.all([
       prisma.vente.aggregate({
         where: venteWhere,
         _sum: { total: true },
@@ -89,6 +95,31 @@ export async function GET(req: Request) {
         where: sessionWhere,
         select: { id: true, ecartCash: true, ecartMobileMoney: true, userId: true },
       }),
+      // KPI-08: Sales last 7 days (ADMIN/MANAGER only)
+      ...(!isCaissier
+        ? [
+            prisma.vente.findMany({
+              where: {
+                statut: "VALIDEE",
+                dateVente: { gte: sevenDaysAgo, lt: endOfToday },
+              },
+              select: { dateVente: true, total: true },
+            }),
+            // KPI-09: Top 5 products last 7 days
+            prisma.ligneVente.groupBy({
+              by: ["produitId"],
+              where: {
+                vente: {
+                  statut: "VALIDEE",
+                  dateVente: { gte: sevenDaysAgo, lt: endOfToday },
+                },
+              },
+              _sum: { quantite: true, sousTotal: true },
+              orderBy: { _sum: { quantite: "desc" } },
+              take: 5,
+            }),
+          ]
+        : [Promise.resolve([]), Promise.resolve([])]),
     ]);
 
     const revenue = Number(salesAgg._sum.total ?? 0);
@@ -110,6 +141,43 @@ export async function GET(req: Request) {
         totalManquant += Math.abs(ecartTotal);
         discrepancyCount++;
       }
+    }
+
+    // Build chart data (ADMIN/MANAGER only)
+    const [salesLast7DaysRaw, topProductsRaw] = chartData as [
+      Array<{ dateVente: Date; total: Prisma.Decimal | null }>,
+      Array<{ produitId: string; _sum: { quantite: number | null; sousTotal: Prisma.Decimal | null } }>,
+    ];
+
+    // KPI-08: Aggregate sales by day
+    const salesByDay = new Map<string, number>();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      salesByDay.set(d.toISOString().slice(0, 10), 0);
+    }
+    for (const v of salesLast7DaysRaw) {
+      const key = new Date(v.dateVente).toISOString().slice(0, 10);
+      if (salesByDay.has(key)) {
+        salesByDay.set(key, (salesByDay.get(key) ?? 0) + Number(v.total ?? 0));
+      }
+    }
+    const salesLast7Days = Array.from(salesByDay.entries()).map(([date, revenue]) => ({ date, revenue }));
+
+    // KPI-09: Fetch product names for top 5
+    let topProducts7Days: Array<{ productId: string; name: string; quantitySold: number; revenueTtc: number }> = [];
+    if (topProductsRaw.length > 0) {
+      const productIds = topProductsRaw.map((p) => p.produitId);
+      const products = await prisma.produit.findMany({
+        where: { id: { in: productIds } },
+        select: { id: true, nom: true },
+      });
+      const nameMap = new Map(products.map((p) => [p.id, p.nom]));
+      topProducts7Days = topProductsRaw.map((p) => ({
+        productId: p.produitId,
+        name: nameMap.get(p.produitId) ?? "Inconnu",
+        quantitySold: p._sum.quantite ?? 0,
+        revenueTtc: Number(p._sum.sousTotal ?? 0),
+      }));
     }
 
     // Peripheral status
@@ -151,6 +219,10 @@ export async function GET(req: Request) {
             mode: drawerConfig.mode,
           },
         },
+        ...(!isCaissier && {
+          salesLast7Days,
+          topProducts7Days,
+        }),
       },
     });
   } catch (error) {

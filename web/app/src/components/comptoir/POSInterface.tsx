@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useCartStore } from "@/store/cartStore";
 import { cn } from "@/lib/utils";
-import type { ProduitPOS, CategoriePOS, TaxePOS } from "@/app/(dashboard)/comptoir/page";
+import type { ProduitPOS, CategoriePOS, TaxePOS, ModePaiementPOS } from "@/app/(dashboard)/comptoir/page";
 
 // ─── Types ───────────────────────────────────────────
 
@@ -13,9 +13,12 @@ interface POSInterfaceProps {
   sessionId: string;
   readOnly?: boolean;
   taxes?: TaxePOS[];
+  modesPaiement?: ModePaiementPOS[];
 }
 
-type ModePaiement = "ESPECES" | "CARTE_BANCAIRE" | "MOBILE_MONEY";
+const DEFAULT_MODES: ModePaiementPOS[] = [
+  { code: "ESPECES", label: "Cash" },
+];
 
 interface SaleResult {
   id: string;
@@ -31,7 +34,7 @@ function formatMontant(amount: number): string {
 
 // ─── POSInterface ────────────────────────────────────
 
-export function POSInterface({ produits, categories, sessionId, readOnly = false, taxes = [] }: POSInterfaceProps) {
+export function POSInterface({ produits, categories, sessionId, readOnly = false, taxes = [], modesPaiement = DEFAULT_MODES }: POSInterfaceProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategorie, setSelectedCategorie] = useState<string | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -456,6 +459,7 @@ export function POSInterface({ produits, categories, sessionId, readOnly = false
             totalAPayer={currentTotal}
             items={items}
             remise={currentRemise}
+            modesPaiement={modesPaiement}
             onClose={() => setShowPaymentModal(false)}
             onSuccess={() => {
               clearCart();
@@ -477,10 +481,11 @@ interface PaymentModalProps {
   remise: number;
   onClose: () => void;
   onSuccess: () => void;
+  modesPaiement: ModePaiementPOS[];
 }
 
-function PaymentModal({ sessionId, totalAPayer, items, remise, onClose, onSuccess }: PaymentModalProps) {
-  const [modePaiement, setModePaiement] = useState<ModePaiement>("ESPECES");
+function PaymentModal({ sessionId, totalAPayer, items, remise, onClose, onSuccess, modesPaiement }: PaymentModalProps) {
+  const [modePaiement, setModePaiement] = useState(modesPaiement[0]?.code ?? "ESPECES");
   const [montantRecu, setMontantRecu] = useState<number>(0);
   const [referenceTransaction, setReferenceTransaction] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -695,25 +700,19 @@ function PaymentModal({ sessionId, totalAPayer, items, remise, onClose, onSucces
           <label className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
             Mode de paiement
           </label>
-          <div className="grid grid-cols-3 gap-2">
-            {(
-              [
-                { value: "ESPECES", label: "Especes" },
-                { value: "CARTE_BANCAIRE", label: "Carte" },
-                { value: "MOBILE_MONEY", label: "Mobile" },
-              ] as const
-            ).map(({ value, label }) => (
+          <div className={`grid gap-2`} style={{ gridTemplateColumns: `repeat(${Math.min(modesPaiement.length, 4)}, minmax(0, 1fr))` }}>
+            {modesPaiement.map((m) => (
               <button
-                key={value}
-                onClick={() => setModePaiement(value)}
+                key={m.code}
+                onClick={() => setModePaiement(m.code)}
                 className={cn(
                   "rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors",
-                  modePaiement === value
+                  modePaiement === m.code
                     ? "border-indigo-600 bg-indigo-50 text-indigo-700 dark:border-indigo-500 dark:bg-indigo-900/20 dark:text-indigo-400"
                     : "border-zinc-200 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-700"
                 )}
               >
-                {label}
+                {m.label}
               </button>
             ))}
           </div>
@@ -748,7 +747,7 @@ function PaymentModal({ sessionId, totalAPayer, items, remise, onClose, onSucces
         )}
 
         {/* CARD / MOBILE: reference */}
-        {(modePaiement === "CARTE_BANCAIRE" || modePaiement === "MOBILE_MONEY") && (
+        {modePaiement !== "ESPECES" && (
           <div className="mb-5">
             <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
               Reference transaction (optionnel)

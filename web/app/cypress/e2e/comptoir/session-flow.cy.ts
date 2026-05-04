@@ -6,7 +6,9 @@
 describe("Session de comptoir — flux complet", () => {
   beforeEach(() => {
     cy.closeOpenSessions("caissier@aerispay.com");
+    cy.restockProduct("SEC-001");
     cy.loginAsCaissier();
+    cy.ensureCaisseFunded();
   });
 
   it("ouvre une session de comptoir", () => {
@@ -14,11 +16,11 @@ describe("Session de comptoir — flux complet", () => {
     cy.get('[data-testid="sessions-page"]').should("be.visible");
     cy.get('[data-testid="session-open-form"]').should("be.visible");
 
-    cy.get('[data-testid="input-montant-ouverture"]').type("50000");
+    cy.get('[data-testid="input-montant-ouverture-especes"]').type("50000");
     cy.get('[data-testid="btn-ouvrir-session"]').click();
 
     cy.get('[data-testid="session-active"]', { timeout: 10_000 }).should("be.visible");
-    cy.get('[data-testid="session-montant-ouverture"]').should("contain", "50 000");
+    cy.get('[data-testid="session-montant-ouverture-cash"]').should("contain", "50 000");
   });
 
   it("refuse une seconde session ouverte (409)", () => {
@@ -35,41 +37,48 @@ describe("Session de comptoir — flux complet", () => {
     cy.contains("a", "Ouvrir une session").should("be.visible");
   });
 
-  it("clôture une session — affiche solde théorique et écart", () => {
+  it("clôture une session — affiche montant attendu et écart", () => {
     // Open session + make a sale via API
     cy.request("POST", "/api/comptoir/sessions", { montantOuvertureCash: 50000 }).then((r1) => {
       const sessionId = r1.body.data.id as string;
 
-      cy.task<string>("getProduitIdByReference", "ALM-001").then((produitId) => {
+      cy.task<string>("getProduitIdByReference", "SEC-001").then((produitId) => {
         cy.request("POST", "/api/ventes", {
           sessionId,
-          lignes: [{ produitId, quantite: 2, prixUnitaire: 2750, tva: 0, remise: 0 }],
-          paiements: [{ mode: "ESPECES", montant: 6000 }],
+          lignes: [{ produitId, quantite: 1, prixUnitaire: 2750, tva: 0, remise: 0 }],
+          paiements: [{ mode: "ESPECES", montant: 100000 }],
           remise: 0,
+        }).then((venteRes) => {
+          const totalVente = Number(venteRes.body.data.total);
+          const montantAttendu = 50000 + totalVente;
+          // Type less than expected → manquant
+          const montantCompte = montantAttendu - 500;
+
+          cy.visit("/comptoir/sessions");
+          cy.get('[data-testid="session-active"]').should("be.visible");
+
+          // Open close form
+          cy.get('[data-testid="btn-show-close-form"]').click();
+          cy.get('[data-testid="session-close-form"]').should("be.visible");
+
+          // Montant attendu should appear
+          cy.get('[data-testid="montant-attendu-especes"]', { timeout: 8_000 }).should("be.visible");
+
+          // Type the counted amount — intentional discrepancy
+          cy.get('[data-testid="input-montant-fermeture-especes"]').type(String(montantCompte));
+
+          // Ecart should show manquant
+          cy.get('[data-testid="ecart-especes"]').should("be.visible");
+          cy.get('[data-testid="ecart-especes"]').should("contain", "Manquant");
+
+          // Close → discrepancy modal should appear
+          cy.get('[data-testid="btn-fermer-session"]').click();
+          cy.get('[data-testid="discrepancy-modal"]', { timeout: 5_000 }).should("be.visible");
+          cy.get('[data-testid="discrepancy-modal-confirm"]').click();
+
+          // Should show open form again
+          cy.get('[data-testid="session-open-form"]', { timeout: 10_000 }).should("be.visible");
         });
-
-        cy.visit("/comptoir/sessions");
-        cy.get('[data-testid="session-active"]').should("be.visible");
-
-        // Open close form
-        cy.get('[data-testid="btn-show-close-form"]').click();
-        cy.get('[data-testid="session-close-form"]').should("be.visible");
-
-        // Solde théorique should appear: 50000 + 6000 (reçu espèces) - 500 (monnaie) = 55500
-        cy.get('[data-testid="solde-theorique"]', { timeout: 5_000 }).should("be.visible");
-
-        // Type the counted amount — intentional discrepancy
-        cy.get('[data-testid="input-montant-fermeture"]').type("55000");
-
-        // Écart should show (55000 - 55500 = -500 → manquant)
-        cy.get('[data-testid="ecart-comptoir"]').should("be.visible");
-        cy.get('[data-testid="ecart-comptoir"]').should("contain", "Manquant");
-
-        // Close
-        cy.get('[data-testid="btn-fermer-session"]').click();
-
-        // Should show open form again
-        cy.get('[data-testid="session-open-form"]', { timeout: 10_000 }).should("be.visible");
       });
     });
   });
@@ -83,9 +92,9 @@ describe("Session de comptoir — flux complet", () => {
       cy.visit("/comptoir/sessions");
       cy.get('[data-testid="btn-show-close-form"]').click();
 
-      cy.get('[data-testid="solde-theorique"]', { timeout: 5_000 }).should("contain", "25 000");
-      cy.get('[data-testid="input-montant-fermeture"]').type("25000");
-      cy.get('[data-testid="ecart-comptoir"]').should("contain", "équilibrée");
+      cy.get('[data-testid="montant-attendu-especes"]', { timeout: 8_000 }).should("be.visible");
+      cy.get('[data-testid="input-montant-fermeture-especes"]').type("25000");
+      cy.get('[data-testid="ecart-especes"]').should("contain", "Equilibre");
 
       cy.get('[data-testid="btn-fermer-session"]').click();
       cy.get('[data-testid="session-open-form"]', { timeout: 10_000 }).should("be.visible");
@@ -97,6 +106,7 @@ describe("Déconnexion avec session ouverte", () => {
   it("force la clôture avant déconnexion", () => {
     cy.closeOpenSessions("caissier@aerispay.com");
     cy.loginAsCaissier();
+    cy.ensureCaisseFunded();
 
     // Open a session
     cy.request("POST", "/api/comptoir/sessions", { montantOuvertureCash: 30000 });
@@ -109,12 +119,16 @@ describe("Déconnexion avec session ouverte", () => {
     // Modal should appear asking for closing amount
     cy.contains("Clôturer la session de comptoir").should("be.visible");
 
-    // Solde théorique should load
-    cy.get('[data-testid="signout-montant"]').should("be.visible");
-    cy.get('[data-testid="signout-montant"]').type("30000");
+    // Cash amount input should load
+    cy.get('[data-testid="signout-montant-cash"]').should("be.visible");
+    cy.get('[data-testid="signout-montant-cash"]').type("30000");
 
-    // Écart should show
-    cy.get('[data-testid="signout-ecart"]').should("contain", "équilibrée");
+    // Fill mobile money with 0 (required field)
+    cy.get('[data-testid="signout-montant-mm"]').type("0");
+
+    // Ecart should show 0 (balanced)
+    cy.get('[data-testid="signout-ecart-cash"]').should("be.visible");
+    cy.get('[data-testid="signout-ecart-cash"]').should("contain", "0");
 
     // Confirm
     cy.get('[data-testid="signout-confirm"]').click();

@@ -47,12 +47,11 @@ const statutStyle: Record<string, { text: string; className: string }> = {
 };
 
 const modeLabel: Record<string, string> = {
-  ESPECES: "Espèces",
-  CARTE_BANCAIRE: "Carte bancaire",
+  ESPECES: "Cash",
   MOBILE_MONEY: "Mobile Money",
-  CHEQUE: "Chèque",
-  VIREMENT: "Virement",
-  AUTRE: "Autre",
+  MOBILE_MONEY_MTN: "MomoPay",
+  MOBILE_MONEY_MOOV: "MoovMoney",
+  CELTIS_CASH: "Celtis Cash",
 };
 
 export default async function VenteDetailPage({ params }: VenteDetailPageProps) {
