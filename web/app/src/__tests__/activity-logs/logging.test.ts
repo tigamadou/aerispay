@@ -162,6 +162,10 @@ describe("Sale activity logging", () => {
       lignes: [{ id: "l1", produitId: "p1", quantite: 2, produit: { id: "p1", nom: "X", stockActuel: 10 } }],
     };
     (prisma.vente.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockVente);
+    // P0-003: session must be OUVERTE for cancellation
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "s-1", statut: "OUVERTE", userId: "user-1",
+    });
     (prisma.$transaction as ReturnType<typeof vi.fn>).mockResolvedValue({
       ...mockVente, statut: "ANNULEE", paiements: [], caissier: { id: "u-1", nom: "Test" },
       lignes: mockVente.lignes.map(l => ({ ...l, produit: { ...l.produit, stockActuel: 12 } })),

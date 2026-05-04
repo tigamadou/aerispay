@@ -67,12 +67,24 @@ async function upsertUsers(
 
 /** Seed le compte admin (prod). */
 export async function seedProdUsers(prisma: PrismaClient): Promise<void> {
+  if (process.env.NODE_ENV === "production" && !process.env.SEED_ADMIN_PASSWORD) {
+    throw new Error(
+      "SEED_ADMIN_PASSWORD must be defined in production. " +
+      "Refusing to seed with a default password."
+    );
+  }
   await upsertUsers(prisma, PROD_USERS);
   console.log(`\nSeed OK — ${PROD_USERS.length} compte(s) admin cree(s)/mis a jour`);
 }
 
 /** Seed tous les comptes (admin + gerant + caissier) pour le dev. */
 export async function seedDevUsers(prisma: PrismaClient): Promise<void> {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "seedDevUsers must not be called in production. " +
+      "Use seedProdUsers instead."
+    );
+  }
   const all = [...PROD_USERS, ...DEV_USERS];
   await upsertUsers(prisma, all);
   console.log(`\nSeed OK — ${all.length} comptes crees/mis a jour`);

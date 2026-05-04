@@ -48,6 +48,7 @@ interface CartComputed {
   detailTaxes: () => TaxeDetail[];
   montantTaxes: () => number;
   total: () => number;
+  getRemiseFixe: () => number;
 }
 
 type CartStore = CartState & CartActions & CartComputed;
@@ -114,19 +115,20 @@ export const useCartStore = create<CartStore>()(
         set({ items: [], remiseGlobale: 0, typeRemise: "pourcentage" }),
 
       sousTotal: () => {
-        return get().items.reduce((sum, item) => {
+        return Math.round(get().items.reduce((sum, item) => {
           const lineSub =
             item.prixUnitaire * item.quantite * (1 - item.remiseLigne / 100);
           return sum + lineSub;
-        }, 0);
+        }, 0));
       },
 
       montantRemise: () => {
         const st = get().sousTotal();
         const { remiseGlobale, typeRemise } = get();
-        return typeRemise === "pourcentage"
+        const raw = typeRemise === "pourcentage"
           ? st * (remiseGlobale / 100)
           : remiseGlobale;
+        return Math.round(raw);
       },
 
       detailTaxes: () => {
@@ -145,7 +147,11 @@ export const useCartStore = create<CartStore>()(
       },
 
       total: () => {
-        return get().sousTotal() - get().montantRemise() + get().montantTaxes();
+        return Math.round(get().sousTotal() - get().montantRemise() + get().montantTaxes());
+      },
+
+      getRemiseFixe: () => {
+        return get().montantRemise();
       },
     }),
     {

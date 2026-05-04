@@ -120,8 +120,16 @@ describe("POST /api/comptoir/sessions", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns 403 if ADMIN tries to open a session", async () => {
+  it("ADMIN can open a session (has comptoir:vendre)", async () => {
     mockSession("ADMIN");
+    (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", nom: "Caisse principale", active: true });
+
+    const { computeSoldeCaisseParMode } = await import("@/lib/services/cash-movement");
+    (computeSoldeCaisseParMode as ReturnType<typeof vi.fn>).mockResolvedValue([{ mode: "ESPECES", solde: 50000 }]);
+
+    (prisma.comptoirSession.create as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
+
     const res = await POST(
       new Request("http://localhost/api/comptoir/sessions", {
         method: "POST",
@@ -129,11 +137,19 @@ describe("POST /api/comptoir/sessions", () => {
         headers: { "Content-Type": "application/json" },
       })
     );
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(201);
   });
 
-  it("returns 403 if MANAGER tries to open a session", async () => {
+  it("MANAGER can open a session (has comptoir:vendre)", async () => {
     mockSession("MANAGER");
+    (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", nom: "Caisse principale", active: true });
+
+    const { computeSoldeCaisseParMode } = await import("@/lib/services/cash-movement");
+    (computeSoldeCaisseParMode as ReturnType<typeof vi.fn>).mockResolvedValue([{ mode: "ESPECES", solde: 50000 }]);
+
+    (prisma.comptoirSession.create as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
+
     const res = await POST(
       new Request("http://localhost/api/comptoir/sessions", {
         method: "POST",
@@ -141,7 +157,7 @@ describe("POST /api/comptoir/sessions", () => {
         headers: { "Content-Type": "application/json" },
       })
     );
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(201);
   });
 
   it("creates session with montantOuvertureCash for CAISSIER", async () => {

@@ -112,6 +112,150 @@ describe("POST /api/ventes (sale creation)", () => {
     expect(res.status).toBe(201);
   });
 
+  it("decrements stock via tx.produit.update inside transaction", async () => {
+    mockSession("CAISSIER");
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE" });
+
+    const newVente = {
+      id: "v-new", numero: "VTE-2026-00001", total: new Decimal(2000),
+      sousTotal: new Decimal(2000), remise: new Decimal(0), tva: new Decimal(0),
+      sessionId: "s-1",
+      lignes: [{ id: "l1", produitId: "p-1", quantite: 2, prixUnitaire: new Decimal(1000), sousTotal: new Decimal(2000), produit: { id: "p-1", nom: "Riz" } }],
+      paiements: [{ mode: "ESPECES", montant: new Decimal(2000) }],
+      caissier: { id: "user-1", nom: "T" },
+    };
+
+    const txProduitUpdate = vi.fn();
+    const txMouvementStockCreate = vi.fn();
+
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn: Function) => {
+      const tx = {
+        produit: {
+          findUnique: vi.fn().mockResolvedValue(mockProduct),
+          update: txProduitUpdate,
+        },
+        vente: {
+          findFirst: vi.fn().mockResolvedValue(null),
+          create: vi.fn().mockResolvedValue(newVente),
+        },
+        mouvementStock: { create: txMouvementStockCreate },
+      };
+      return fn(tx);
+    });
+
+    await POST(new Request("http://localhost/api/ventes", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(validSaleBody),
+    }));
+
+    // Verify tx.produit.update called with stock decrement
+    expect(txProduitUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "p-1" },
+        data: { stockActuel: { decrement: 2 } },
+      })
+    );
+  });
+
+  it("creates SORTIE mouvementStock with correct quantiteAvant/quantiteApres", async () => {
+    mockSession("CAISSIER");
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE" });
+
+    const newVente = {
+      id: "v-new", numero: "VTE-2026-00001", total: new Decimal(2000),
+      sousTotal: new Decimal(2000), remise: new Decimal(0), tva: new Decimal(0),
+      sessionId: "s-1",
+      lignes: [{ id: "l1", produitId: "p-1", quantite: 2, prixUnitaire: new Decimal(1000), sousTotal: new Decimal(2000), produit: { id: "p-1", nom: "Riz" } }],
+      paiements: [{ mode: "ESPECES", montant: new Decimal(2000) }],
+      caissier: { id: "user-1", nom: "T" },
+    };
+
+    const txMouvementStockCreate = vi.fn();
+
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn: Function) => {
+      const tx = {
+        produit: {
+          findUnique: vi.fn().mockResolvedValue(mockProduct),
+          update: vi.fn(),
+        },
+        vente: {
+          findFirst: vi.fn().mockResolvedValue(null),
+          create: vi.fn().mockResolvedValue(newVente),
+        },
+        mouvementStock: { create: txMouvementStockCreate },
+      };
+      return fn(tx);
+    });
+
+    await POST(new Request("http://localhost/api/ventes", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(validSaleBody),
+    }));
+
+    // Verify SORTIE movement with correct stock snapshot
+    // mockProduct.stockActuel = 10, quantite = 2
+    expect(txMouvementStockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          type: "SORTIE",
+          quantite: 2,
+          quantiteAvant: 10,
+          quantiteApres: 8,
+          produitId: "p-1",
+        }),
+      })
+    );
+  });
+
+  it("calls createMovementInTx with sale total (not overpayment)", async () => {
+    const { createMovementInTx } = await import("@/lib/services/cash-movement");
+    mockSession("CAISSIER");
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE" });
+
+    // Payment of 3000 for a 2000 sale (overpayment of 1000)
+    const newVente = {
+      id: "v-new", numero: "VTE-2026-00001", total: new Decimal(2000),
+      sousTotal: new Decimal(2000), remise: new Decimal(0), tva: new Decimal(0),
+      sessionId: "s-1",
+      lignes: [{ id: "l1", produitId: "p-1", quantite: 2, prixUnitaire: new Decimal(1000), sousTotal: new Decimal(2000), produit: { id: "p-1", nom: "Riz" } }],
+      paiements: [{ mode: "ESPECES", montant: new Decimal(3000), reference: null }],
+      caissier: { id: "user-1", nom: "T" },
+    };
+
+    let capturedTx: Record<string, unknown> | null = null;
+
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn: Function) => {
+      const tx = {
+        produit: {
+          findUnique: vi.fn().mockResolvedValue(mockProduct),
+          update: vi.fn(),
+        },
+        vente: {
+          findFirst: vi.fn().mockResolvedValue(null),
+          create: vi.fn().mockResolvedValue(newVente),
+        },
+        mouvementStock: { create: vi.fn() },
+      };
+      capturedTx = tx;
+      return fn(tx);
+    });
+
+    await POST(new Request("http://localhost/api/ventes", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...validSaleBody, paiements: [{ mode: "ESPECES", montant: 3000 }] }),
+    }));
+
+    // createMovementInTx should be called with the sale total (2000), not the payment amount (3000)
+    expect(createMovementInTx).toHaveBeenCalledWith(
+      capturedTx,
+      expect.objectContaining({
+        type: "VENTE",
+        mode: "ESPECES",
+        montant: 2000,
+      })
+    );
+  });
+
   it("returns 422 on stock insuffisant", async () => {
     mockSession("CAISSIER");
     (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE" });

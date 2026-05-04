@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { requireAuth, requireRole } from "@/lib/permissions";
+import { requireAuth, hasPermission } from "@/lib/permissions";
 import { openSessionSchema } from "@/lib/validations/session";
 import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
 import { computeSoldeCaisseParMode } from "@/lib/services/cash-movement";
@@ -22,8 +22,11 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const result = await requireRole("CAISSIER");
+  const result = await requireAuth();
   if (!result.authenticated) return result.response;
+  if (!hasPermission(result.user.role, "comptoir:vendre")) {
+    return Response.json({ error: "Acces refuse" }, { status: 403 });
+  }
 
   try {
     const body = await req.json();

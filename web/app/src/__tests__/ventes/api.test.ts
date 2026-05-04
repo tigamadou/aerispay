@@ -446,6 +446,10 @@ describe("POST /api/ventes/[id]/annuler", () => {
     const mod = await import("@/app/api/ventes/[id]/annuler/route");
     POST = mod.POST;
     (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
+    // P0-003: session must be OUVERTE for cancellation
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "session-1", statut: "OUVERTE", userId: "user-1",
+    });
   });
 
   it("returns 401 if not authenticated", async () => {
@@ -541,6 +545,10 @@ describe("POST /api/ventes/[id]/annuler", () => {
   it("executes transaction: cancels sale + restores stock + creates RETOUR movements", async () => {
     mockSession("ADMIN");
     (prisma.vente.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockVente);
+
+    const txProduitUpdate = vi.fn();
+    const txMouvementStockCreate = vi.fn();
+
     (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn: Function) => {
       const tx = {
         vente: {
@@ -555,8 +563,8 @@ describe("POST /api/ventes/[id]/annuler", () => {
             caissier: { id: "user-1", nom: "Test" },
           }),
         },
-        produit: { update: vi.fn() },
-        mouvementStock: { create: vi.fn() },
+        produit: { update: txProduitUpdate },
+        mouvementStock: { create: txMouvementStockCreate },
       };
       return fn(tx);
     });
@@ -568,6 +576,27 @@ describe("POST /api/ventes/[id]/annuler", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data.statut).toBe("ANNULEE");
+
+    // Verify stock restoration: tx.produit.update called with increment
+    expect(txProduitUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "prod-1" },
+        data: { stockActuel: { increment: 2 } },
+      })
+    );
+
+    // Verify RETOUR mouvementStock created
+    expect(txMouvementStockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          type: "RETOUR",
+          quantite: 2,
+          quantiteAvant: 50,
+          quantiteApres: 52,
+          produitId: "prod-1",
+        }),
+      })
+    );
   });
 
   it("returns 500 on unexpected error", async () => {

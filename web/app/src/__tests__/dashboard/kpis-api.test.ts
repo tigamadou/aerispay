@@ -4,9 +4,11 @@ import { Decimal } from "@prisma/client/runtime/library";
 
 vi.mock("@/lib/db", () => ({
   prisma: {
-    vente: { aggregate: vi.fn() },
+    vente: { aggregate: vi.fn(), findMany: vi.fn() },
     paiement: { aggregate: vi.fn() },
     comptoirSession: { findFirst: vi.fn(), findMany: vi.fn() },
+    ligneVente: { groupBy: vi.fn() },
+    produit: { findMany: vi.fn() },
   },
 }));
 
@@ -38,8 +40,14 @@ function mockAggregates() {
     id: "s-1",
     statut: "OUVERTE",
     ouvertureAt: new Date("2026-04-23T08:00:00Z"),
+    montantOuvertureCash: new Decimal(0),
+    montantOuvertureMobileMoney: new Decimal(0),
   });
   (prisma.comptoirSession.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+  // Chart data mocks (used for ADMIN/MANAGER)
+  (prisma.vente.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+  (prisma.ligneVente.groupBy as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+  (prisma.produit.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 }
 
 function mockClosedSessions() {
