@@ -77,21 +77,15 @@ export async function createMovement(params: CreateMovementParams) {
 export async function computeSoldeCaisseParMode(
   caisseId: string,
 ): Promise<SoldeTheoriqueParMode[]> {
-  const mouvements = await prisma.mouvementCaisse.findMany({
+  const result = await prisma.mouvementCaisse.groupBy({
+    by: ["mode"],
     where: { caisseId },
-    select: { mode: true, montant: true },
+    _sum: { montant: true },
   });
 
-  const soldes = new Map<string, number>();
-
-  for (const m of mouvements) {
-    const current = soldes.get(m.mode) ?? 0;
-    soldes.set(m.mode, current + Number(m.montant));
-  }
-
-  return Array.from(soldes.entries()).map(([mode, solde]) => ({
-    mode,
-    solde,
+  return result.map((r) => ({
+    mode: r.mode,
+    solde: Number(r._sum.montant ?? 0),
   }));
 }
 

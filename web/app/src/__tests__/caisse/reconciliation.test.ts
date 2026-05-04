@@ -8,6 +8,7 @@ vi.mock("@/lib/services/seuils", () => ({
       THRESHOLD_DISCREPANCY_MINOR: 500,
       THRESHOLD_DISCREPANCY_MAJOR: 5000,
       THRESHOLD_MAX_RECOUNT_ATTEMPTS: 3,
+      THRESHOLD_CV_TOLERANCE: 500,
     };
     return defaults[id] ?? 0;
   }),
@@ -135,5 +136,62 @@ describe("ReconciliationService", () => {
     if (result.outcome === "VALIDATED") {
       expect(result.modes).toHaveLength(2);
     }
+  });
+
+  // P3-002: THRESHOLD_CV_TOLERANCE is distinct from THRESHOLD_DISCREPANCY_MINOR
+  describe("P3-002 — separate CV tolerance and discrepancy categorization thresholds", () => {
+    it("uses THRESHOLD_CV_TOLERANCE for C/V disagreement check", async () => {
+      const { getSeuil } = await import("@/lib/services/seuils");
+      // Override: CV tolerance = 1000 (larger), minor discrepancy = 500 (smaller)
+      (getSeuil as ReturnType<typeof vi.fn>).mockImplementation(async (id: string) => {
+        const overrides: Record<string, number> = {
+          THRESHOLD_DISCREPANCY_MINOR: 500,
+          THRESHOLD_DISCREPANCY_MAJOR: 5000,
+          THRESHOLD_MAX_RECOUNT_ATTEMPTS: 3,
+          THRESHOLD_CV_TOLERANCE: 1000,
+        };
+        return overrides[id] ?? 0;
+      });
+
+      // C/V differ by 800: within CV tolerance (1000) but above minor discrepancy (500)
+      const result = await reconcile(
+        [{ mode: "ESPECES", solde: 78000 }],
+        { ESPECES: 78400 },
+        { ESPECES: 79200 }, // ecart C/V = 800
+        0,
+      );
+      // Should NOT trigger RECOUNT_NEEDED because 800 <= 1000 (CV tolerance)
+      expect(result.outcome).toBe("VALIDATED");
+
+      // The average is used: (78400+79200)/2 = 78800
+      if (result.outcome === "VALIDATED") {
+        const m = result.modes.find((x) => x.mode === "ESPECES");
+        expect(m?.montantReference).toBe(78800);
+        // ecartFinal = 78800 - 78000 = 800, which is > 500 (minor) → MOYEN
+        expect(m?.categorie).toBe("MOYEN");
+      }
+    });
+
+    it("triggers recount when C/V exceeds CV tolerance even if under major", async () => {
+      const { getSeuil } = await import("@/lib/services/seuils");
+      (getSeuil as ReturnType<typeof vi.fn>).mockImplementation(async (id: string) => {
+        const overrides: Record<string, number> = {
+          THRESHOLD_DISCREPANCY_MINOR: 500,
+          THRESHOLD_DISCREPANCY_MAJOR: 5000,
+          THRESHOLD_MAX_RECOUNT_ATTEMPTS: 3,
+          THRESHOLD_CV_TOLERANCE: 200,
+        };
+        return overrides[id] ?? 0;
+      });
+
+      // C/V differ by 400: > CV tolerance (200) → RECOUNT_NEEDED
+      const result = await reconcile(
+        [{ mode: "ESPECES", solde: 78000 }],
+        { ESPECES: 78200 },
+        { ESPECES: 78600 },
+        0,
+      );
+      expect(result.outcome).toBe("RECOUNT_NEEDED");
+    });
   });
 });

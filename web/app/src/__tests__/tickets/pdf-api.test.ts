@@ -41,6 +41,7 @@ const sampleVente = {
   statut: "VALIDEE",
   nomClient: null,
   createdAt: new Date("2026-04-23T14:35:00Z"),
+  userId: "user-1",
   caissier: { id: "user-1", nom: "Amadou", email: "amadou@test.com" },
   session: { id: "s-1", ouvertureAt: new Date("2026-04-23T08:00:00Z") },
   lignes: [

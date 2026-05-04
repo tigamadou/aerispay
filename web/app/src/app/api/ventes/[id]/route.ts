@@ -27,6 +27,11 @@ export async function GET(
       return Response.json({ error: "Vente introuvable" }, { status: 404 });
     }
 
+    // IDOR protection: CAISSIER can only see their own sales
+    if (result.user.role === "CAISSIER" && vente.userId !== result.user.id) {
+      return Response.json({ error: "Acces refuse" }, { status: 403 });
+    }
+
     return Response.json({ data: vente });
   } catch (error) {
     console.error(`[GET /api/ventes/${id}]`, error);

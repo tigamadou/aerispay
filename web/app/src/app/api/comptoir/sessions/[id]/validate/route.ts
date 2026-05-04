@@ -19,8 +19,11 @@ export async function POST(
   const result = await requireAuth();
   if (!result.authenticated) return result.response;
 
-  if (!hasPermission(result.user.role, "comptoir:valider_session") && result.user.role !== "CAISSIER") {
-    return Response.json({ error: "Accès refusé" }, { status: 403 });
+  if (!hasPermission(result.user.role, "comptoir:valider_session")) {
+    return Response.json(
+      { error: "Seul un MANAGER ou ADMIN peut valider une session" },
+      { status: 403 },
+    );
   }
 
   const { id } = await params;

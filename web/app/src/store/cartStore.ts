@@ -106,8 +106,13 @@ export const useCartStore = create<CartStore>()(
           items: state.items.filter((i) => i.produitId !== produitId),
         })),
 
-      setRemise: (value, type) =>
-        set({ remiseGlobale: value, typeRemise: type }),
+      setRemise: (value, type) => {
+        const clamped =
+          type === "pourcentage"
+            ? Math.min(Math.max(0, value), 100)
+            : Math.max(0, value);
+        set({ remiseGlobale: clamped, typeRemise: type });
+      },
 
       setTaxes: (taxes) => set({ taxes }),
 

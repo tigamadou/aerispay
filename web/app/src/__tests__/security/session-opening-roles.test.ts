@@ -10,6 +10,7 @@ vi.mock("@/lib/db", () => ({
       create: vi.fn(),
     },
     caisse: { findFirst: vi.fn() },
+    $transaction: vi.fn(),
   },
 }));
 
@@ -63,6 +64,10 @@ describe("POST /api/comptoir/sessions — all roles can open (P1-008)", () => {
     vi.clearAllMocks();
     const mod = await import("@/app/api/comptoir/sessions/route");
     POST = mod.POST;
+    // $transaction passthrough: execute callback with the outer prisma mock
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+      async (fn: (tx: typeof prisma) => Promise<unknown>) => fn(prisma),
+    );
     // No existing open session
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     // Active caisse

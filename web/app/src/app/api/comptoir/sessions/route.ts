@@ -9,7 +9,13 @@ export async function GET() {
   if (!result.authenticated) return result.response;
 
   try {
+    // IDOR protection: CAISSIER can only list their own sessions
+    const where = result.user.role === "CAISSIER"
+      ? { userId: result.user.id }
+      : {};
+
     const sessions = await prisma.comptoirSession.findMany({
+      where,
       orderBy: { ouvertureAt: "desc" },
       include: { user: { select: { id: true, nom: true, email: true } } },
     });
@@ -38,17 +44,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Check for existing open session
-    const existing = await prisma.comptoirSession.findFirst({
-      where: { userId: result.user.id, statut: "OUVERTE" },
-    });
-    if (existing) {
-      return Response.json(
-        { error: "Vous avez déjà une session de comptoir ouverte" },
-        { status: 409 }
-      );
-    }
-
     // Verifier qu'une caisse active existe et a un solde > 0
     const caisse = await prisma.caisse.findFirst({ where: { active: true }, select: { id: true } });
     if (!caisse) {
@@ -74,14 +69,31 @@ export async function POST(req: Request) {
     const ecartOuvertureAutres = parsed.data.montantOuvertureMobileMoney - soldeCaisseAutres;
     const hasEcartOuverture = Math.abs(ecartOuvertureCash) > 0.01 || Math.abs(ecartOuvertureAutres) > 0.01;
 
-    const session = await prisma.comptoirSession.create({
-      data: {
-        montantOuvertureCash: parsed.data.montantOuvertureCash,
-        montantOuvertureMobileMoney: parsed.data.montantOuvertureMobileMoney,
-        userId: result.user.id,
-      },
-      include: { user: { select: { id: true, nom: true, email: true } } },
+    // Atomically check for existing open session + create (prevents race condition)
+    const session = await prisma.$transaction(async (tx) => {
+      const existing = await tx.comptoirSession.findFirst({
+        where: { userId: result.user.id, statut: "OUVERTE" },
+      });
+      if (existing) {
+        return null; // Signal that a session already exists
+      }
+
+      return tx.comptoirSession.create({
+        data: {
+          montantOuvertureCash: parsed.data.montantOuvertureCash,
+          montantOuvertureMobileMoney: parsed.data.montantOuvertureMobileMoney,
+          userId: result.user.id,
+        },
+        include: { user: { select: { id: true, nom: true, email: true } } },
+      });
     });
+
+    if (!session) {
+      return Response.json(
+        { error: "Vous avez déjà une session de comptoir ouverte" },
+        { status: 409 }
+      );
+    }
 
     const logMetadata: Record<string, unknown> = {
       montantOuvertureCash: Number(session.montantOuvertureCash),

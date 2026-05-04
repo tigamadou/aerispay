@@ -76,6 +76,18 @@ function mockNoSession() {
   (auth as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 }
 
+/**
+ * Helper: mock $transaction so it executes the callback with a tx
+ * that delegates to the outer prisma mocks (findFirst/create).
+ * This allows existing tests to keep mocking prisma.comptoirSession.findFirst/create
+ * while the route now uses $transaction internally.
+ */
+function mockTransactionPassthrough() {
+  (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+    async (fn: (tx: typeof prisma) => Promise<unknown>) => fn(prisma),
+  );
+}
+
 const mockOpenSession = {
   id: "session-1",
   ouvertureAt: new Date("2026-04-30T08:00:00Z"),
@@ -122,6 +134,7 @@ describe("POST /api/comptoir/sessions", () => {
 
   it("ADMIN can open a session (has comptoir:vendre)", async () => {
     mockSession("ADMIN");
+    mockTransactionPassthrough();
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", nom: "Caisse principale", active: true });
 
@@ -142,6 +155,7 @@ describe("POST /api/comptoir/sessions", () => {
 
   it("MANAGER can open a session (has comptoir:vendre)", async () => {
     mockSession("MANAGER");
+    mockTransactionPassthrough();
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", nom: "Caisse principale", active: true });
 
@@ -162,6 +176,7 @@ describe("POST /api/comptoir/sessions", () => {
 
   it("creates session with montantOuvertureCash for CAISSIER", async () => {
     mockSession("CAISSIER");
+    mockTransactionPassthrough();
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", nom: "Caisse principale", active: true });
 
@@ -185,6 +200,12 @@ describe("POST /api/comptoir/sessions", () => {
 
   it("returns 409 if user already has an open session", async () => {
     mockSession("CAISSIER");
+    mockTransactionPassthrough();
+    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
+
+    const { computeSoldeCaisseParMode } = await import("@/lib/services/cash-movement");
+    (computeSoldeCaisseParMode as ReturnType<typeof vi.fn>).mockResolvedValue([{ mode: "ESPECES", solde: 50000 }]);
+
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
 
     const res = await POST(
@@ -260,6 +281,7 @@ describe("POST /api/comptoir/sessions", () => {
 
   it("creates session when caisse has positive balance", async () => {
     mockSession("CAISSIER");
+    mockTransactionPassthrough();
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", nom: "Caisse principale", active: true });
 
@@ -461,13 +483,13 @@ describe("Comptoir error handling", () => {
 
   it("POST /api/comptoir/sessions returns 500 on DB error", async () => {
     mockSession("CAISSIER");
-    (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
 
     const { computeSoldeCaisseParMode } = await import("@/lib/services/cash-movement");
     (computeSoldeCaisseParMode as ReturnType<typeof vi.fn>).mockResolvedValue([{ mode: "ESPECES", solde: 50000 }]);
 
-    (prisma.comptoirSession.create as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
+    // $transaction itself throws, simulating a DB error
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
     const { POST } = await import("@/app/api/comptoir/sessions/route");
     const res = await POST(new Request("http://localhost/api/comptoir/sessions", {
       method: "POST", headers: { "Content-Type": "application/json" },

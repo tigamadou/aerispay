@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 const syncOperationSchema = z.object({
   id: z.string().min(1, "Identifiant offline requis"),
   type: z.enum(["VENTE", "MOUVEMENT_MANUEL"]),
-  payload: z.record(z.unknown()),
+  payload: z.object({}).passthrough(),
   createdAt: z.string(),
 });
 
