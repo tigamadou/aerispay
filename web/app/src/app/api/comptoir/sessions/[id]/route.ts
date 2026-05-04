@@ -46,12 +46,64 @@ export async function GET(
       soldeTheoriqueMobileMoney = session.soldeTheoriqueMobileMoney ? Number(session.soldeTheoriqueMobileMoney) : null;
     }
 
+    // Build detailed breakdown: session movements aggregated by type × mode
+    const mouvements = await prisma.mouvementCaisse.findMany({
+      where: { sessionId: id },
+      select: { type: true, mode: true, montant: true },
+    });
+
+    // Aggregate: { [mode]: { VENTE, REMBOURSEMENT, APPORT, RETRAIT, DEPENSE, CORRECTION } }
+    const recapParMode: Record<string, Record<string, number>> = {};
+    for (const m of mouvements) {
+      if (!recapParMode[m.mode]) {
+        recapParMode[m.mode] = {};
+      }
+      recapParMode[m.mode][m.type] = (recapParMode[m.mode][m.type] ?? 0) + Number(m.montant);
+    }
+
+    // Sales from Paiement table (source of truth for sales breakdown by mode)
+    const paiements = await prisma.paiement.findMany({
+      where: {
+        vente: { sessionId: id, statut: "VALIDEE" },
+      },
+      select: { mode: true, montant: true },
+    });
+
+    const ventesParMode: Record<string, number> = {};
+    for (const p of paiements) {
+      ventesParMode[p.mode] = (ventesParMode[p.mode] ?? 0) + Number(p.montant);
+    }
+
+    // Opening fund declared by cashier (two buckets: cash / autres)
+    const fondCash = Number(session.montantOuvertureCash);
+    const fondAutres = Number(session.montantOuvertureMobileMoney);
+
+    // Montant attendu: two buckets matching the close endpoint (ESPECES vs everything else)
+    let mvtsCash = 0;
+    let mvtsAutres = 0;
+    for (const m of mouvements) {
+      const val = Number(m.montant);
+      if (m.mode === "ESPECES") {
+        mvtsCash += val;
+      } else {
+        mvtsAutres += val;
+      }
+    }
+
+    const montantAttenduCash = fondCash + mvtsCash;
+    const montantAttenduAutres = fondAutres + mvtsAutres;
+
     return Response.json({
       data: {
         ...session,
         soldeTheoriqueCash,
         soldeTheoriqueMobileMoney,
         soldesParMode,
+        recapParMode,
+        ventesParMode,
+        fondOuverture: { cash: fondCash, autres: fondAutres },
+        montantAttenduCash,
+        montantAttenduAutres,
         ecartCash: session.ecartCash ? Number(session.ecartCash) : null,
         ecartMobileMoney: session.ecartMobileMoney ? Number(session.ecartMobileMoney) : null,
       },
@@ -100,9 +152,15 @@ export async function PUT(
       );
     }
 
+    // Montant attendu = fond déclaré à l'ouverture + mouvements de la session
     const solde = await computeSoldeTheoriqueLegacy(id);
-    const ecartCash = parsed.data.montantFermetureCash - solde.cash;
-    const ecartMobileMoney = parsed.data.montantFermetureMobileMoney - solde.mobileMoney;
+    const fondCash = Number(session.montantOuvertureCash);
+    const fondMM = Number(session.montantOuvertureMobileMoney);
+    const attenduCash = fondCash + solde.cash;
+    const attenduMM = fondMM + solde.mobileMoney;
+
+    const ecartCash = parsed.data.montantFermetureCash - attenduCash;
+    const ecartMobileMoney = parsed.data.montantFermetureMobileMoney - attenduMM;
 
     const updated = await prisma.comptoirSession.update({
       where: { id },
@@ -111,8 +169,8 @@ export async function PUT(
         fermetureAt: new Date(),
         montantFermetureCash: parsed.data.montantFermetureCash,
         montantFermetureMobileMoney: parsed.data.montantFermetureMobileMoney,
-        soldeTheoriqueCash: solde.cash,
-        soldeTheoriqueMobileMoney: solde.mobileMoney,
+        soldeTheoriqueCash: attenduCash,
+        soldeTheoriqueMobileMoney: attenduMM,
         ecartCash,
         ecartMobileMoney,
         notes: parsed.data.notes,
@@ -134,8 +192,10 @@ export async function PUT(
       metadata: {
         montantFermetureCash: parsed.data.montantFermetureCash,
         montantFermetureMobileMoney: parsed.data.montantFermetureMobileMoney,
-        soldeTheoriqueCash: solde.cash,
-        soldeTheoriqueMobileMoney: solde.mobileMoney,
+        fondOuvertureCash: fondCash,
+        fondOuvertureMobileMoney: fondMM,
+        montantAttenduCash: attenduCash,
+        montantAttenduMobileMoney: attenduMM,
         ecartCash,
         ecartMobileMoney,
         closedByOwner: session.userId === result.user.id,

@@ -6,6 +6,7 @@ import { cn, formatMontant } from "@/lib/utils";
 import Link from "next/link";
 import type { Role } from "@prisma/client";
 import { CaissierDashboard } from "@/components/dashboard/CaissierDashboard";
+import { DashboardCharts } from "@/components/dashboard/DashboardCharts";
 
 export const dynamic = "force-dynamic";
 
@@ -62,13 +63,20 @@ export default async function DashboardPage() {
     }),
     prisma.comptoirSession.findMany({
       where: {
-        statut: "FERMEE",
+        statut: { in: ["FERMEE", "VALIDEE", "FORCEE", "CORRIGEE"] },
         fermetureAt: { gte: startOfDay, lt: endOfDay },
       },
       select: {
         id: true,
+        ouvertureAt: true,
+        fermetureAt: true,
         ecartCash: true,
         ecartMobileMoney: true,
+        montantFermetureCash: true,
+        montantFermetureMobileMoney: true,
+        soldeTheoriqueCash: true,
+        soldeTheoriqueMobileMoney: true,
+        statut: true,
         user: { select: { nom: true } },
       },
     }),
@@ -122,6 +130,9 @@ export default async function DashboardPage() {
         <KpiCard label="Espèces" value={formatMontant(cashTotal)} sub={`Autres: ${formatMontant(nonCashTotal)}`} />
       </div>
 
+      {/* Charts: CA 7 jours + Top 5 produits */}
+      <DashboardCharts />
+
       {/* Stock alerts */}
       <div className="grid gap-4 sm:grid-cols-2">
         <Link href="/stock?statut=alerte" className="group">
@@ -143,15 +154,25 @@ export default async function DashboardPage() {
       {/* Cash discrepancy */}
       {closedSessionsToday.length > 0 && (
         <div>
-          <h2 className="mb-3 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-            Ecarts de caisse du jour
-          </h2>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+              Ecarts de caisse du jour
+            </h2>
+            <Link
+              href="/comptoir/ecarts"
+              className="text-sm font-medium text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300"
+            >
+              Voir tout l&apos;historique
+            </Link>
+          </div>
+
+          {/* Summary cards */}
+          <div className="mb-4 grid gap-4 sm:grid-cols-3">
             <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
-              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Sessions fermées</p>
+              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Sessions fermees</p>
               <p className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-100">{closedSessionsToday.length}</p>
               <p className="mt-0.5 text-xs text-zinc-400">
-                {discrepancyCount > 0 ? `${discrepancyCount} avec écart` : "Aucun écart"}
+                {discrepancyCount > 0 ? `${discrepancyCount} avec ecart` : "Aucun ecart"}
               </p>
             </div>
             <div className={cn(
@@ -161,7 +182,7 @@ export default async function DashboardPage() {
                 : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
             )}>
               <p className={cn("text-xs font-medium", totalExcedent > 0 ? "text-blue-600 dark:text-blue-400" : "text-zinc-500 dark:text-zinc-400")}>
-                Excédent
+                Excedent total
               </p>
               <p className={cn("mt-1 text-2xl font-bold", totalExcedent > 0 ? "text-blue-700 dark:text-blue-300" : "text-zinc-900 dark:text-zinc-100")}>
                 +{formatMontant(totalExcedent)}
@@ -174,13 +195,56 @@ export default async function DashboardPage() {
                 : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
             )}>
               <p className={cn("text-xs font-medium", totalManquant > 0 ? "text-red-600 dark:text-red-400" : "text-zinc-500 dark:text-zinc-400")}>
-                Manquant
+                Manquant total
               </p>
               <p className={cn("mt-1 text-2xl font-bold", totalManquant > 0 ? "text-red-700 dark:text-red-300" : "text-zinc-900 dark:text-zinc-100")}>
                 -{formatMontant(totalManquant)}
               </p>
             </div>
           </div>
+
+          {/* Detail per session */}
+          {discrepancyCount > 0 && (
+            <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
+              <table className="w-full text-sm">
+                <thead className="bg-zinc-50 text-left text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
+                  <tr>
+                    <th className="px-4 py-2.5 font-medium">Caissier</th>
+                    <th className="px-4 py-2.5 font-medium">Horaires</th>
+                    <th className="px-4 py-2.5 font-medium text-right">Attendu</th>
+                    <th className="px-4 py-2.5 font-medium text-right">Compte</th>
+                    <th className="px-4 py-2.5 font-medium text-right">Ecart</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                  {closedSessionsToday.map((s) => {
+                    const ecartTotal = Number(s.ecartCash ?? 0) + Number(s.ecartMobileMoney ?? 0);
+                    if (ecartTotal === 0) return null;
+                    const attenduTotal = Number(s.soldeTheoriqueCash ?? 0) + Number(s.soldeTheoriqueMobileMoney ?? 0);
+                    const compteTotal = Number(s.montantFermetureCash ?? 0) + Number(s.montantFermetureMobileMoney ?? 0);
+                    return (
+                      <tr key={s.id} className="text-zinc-700 dark:text-zinc-300">
+                        <td className="px-4 py-2.5 font-medium">{s.user.nom}</td>
+                        <td className="px-4 py-2.5 text-xs text-zinc-500">
+                          {s.ouvertureAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                          {" — "}
+                          {s.fermetureAt?.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) ?? "?"}
+                        </td>
+                        <td className="px-4 py-2.5 text-right tabular-nums">{formatMontant(attenduTotal)}</td>
+                        <td className="px-4 py-2.5 text-right tabular-nums">{formatMontant(compteTotal)}</td>
+                        <td className={cn(
+                          "px-4 py-2.5 text-right font-bold tabular-nums",
+                          ecartTotal > 0 ? "text-blue-600" : "text-red-600"
+                        )}>
+                          {ecartTotal > 0 ? "+" : ""}{formatMontant(ecartTotal)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 

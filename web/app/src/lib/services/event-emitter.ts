@@ -1,3 +1,5 @@
+import type { Prisma } from "@prisma/client";
+
 import { prisma } from "@/lib/db";
 
 // ─── Event type constants ───────────────────────────
@@ -32,7 +34,7 @@ export async function emitEvent(params: EmitParams): Promise<void> {
       data: {
         type: params.type,
         sessionId: params.sessionId ?? null,
-        payload: params.payload,
+        payload: params.payload as Prisma.InputJsonValue,
       },
     });
   } catch (error) {

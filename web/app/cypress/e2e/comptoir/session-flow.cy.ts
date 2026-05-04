@@ -56,8 +56,8 @@ describe("Session de comptoir — flux complet", () => {
         cy.get('[data-testid="btn-show-close-form"]').click();
         cy.get('[data-testid="session-close-form"]').should("be.visible");
 
-        // Solde théorique should appear: 50000 + 6000 (reçu espèces) - 500 (monnaie) = 55500
-        cy.get('[data-testid="solde-theorique-especes"]', { timeout: 5_000 }).should("be.visible");
+        // Montant attendu should appear: 50000 (fond) + 5500 (vente 2×2750) = 55500
+        cy.get('[data-testid="montant-attendu-especes"]', { timeout: 8_000 }).should("be.visible");
 
         // Type the counted amount — intentional discrepancy
         cy.get('[data-testid="input-montant-fermeture-especes"]').type("55000");
@@ -66,8 +66,10 @@ describe("Session de comptoir — flux complet", () => {
         cy.get('[data-testid="ecart-especes"]').should("be.visible");
         cy.get('[data-testid="ecart-especes"]').should("contain", "Manquant");
 
-        // Close
+        // Close → discrepancy modal should appear
         cy.get('[data-testid="btn-fermer-session"]').click();
+        cy.get('[data-testid="discrepancy-modal"]', { timeout: 5_000 }).should("be.visible");
+        cy.get('[data-testid="discrepancy-modal-confirm"]').click();
 
         // Should show open form again
         cy.get('[data-testid="session-open-form"]', { timeout: 10_000 }).should("be.visible");
@@ -84,7 +86,7 @@ describe("Session de comptoir — flux complet", () => {
       cy.visit("/comptoir/sessions");
       cy.get('[data-testid="btn-show-close-form"]').click();
 
-      cy.get('[data-testid="solde-theorique-especes"]', { timeout: 5_000 }).should("contain", "25 000");
+      cy.get('[data-testid="montant-attendu-especes"]', { timeout: 8_000 }).should("be.visible");
       cy.get('[data-testid="input-montant-fermeture-especes"]').type("25000");
       cy.get('[data-testid="ecart-especes"]').should("contain", "Equilibre");
 
