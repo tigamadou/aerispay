@@ -1,13 +1,14 @@
 import { z } from "zod";
 
 export const openSessionSchema = z.object({
-  montantOuvertureCash: z
-    .number()
-    .min(0, "Le montant cash doit être positif ou nul"),
-  montantOuvertureMobileMoney: z
-    .number()
-    .min(0, "Le montant mobile money doit être positif ou nul")
-    .default(0),
+  declarations: z.record(
+    z.string().min(1),
+    z.number().min(0, "Le montant doit être positif ou nul"),
+  ).refine(
+    (obj) => Object.keys(obj).length > 0,
+    "Au moins un mode de paiement doit être déclaré",
+  ),
+  confirmeEcart: z.boolean().optional(),
 });
 
 // Conservé pour rétrocompatibilité — la nouvelle clôture utilise

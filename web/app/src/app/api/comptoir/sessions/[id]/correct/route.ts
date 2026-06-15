@@ -69,12 +69,15 @@ export async function POST(
       );
     }
 
-    // Resolve caisse
+    // P0-005: Resolve caisse with early return if none active
     const caisse = await prisma.caisse.findFirst({ where: { active: true }, select: { id: true } });
-    const caisseId = caisse?.id ?? "";
+    if (!caisse) {
+      return Response.json({ error: "Aucune caisse active configuree" }, { status: 422 });
+    }
+    const caisseId = caisse.id;
 
     // Create corrective session + movements in a transaction
-    const correctiveSession = await prisma.$transaction(async (tx) => {
+    const correctiveResult = await prisma.$transaction(async (tx) => {
       const corrective = await tx.comptoirSession.create({
         data: {
           montantOuvertureCash: 0,
@@ -106,15 +109,17 @@ export async function POST(
         data: { statut: "CORRIGEE" },
       });
 
-      return corrective;
+      // P1-002: Compute hash inside the transaction
+      const hash = await computeHashForSession(corrective.id, corrective.fermetureAt!);
+      await tx.comptoirSession.update({
+        where: { id: corrective.id },
+        data: { hashIntegrite: hash },
+      });
+
+      return { corrective, hash };
     });
 
-    // Compute hash for the corrective session
-    const hash = await computeHashForSession(correctiveSession.id, correctiveSession.fermetureAt!);
-    await prisma.comptoirSession.update({
-      where: { id: correctiveSession.id },
-      data: { hashIntegrite: hash },
-    });
+    const { corrective: correctiveSession, hash } = correctiveResult;
 
     await logActivity({
       action: ACTIONS.SESSION_CORRECTED,

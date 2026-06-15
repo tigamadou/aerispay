@@ -4,7 +4,16 @@ import { createMouvementSchema } from "@/lib/validations/mouvement";
 import type { TypeMouvement } from "@prisma/client";
 import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
 
-export async function GET(req: Request) {
+class TxError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "TxError";
+    this.status = status;
+  }
+}
+
+export async function GET(req: Request): Promise<Response> {
   const result = await requireRole("ADMIN", "MANAGER");
   if (!result.authenticated) return result.response;
 
@@ -49,7 +58,7 @@ export async function GET(req: Request) {
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: Request): Promise<Response> {
   const result = await requireRole("ADMIN", "MANAGER");
   if (!result.authenticated) return result.response;
 
@@ -71,7 +80,7 @@ export async function POST(req: Request) {
       });
 
       if (!produit) {
-        throw { status: 404, message: "Produit introuvable" };
+        throw new TxError("Produit introuvable", 404);
       }
 
       const stockAvant = produit.stockActuel;
@@ -84,10 +93,10 @@ export async function POST(req: Request) {
         case "SORTIE":
         case "PERTE":
           if (quantite > stockAvant) {
-            throw {
-              status: 422,
-              message: `Stock insuffisant (disponible : ${stockAvant}, demandé : ${quantite})`,
-            };
+            throw new TxError(
+              `Stock insuffisant (disponible : ${stockAvant}, demandé : ${quantite})`,
+              422,
+            );
           }
           stockApres = stockAvant - quantite;
           break;
@@ -96,7 +105,7 @@ export async function POST(req: Request) {
           stockApres = quantite;
           break;
         default:
-          throw { status: 400, message: "Type de mouvement invalide" };
+          throw new TxError("Type de mouvement invalide", 400);
       }
 
       await tx.produit.update({
@@ -139,14 +148,8 @@ export async function POST(req: Request) {
 
     return Response.json({ data: mouvement }, { status: 201 });
   } catch (error) {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "status" in error &&
-      "message" in error
-    ) {
-      const e = error as { status: number; message: string };
-      return Response.json({ error: e.message }, { status: e.status });
+    if (error instanceof TxError) {
+      return Response.json({ error: error.message }, { status: error.status });
     }
     console.error("[POST /api/stock/mouvements]", error);
     return Response.json({ error: "Erreur serveur" }, { status: 500 });

@@ -163,22 +163,134 @@
 
 ---
 
-## 7. Synthèse : matrice page × rôle (aperçu)
+## 6b. Pages ajoutees (hors spec initiale)
+
+Les pages suivantes ont ete implementees en complement du MVP initial et n'etaient pas repertoriees dans la version 1.0 de cette spec.
+
+### `/users/[id]` — `app/(dashboard)/users/[id]/page.tsx`
+
+| | |
+|---|---|
+| **Acces** | `ADMIN` seul. |
+| **Actions** | Formulaire d'edition d'un utilisateur existant : nom, email, role, actif. Reinitialisation du mot de passe. |
+| **Regles** | Meme contraintes que `/users/nouveau`. `USER_UPDATED` / `USER_DEACTIVATED`. |
+
+### `/activity-logs/[id]` — `app/(dashboard)/activity-logs/[id]/page.tsx`
+
+| | |
+|---|---|
+| **Acces** | `ADMIN` + `MANAGER` (lecture seule). |
+| **Actions** | Detail d'une entree du journal d'activite : metadata complete, rendu contextuel (vente, session, produit). Lien vers l'entite concernee. |
+| **Regles** | Lecture seule. Pas de modification. |
+
+### `/caisse` — `app/(dashboard)/caisse/page.tsx`
+
+| | |
+|---|---|
+| **Acces** | `ADMIN` + `MANAGER`. |
+| **Actions** | Vue d'ensemble des caisses physiques : solde par mode de paiement, liste des caisses, derniers mouvements. |
+| **Regles** | `CAISSIER` : acces refuse. Donnees issues de `GET /api/caisse` et `/api/caisse/[id]/soldes`. |
+
+### `/caisse/mouvements` — `app/(dashboard)/caisse/mouvements/page.tsx`
+
+| | |
+|---|---|
+| **Acces** | `ADMIN` + `MANAGER`. |
+| **Actions** | Historique des mouvements de caisse (fond initial, apport, retrait, depense, correction). Filtres par type, mode, periode. |
+| **Regles** | Lecture seule. |
+
+### `/caisse/mouvements/nouveau` — `app/(dashboard)/caisse/mouvements/nouveau/page.tsx`
+
+| | |
+|---|---|
+| **Acces** | `ADMIN` + `MANAGER`. |
+| **Actions** | Formulaire de creation d'un mouvement manuel (apport, retrait, depense, correction). |
+| **Regles** | Validation Zod. `CASH_MOVEMENT_CREATED`. |
+
+### `/comptoir/sessions/[id]` — `app/(dashboard)/comptoir/sessions/[id]/page.tsx`
+
+| | |
+|---|---|
+| **Acces** | Tous (`CAISSIER` : uniquement sa propre session). |
+| **Actions** | Detail d'une session : fond de caisse, ventes, mouvements, ecarts par mode, hash integrite. Actions : valider, contester, forcer la cloture, session corrective (selon role). |
+| **Regles** | `SPECS/COMPTOIR.md`. Permissions granulaires (`comptoir:valider_session`, `comptoir:force_close`, etc.). |
+
+### `/comptoir/ventes/[id]` — `app/(dashboard)/comptoir/ventes/[id]/page.tsx`
+
+| | |
+|---|---|
+| **Acces** | Tous (lecture). Annulation : `ADMIN` + `MANAGER` uniquement. |
+| **Actions** | Detail d'une vente : lignes, paiements, statut, caissier. Bouton annuler si eligible. Lien vers ticket. |
+| **Regles** | `SPECS/COMPTOIR.md`. |
+
+### `/comptoir/ecarts` — `app/(dashboard)/comptoir/ecarts/page.tsx`
+
+| | |
+|---|---|
+| **Acces** | `ADMIN` + `MANAGER`. |
+| **Actions** | Vue agregee des ecarts de caisse par session et par periode. Filtres par caissier, dates. Totaux excedent / manquant. |
+| **Regles** | `rapports:consulter`. |
+
+### `/comptoir/discrepancies` — `app/(dashboard)/comptoir/discrepancies/page.tsx`
+
+| | |
+|---|---|
+| **Acces** | `ADMIN` + `MANAGER`. |
+| **Actions** | Liste des ecarts non nuls par session cloturee : detail par mode, categorie (MINEUR / MOYEN / MAJEUR). |
+| **Regles** | `rapports:consulter`. |
+
+### `/comptoir/discrepancies/recurring` — `app/(dashboard)/comptoir/discrepancies/recurring/page.tsx`
+
+| | |
+|---|---|
+| **Acces** | `ADMIN` + `MANAGER`. |
+| **Actions** | Analyse des ecarts recurrents par caissier : frequence, moyenne, tendance. |
+| **Regles** | `rapports:consulter`. Donnees `GET /api/comptoir/discrepancies/recurring`. |
+
+### `/parametres` — `app/(dashboard)/parametres/page.tsx`
+
+| | |
+|---|---|
+| **Acces** | `ADMIN` seul. |
+| **Actions** | Configuration du point de vente : nom, adresse, telephone, email, RCCM, NIF, logo. Gestion des modes de paiement actifs. |
+| **Regles** | `PARAMETRES_UPDATED`. API : `GET/PUT /api/parametres`, `CRUD /api/parametres/modes-paiement`. |
+
+### `/taxes` — `app/(dashboard)/taxes/page.tsx`
+
+| | |
+|---|---|
+| **Acces** | `ADMIN` seul. |
+| **Actions** | Liste, creation, modification, suppression des taxes applicables. |
+| **Regles** | `TAXE_CREATED` / `TAXE_UPDATED` / `TAXE_DELETED`. |
+
+---
+
+## 7. Synthese : matrice page x role (apercu)
 
 | Page | `ADMIN` | `MANAGER` | `CAISSIER` |
 |------|:-------:|:---------:|:----------:|
 | Login | ✓ (public) | idem | idem |
 | Dashboard `/` | ✓ KPI magasin complets | ✓ idem | ✓ **vue caissier** (sans KPI magasin — `DASHBOARD.md` §5) |
-| `/users`, `/users/nouveau` | ✓ | — | — |
+| `/users`, `/users/nouveau`, `/users/[id]` | ✓ | — | — |
 | `/activity-logs` | ✓ | ✓ (lecture) | — |
-| `/stock` liste | ✓ (édition) | ✓ (édition) | ✓ (lecture si exposé) |
-| `/stock/nouveau`, `/stock/[id]` (édit) | ✓ | ✓ | — |
+| `/activity-logs/[id]` | ✓ | ✓ (lecture) | — |
+| `/stock` liste | ✓ (edition) | ✓ (edition) | ✓ (lecture si expose) |
+| `/stock/nouveau`, `/stock/[id]` (edit) | ✓ | ✓ | — |
 | `/stock/categories` | ✓ | ✓ | — |
 | `/stock/mouvements` | ✓ | ✓ | — |
+| `/caisse` | ✓ | ✓ | — |
+| `/caisse/mouvements`, `/caisse/mouvements/nouveau` | ✓ | ✓ | — |
 | `/comptoir` | ✓ | ✓ | ✓ |
 | `/comptoir/sessions` | ✓ | ✓ | ✓ |
+| `/comptoir/sessions/[id]` | ✓ | ✓ | ✓ (propre session) |
 | `/comptoir/ventes` (annulation) | ✓ annul. | ✓ annul. | — |
+| `/comptoir/ventes/[id]` | ✓ | ✓ | ✓ (lecture) |
 | `/comptoir/tickets/[id]` | ✓ | ✓ | ✓ |
+| `/comptoir/ecarts` | ✓ | ✓ | — |
+| `/comptoir/discrepancies` | ✓ | ✓ | — |
+| `/comptoir/discrepancies/recurring` | ✓ | ✓ | — |
+| `/parametres` | ✓ | — | — |
+| `/taxes` | ✓ | — | — |
 
 *(Mouvements de stock : `CAISSIER` exclu — `SPECS/AUTH.md`.)*
 
@@ -204,4 +316,4 @@ Pour chaque page, les **tests** (Playwright e2e pour les parcours critiques, Rea
 
 ---
 
-*AerisPay — Spec inventaire pages MVP — **doc v1.1.0** — Avril 2026*
+*AerisPay — Spec inventaire pages MVP — **doc v1.2.0** — Mai 2026*

@@ -86,7 +86,7 @@ export async function POST(
   const result = await requireAuth();
   if (!result.authenticated) return result.response;
 
-  if (!hasPermission(result.user.role, "rapports:consulter")) {
+  if (!hasPermission(result.user.role, "comptoir:mouvement_manuel")) {
     return Response.json({ error: "Acces refuse" }, { status: 403 });
   }
 

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireAuth, hasRole } from "@/lib/permissions";
 import { declarationCloturSchema } from "@/lib/validations/mouvement-caisse";
 import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
-import { computeSoldeTheoriqueParMode } from "@/lib/services/cash-movement";
+import { computeSoldeCaisseParMode } from "@/lib/services/cash-movement";
 
 /**
  * POST — RULE-CLOSE-001 + RULE-CLOSE-002
@@ -23,7 +23,7 @@ export async function POST(
   try {
     const session = await prisma.comptoirSession.findUnique({
       where: { id },
-      select: { id: true, statut: true, userId: true },
+      select: { id: true, statut: true, userId: true, montantOuvertureCash: true, montantOuvertureMobileMoney: true },
     });
 
     if (!session) {
@@ -51,10 +51,16 @@ export async function POST(
       );
     }
 
-    // RULE-CLOSE-002: compute theoretical balances from movements
-    const soldesParMode = await computeSoldeTheoriqueParMode(id);
+    // Resolve active caisse
+    const caisse = await prisma.caisse.findFirst({ where: { active: true }, select: { id: true } });
+    if (!caisse) {
+      return Response.json({ error: "Aucune caisse active configuree" }, { status: 422 });
+    }
+
+    // RULE-CLOSE-002: grand livre = source de verite
+    const soldes = await computeSoldeCaisseParMode(caisse.id);
     const soldesMap = new Map<string, number>();
-    for (const s of soldesParMode) {
+    for (const s of soldes) {
       soldesMap.set(s.mode, s.solde);
     }
 
@@ -78,14 +84,12 @@ export async function POST(
       };
     }
 
-    // Compute legacy cash/mobileMoney totals for backward compat
-    let soldeTheoriqueCash = 0;
+    // Compute legacy cash/mobileMoney totals for backward compat (using updated soldesMap)
+    let soldeTheoriqueCash = soldesMap.get("ESPECES") ?? 0;
     let soldeTheoriqueMobileMoney = 0;
-    for (const s of soldesParMode) {
-      if (s.mode === "ESPECES") {
-        soldeTheoriqueCash = s.solde;
-      } else {
-        soldeTheoriqueMobileMoney += s.solde;
+    for (const [mode, solde] of soldesMap.entries()) {
+      if (mode !== "ESPECES") {
+        soldeTheoriqueMobileMoney += solde;
       }
     }
 
@@ -120,7 +124,7 @@ export async function POST(
     return Response.json({
       data: {
         ...updated,
-        soldesParMode: soldesParMode.map((s) => ({ mode: s.mode, solde: s.solde })),
+        soldesParMode: soldes.map((s) => ({ mode: s.mode, solde: s.solde })),
         ecartsParMode,
       },
     });

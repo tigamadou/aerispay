@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Role } from "@prisma/client";
+import { openSessionSchema } from "@/lib/validations/session";
 
 // ─── Mocks ───────────────────────────────────────────
 
@@ -76,12 +77,26 @@ function mockNoSession() {
   (auth as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 }
 
+/**
+ * Helper: mock $transaction so it executes the callback with a tx
+ * that delegates to the outer prisma mocks (findFirst/create).
+ * This allows existing tests to keep mocking prisma.comptoirSession.findFirst/create
+ * while the route now uses $transaction internally.
+ */
+function mockTransactionPassthrough() {
+  (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+    async (fn: (tx: typeof prisma) => Promise<unknown>) => fn(prisma),
+  );
+}
+
 const mockOpenSession = {
   id: "session-1",
   ouvertureAt: new Date("2026-04-30T08:00:00Z"),
   fermetureAt: null,
   montantOuvertureCash: 50000,
   montantOuvertureMobileMoney: 0,
+  declarationsOuverture: { ESPECES: 50000 },
+  ecartsOuverture: null,
   montantFermetureCash: null,
   montantFermetureMobileMoney: null,
   statut: "OUVERTE",
@@ -96,6 +111,42 @@ const mockClosedSession = {
   montantFermetureCash: 120000,
   statut: "FERMEE",
 };
+
+describe("openSessionSchema validation", () => {
+  it("accepts declarations as Record<string, number>", () => {
+    const result = openSessionSchema.safeParse({
+      declarations: { ESPECES: 50000, MOBILE_MONEY_MTN: 10000 },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts declarations with confirmeEcart", () => {
+    const result = openSessionSchema.safeParse({
+      declarations: { ESPECES: 50000 },
+      confirmeEcart: true,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects empty declarations", () => {
+    const result = openSessionSchema.safeParse({
+      declarations: {},
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects negative amounts", () => {
+    const result = openSessionSchema.safeParse({
+      declarations: { ESPECES: -100 },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects missing declarations", () => {
+    const result = openSessionSchema.safeParse({});
+    expect(result.success).toBe(false);
+  });
+});
 
 // ─── POST /api/comptoir/sessions (open session) ────────
 
@@ -113,39 +164,16 @@ describe("POST /api/comptoir/sessions", () => {
     const res = await POST(
       new Request("http://localhost/api/comptoir/sessions", {
         method: "POST",
-        body: JSON.stringify({ montantOuvertureCash: 50000 }),
+        body: JSON.stringify({ declarations: { ESPECES: 50000 } }),
         headers: { "Content-Type": "application/json" },
       })
     );
     expect(res.status).toBe(401);
   });
 
-  it("returns 403 if ADMIN tries to open a session", async () => {
+  it("ADMIN can open a session (has comptoir:vendre)", async () => {
     mockSession("ADMIN");
-    const res = await POST(
-      new Request("http://localhost/api/comptoir/sessions", {
-        method: "POST",
-        body: JSON.stringify({ montantOuvertureCash: 50000 }),
-        headers: { "Content-Type": "application/json" },
-      })
-    );
-    expect(res.status).toBe(403);
-  });
-
-  it("returns 403 if MANAGER tries to open a session", async () => {
-    mockSession("MANAGER");
-    const res = await POST(
-      new Request("http://localhost/api/comptoir/sessions", {
-        method: "POST",
-        body: JSON.stringify({ montantOuvertureCash: 50000 }),
-        headers: { "Content-Type": "application/json" },
-      })
-    );
-    expect(res.status).toBe(403);
-  });
-
-  it("creates session with montantOuvertureCash for CAISSIER", async () => {
-    mockSession("CAISSIER");
+    mockTransactionPassthrough();
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", nom: "Caisse principale", active: true });
 
@@ -157,7 +185,49 @@ describe("POST /api/comptoir/sessions", () => {
     const res = await POST(
       new Request("http://localhost/api/comptoir/sessions", {
         method: "POST",
-        body: JSON.stringify({ montantOuvertureCash: 50000 }),
+        body: JSON.stringify({ declarations: { ESPECES: 50000 } }),
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+    expect(res.status).toBe(201);
+  });
+
+  it("MANAGER can open a session (has comptoir:vendre)", async () => {
+    mockSession("MANAGER");
+    mockTransactionPassthrough();
+    (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", nom: "Caisse principale", active: true });
+
+    const { computeSoldeCaisseParMode } = await import("@/lib/services/cash-movement");
+    (computeSoldeCaisseParMode as ReturnType<typeof vi.fn>).mockResolvedValue([{ mode: "ESPECES", solde: 50000 }]);
+
+    (prisma.comptoirSession.create as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
+
+    const res = await POST(
+      new Request("http://localhost/api/comptoir/sessions", {
+        method: "POST",
+        body: JSON.stringify({ declarations: { ESPECES: 50000 } }),
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+    expect(res.status).toBe(201);
+  });
+
+  it("creates session with declarations for CAISSIER", async () => {
+    mockSession("CAISSIER");
+    mockTransactionPassthrough();
+    (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", nom: "Caisse principale", active: true });
+
+    const { computeSoldeCaisseParMode } = await import("@/lib/services/cash-movement");
+    (computeSoldeCaisseParMode as ReturnType<typeof vi.fn>).mockResolvedValue([{ mode: "ESPECES", solde: 50000 }]);
+
+    (prisma.comptoirSession.create as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
+
+    const res = await POST(
+      new Request("http://localhost/api/comptoir/sessions", {
+        method: "POST",
+        body: JSON.stringify({ declarations: { ESPECES: 50000 } }),
         headers: { "Content-Type": "application/json" },
       })
     );
@@ -169,31 +239,37 @@ describe("POST /api/comptoir/sessions", () => {
 
   it("returns 409 if user already has an open session", async () => {
     mockSession("CAISSIER");
+    mockTransactionPassthrough();
+    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
+
+    const { computeSoldeCaisseParMode } = await import("@/lib/services/cash-movement");
+    (computeSoldeCaisseParMode as ReturnType<typeof vi.fn>).mockResolvedValue([{ mode: "ESPECES", solde: 50000 }]);
+
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
 
     const res = await POST(
       new Request("http://localhost/api/comptoir/sessions", {
         method: "POST",
-        body: JSON.stringify({ montantOuvertureCash: 50000 }),
+        body: JSON.stringify({ declarations: { ESPECES: 50000 } }),
         headers: { "Content-Type": "application/json" },
       })
     );
     expect(res.status).toBe(409);
   });
 
-  it("returns 400 for invalid data (negative montantOuvertureCash)", async () => {
+  it("returns 400 for invalid data (negative declaration)", async () => {
     mockSession("CAISSIER");
     const res = await POST(
       new Request("http://localhost/api/comptoir/sessions", {
         method: "POST",
-        body: JSON.stringify({ montantOuvertureCash: -100 }),
+        body: JSON.stringify({ declarations: { ESPECES: -100 } }),
         headers: { "Content-Type": "application/json" },
       })
     );
     expect(res.status).toBe(400);
   });
 
-  it("returns 400 for missing montantOuvertureCash", async () => {
+  it("returns 400 for missing declarations", async () => {
     mockSession("CAISSIER");
     const res = await POST(
       new Request("http://localhost/api/comptoir/sessions", {
@@ -213,7 +289,7 @@ describe("POST /api/comptoir/sessions", () => {
     const res = await POST(
       new Request("http://localhost/api/comptoir/sessions", {
         method: "POST",
-        body: JSON.stringify({ montantOuvertureCash: 50000 }),
+        body: JSON.stringify({ declarations: { ESPECES: 50000 } }),
         headers: { "Content-Type": "application/json" },
       })
     );
@@ -233,7 +309,7 @@ describe("POST /api/comptoir/sessions", () => {
     const res = await POST(
       new Request("http://localhost/api/comptoir/sessions", {
         method: "POST",
-        body: JSON.stringify({ montantOuvertureCash: 50000 }),
+        body: JSON.stringify({ declarations: { ESPECES: 50000 } }),
         headers: { "Content-Type": "application/json" },
       })
     );
@@ -244,6 +320,7 @@ describe("POST /api/comptoir/sessions", () => {
 
   it("creates session when caisse has positive balance", async () => {
     mockSession("CAISSIER");
+    mockTransactionPassthrough();
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", nom: "Caisse principale", active: true });
 
@@ -257,11 +334,113 @@ describe("POST /api/comptoir/sessions", () => {
     const res = await POST(
       new Request("http://localhost/api/comptoir/sessions", {
         method: "POST",
-        body: JSON.stringify({ montantOuvertureCash: 50000 }),
+        body: JSON.stringify({ declarations: { ESPECES: 50000 } }),
         headers: { "Content-Type": "application/json" },
       })
     );
     expect(res.status).toBe(201);
+  });
+
+  it("returns 409 with requiresConfirmation when declared < solde (deficit)", async () => {
+    mockSession("CAISSIER");
+    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
+
+    const { computeSoldeCaisseParMode } = await import("@/lib/services/cash-movement");
+    (computeSoldeCaisseParMode as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { mode: "ESPECES", solde: 80000 },
+    ]);
+
+    const res = await POST(
+      new Request("http://localhost/api/comptoir/sessions", {
+        method: "POST",
+        body: JSON.stringify({ declarations: { ESPECES: 50000 } }),
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.requiresConfirmation).toBe(true);
+    expect(body.ecarts).toBeDefined();
+    expect(body.ecarts.ESPECES.ecart).toBe(-30000);
+  });
+
+  it("returns 409 with requiresConfirmation when declared > solde (surplus)", async () => {
+    mockSession("CAISSIER");
+    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
+
+    const { computeSoldeCaisseParMode } = await import("@/lib/services/cash-movement");
+    (computeSoldeCaisseParMode as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { mode: "ESPECES", solde: 30000 },
+    ]);
+
+    const res = await POST(
+      new Request("http://localhost/api/comptoir/sessions", {
+        method: "POST",
+        body: JSON.stringify({ declarations: { ESPECES: 50000 } }),
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.requiresConfirmation).toBe(true);
+  });
+
+  it("creates session when confirmeEcart is true despite ecart", async () => {
+    mockSession("CAISSIER");
+    mockTransactionPassthrough();
+    (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
+
+    const { computeSoldeCaisseParMode } = await import("@/lib/services/cash-movement");
+    (computeSoldeCaisseParMode as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { mode: "ESPECES", solde: 80000 },
+    ]);
+
+    (prisma.comptoirSession.create as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ...mockOpenSession,
+      declarationsOuverture: { ESPECES: 50000 },
+      ecartsOuverture: [{ mode: "ESPECES", theorique: 80000, declare: 50000, ecart: -30000, categorie: "MAJEUR" }],
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/comptoir/sessions", {
+        method: "POST",
+        body: JSON.stringify({ declarations: { ESPECES: 50000 }, confirmeEcart: true }),
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.data.ecartsOuverture).toBeDefined();
+  });
+
+  it("creates session without ecarts when declared matches solde", async () => {
+    mockSession("CAISSIER");
+    mockTransactionPassthrough();
+    (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
+
+    const { computeSoldeCaisseParMode } = await import("@/lib/services/cash-movement");
+    (computeSoldeCaisseParMode as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { mode: "ESPECES", solde: 50000 },
+    ]);
+
+    (prisma.comptoirSession.create as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ...mockOpenSession,
+      declarationsOuverture: { ESPECES: 50000 },
+      ecartsOuverture: null,
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/comptoir/sessions", {
+        method: "POST",
+        body: JSON.stringify({ declarations: { ESPECES: 50000 } }),
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.data.ecartsOuverture).toBeNull();
   });
 });
 
@@ -445,17 +624,17 @@ describe("Comptoir error handling", () => {
 
   it("POST /api/comptoir/sessions returns 500 on DB error", async () => {
     mockSession("CAISSIER");
-    (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
 
     const { computeSoldeCaisseParMode } = await import("@/lib/services/cash-movement");
     (computeSoldeCaisseParMode as ReturnType<typeof vi.fn>).mockResolvedValue([{ mode: "ESPECES", solde: 50000 }]);
 
-    (prisma.comptoirSession.create as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
+    // $transaction itself throws, simulating a DB error
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB"));
     const { POST } = await import("@/app/api/comptoir/sessions/route");
     const res = await POST(new Request("http://localhost/api/comptoir/sessions", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ montantOuvertureCash: 50000 }),
+      body: JSON.stringify({ declarations: { ESPECES: 50000 } }),
     }));
     expect(res.status).toBe(500);
   });

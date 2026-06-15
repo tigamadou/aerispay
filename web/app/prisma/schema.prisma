@@ -132,6 +132,11 @@ model ComptoirSession {
   declarationsCaissier Json?
   demandeCloturAt      DateTime?
 
+  // Déclarations ouverture par mode — JSON { mode: montant }
+  declarationsOuverture Json?
+  // Écarts ouverture par mode — JSON [{ mode, theorique, declare, ecart, categorie }]
+  ecartsOuverture       Json?
+
   // Déclarations valideur (étape 3 — validation à l'aveugle) — JSON { mode: montant }
   declarationsValideur Json?
 

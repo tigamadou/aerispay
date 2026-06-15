@@ -13,6 +13,13 @@ vi.mock("@/lib/activity-log", () => ({
   getClientUserAgent: vi.fn(),
 }));
 
+vi.mock("@/lib/db", () => ({
+  prisma: {
+    vente: { findFirst: vi.fn().mockResolvedValue(null) },
+    mouvementCaisse: { findFirst: vi.fn().mockResolvedValue(null) },
+  },
+}));
+
 import { requireAuth } from "@/lib/permissions";
 import { logActivity } from "@/lib/activity-log";
 

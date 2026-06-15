@@ -30,6 +30,7 @@ export async function reconcile(
 ): Promise<ReconciliationResult> {
   const seuilMineur = await getSeuil("THRESHOLD_DISCREPANCY_MINOR");
   const seuilMajeur = await getSeuil("THRESHOLD_DISCREPANCY_MAJOR");
+  const seuilCVTolerance = await getSeuil("THRESHOLD_CV_TOLERANCE");
   const maxRecount = await getSeuil("THRESHOLD_MAX_RECOUNT_ATTEMPTS");
 
   const soldesMap = new Map(soldesParMode.map((s) => [s.mode, s.solde]));
@@ -54,7 +55,7 @@ export async function reconcile(
     if (ecartCV === 0) {
       // RULE-RECONC-001 / 002: Cashier and validator agree
       montantReference = caissier;
-    } else if (ecartCV <= seuilMineur) {
+    } else if (ecartCV <= seuilCVTolerance) {
       // RULE-RECONC-003: Minor disagreement — take average
       montantReference = Math.round((caissier + valideur) / 2);
     } else {
