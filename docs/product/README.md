@@ -4,8 +4,8 @@
 > (règles métier, modèles de données, endpoints), **dérivée du code réel** (`web/app/src/`) comme
 > source de vérité — et non d'anciennes specs.
 >
-> Pour le ***COMMENT* c'est déployé** (architecture desktop 3 niveaux, synchronisation, roadmap,
-> décisions), voir [`../architecture-desktop/`](../architecture-desktop/).
+> Pour le ***COMMENT* c'est déployé** (architecture desktop 3 niveaux, synchronisation,
+> décisions/ADR, exploitation), voir [`../architecture-desktop/`](../architecture-desktop/).
 
 ## Contexte
 
@@ -49,12 +49,9 @@ qui évolue (voir `../architecture-desktop/`).
 
 ## Backlog fonctionnel résiduel (hors migration desktop)
 
-Manques fonctionnels connus, non couverts par le code actuel ni par la roadmap desktop
-(`../architecture-desktop/00-ROADMAP-IMPLEMENTATION.md`). À arbitrer séparément :
+La migration desktop 3 niveaux est **livrée** (voir [`../architecture-desktop/`](../architecture-desktop/)).
+Manques fonctionnels connus restants, non couverts par le code actuel. À arbitrer séparément :
 
-- **`printReceipt()` thermique** — encore un stub ; le contenu du reçu n'est pas construit (voir
-  [05-impression-peripheriques.md](05-impression-peripheriques.md)). Sera traité dans le pont
-  périphériques Electron (tâche C2.1 de la roadmap desktop).
 - **QR code sur ticket** — non implémenté.
 - **Export inventaire CSV** — aucun endpoint.
 - **Rapport de session PDF** — le Z de caisse existe en **JSON** seulement (voir
@@ -65,6 +62,6 @@ Manques fonctionnels connus, non couverts par le code actuel ni par la roadmap d
 
 Cette doc étant dérivée du code, plusieurs **écarts connus** y sont signalés dans les fichiers
 concernés (ex. type de mouvement `RETOUR` présent dans l'enum mais rejeté par l'API ;
-`printReceipt()` encore à l'état de stub ; `ActivityLogTable` mappant d'anciens codes d'action ;
+`ActivityLogTable` mappant d'anciens codes d'action ;
 Z de caisse en JSON et non en PDF). Ils constituent de la **dette à arbitrer**, pas le comportement
 cible — ils sont décrits là où ils apparaissent.

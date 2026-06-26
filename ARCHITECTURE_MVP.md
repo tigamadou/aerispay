@@ -8,7 +8,7 @@
 
 > **Où trouver quoi.**
 > - **Le QUOI fonctionnel** (comportements réels dérivés du code) : `docs/product/` (auth/rôles, stock, comptoir/ventes, caisse/sessions, impression/périphériques, dashboard, journal, taxes/paramètres, pages & API).
-> - **Le COMMENT cible + roadmap + décisions** (migration desktop 3 niveaux) : `docs/architecture-desktop/` (modèle 3 niveaux, client desktop, enrôlement, nœud magasin, synchronisation cloud, sécurité, déploiement, **ADR** `09-adr.md`, **roadmap** `00-ROADMAP-IMPLEMENTATION.md`).
+> - **Le COMMENT + décisions** (architecture desktop 3 niveaux, livrée) : `docs/architecture-desktop/` (modèle 3 niveaux, client desktop, enrôlement, nœud magasin, synchronisation cloud, sécurité, déploiement, **ADR** `09-adr.md`, **exploitation** `RUNBOOK.md`).
 > - Ce document **ne duplique pas** ces sources : il fixe la topologie cible, ancre les invariants (schéma, rôles, endpoints) et renvoie.
 
 ---
@@ -72,7 +72,7 @@ Principe directeur (voir `docs/architecture-desktop/01-modele-trois-niveaux.md`)
 | **005** | **Aucune HA** du nœud en V1 | SPOF assumé ; sauvegardes (dump + réplication cloud) |
 | **006** | Référence **descendante stricte** | Édition catalogue/prix/users via l'app cloud ; pas d'édition magasin |
 
-Détail complet et conséquences sur la roadmap : `docs/architecture-desktop/09-adr.md`.
+Détail complet et conséquences : `docs/architecture-desktop/09-adr.md`.
 
 ---
 
@@ -163,7 +163,9 @@ aerispay/                              # Racine du dépôt
 ├── CLAUDE.md · CONVENTIONS.md · README.md
 ├── docs/
 │   ├── product/                       # Le QUOI fonctionnel (dérivé du code)
-│   └── architecture-desktop/          # Le COMMENT cible + ADR + roadmap
+│   └── architecture-desktop/          # Le COMMENT + ADR + RUNBOOK
+├── desktop/                           # Client Electron (niveau 1) : main périphériques + renderer kiosque
+├── cloud/                             # Schéma cloud (niveau 3) : prisma/schema.prisma (agrégation)
 └── web/
     ├── Dockerfile · development.env.example · production.env.example
     └── app/                           # Application Next.js (nœud magasin)
@@ -220,17 +222,17 @@ aerispay/                              # Racine du dépôt
 | `Taxe` | Taxes configurables | Modèle de **taxe globale** (taux appliqué à la base, M2) |
 | `ActivityLog` | Journal d'audit | Append-only ; index sur action/acteur/entité/date |
 
-### 6.2 Évolutions de schéma prévues (migration desktop)
+### 6.2 Évolutions de schéma (migration desktop — livrées)
 
-Détail et statut dans `docs/architecture-desktop/00-ROADMAP-IMPLEMENTATION.md` (Vague 1) et `08-impacts-glossaire.md`.
+Évolutions livrées avec la migration desktop (statut au 2026-06-26) ; articulation : `08-impacts-glossaire.md`.
 
 | Évolution | Niveau | Statut |
 |---|---|---|
-| `caisseId` sur `ComptoirSession` (multi-caisse, Lot C / F1.1) — aujourd'hui la caisse est résolue par `findFirst({ active: true })` dans plusieurs endpoints | Magasin | ☐ À faire |
-| Numérotation **par poste** `VTE-<codePoste>-YYYY-NNNNN` (étend `Sequence`, F1.2) | Magasin | ☐ À faire |
-| Hash d'intégrité **chaîné par caisse** (`lib/services/integrity.ts`, F1.3) | Magasin | ☐ À faire |
-| Outbox `EventCaisse` : champ d'horodatage de consommation + job de purge 30 j (F1.4, ADR-004) | Magasin | ☐ À compléter (table présente) |
-| Clés `magasinId` / `organisationId` + tables d'enrôlement, tokens, curseurs de sync (S4.1) | **Cloud** | ☐ À faire |
+| `caisseId` sur `ComptoirSession` (multi-caisse, Lot C) — la caisse est désormais rattachée à la session ; unicité d'ouverture par caisse + caissier | Magasin | ☑ Livré |
+| Numérotation **par poste** `VTE-<codePoste>-YYYY-NNNNN` (séquence par poste/année, `api/ventes/route.ts`) | Magasin | ☑ Livré |
+| Hash d'intégrité **chaîné par caisse** (`lib/services/integrity.ts`) | Magasin | ☑ Livré |
+| Outbox `EventCaisse` : horodatage de consommation + purge 30 j (ADR-004) | Magasin | ☑ Livré |
+| Clés `magasinId` / `organisationId` + tables d'enrôlement, tokens, curseurs de sync (schéma cloud) | **Cloud** | ☑ Livré (`cloud/prisma/`) |
 
 ---
 
@@ -318,20 +320,20 @@ Les rôles `ADMIN`/`MANAGER`/`CAISSIER` sont des comptes **niveau point de vente
 
 ---
 
-## 10. Roadmap de migration desktop
+## 10. Migration desktop — livrée (2026-06-26)
 
-> **Source de pilotage : `docs/architecture-desktop/00-ROADMAP-IMPLEMENTATION.md`** (vagues, tâches, jalons, journal d'avancement). Synthèse :
+La migration de l'application web mono-base vers le système desktop à 3 niveaux est **livrée**. Synthèse des vagues :
 
 ```
-V0 — Décisions & dérisquage   : ADR (☑ actés) · PoC packaging Electron allégé
-V1 — Fondation métier magasin : caisseId/multi-caisse (Lot C) · numéro par poste · hash par caisse · outbox
+V0 — Décisions & dérisquage   : ADR actés (09-adr.md) · PoC packaging Electron
+V1 — Fondation métier magasin : caisseId/multi-caisse (Lot C) · numéro par poste · hash par caisse · outbox EventCaisse
 V2 — Client Electron          : pont périphériques · coquille durcie · health-check + blocage
 V3 — Enrôlement & identité    : 2 modes (nœud/client) · tokens trousseau OS · installation
-V4 — Synchronisation cloud    : schéma cloud · worker push transactionnel · pull référence · résilience WAN
+V4 — Synchronisation cloud    : schéma cloud (cloud/prisma/) · worker push transactionnel · pull référence · résilience WAN
 V5 — Packaging & exploitation : electron-builder 3 OS · auto-update · runbook sauvegardes (pas de HA)
 ```
 
-État (snapshot 2026-06-26) : lots de correction d'audit livrés (solde théorique unifié, anti-survente, seuils, taxe globale + séquence, Decimal, fond de caisse) ; reste pour le desktop le multi-caisse (`caisseId`), la numérotation/hash par poste, l'outbox complète, puis le client Electron et la sync cloud.
+Code : nœud magasin sous `web/app/` (logique multi-caisse, outbox, workers de sync), client Electron sous `desktop/`, schéma cloud sous `cloud/prisma/`. Exploitation : `docs/architecture-desktop/RUNBOOK.md`. Le backlog fonctionnel résiduel (hors desktop) est suivi dans `docs/product/README.md`.
 
 ---
 
@@ -346,6 +348,6 @@ Commandes, variables, réseau `db`, reverse proxy, migrations : `DOCKER.md`. Le 
 
 ---
 
-*Architecture AerisPay v2.0 — modèle desktop 3 niveaux. Le QUOI : `docs/product/` · le COMMENT + ADR + roadmap : `docs/architecture-desktop/`.*
+*Architecture AerisPay v2.0 — modèle desktop 3 niveaux. Le QUOI : `docs/product/` · le COMMENT + ADR + exploitation : `docs/architecture-desktop/`.*
 </content>
 </invoke>

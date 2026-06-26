@@ -4,7 +4,7 @@
 
 ## 1. Articulation avec les lots de correction
 
-Cette architecture **réutilise** le backlog `docs/architecture-desktop/00-ROADMAP-IMPLEMENTATION.md` sans le contredire. Au contraire, plusieurs lots deviennent des **prérequis naturels** du passage desktop.
+Cette architecture **réutilise** les lots de correction d'audit sans les contredire ; plusieurs lots ont constitué des **prérequis naturels** du passage desktop (tous livrés au 2026-06-26).
 
 | Lot | Impact dans l'architecture desktop |
 |---|---|
@@ -12,10 +12,10 @@ Cette architecture **réutilise** le backlog `docs/architecture-desktop/00-ROADM
 | **C — caisseId / multi-caisse** | Le `caisseId` **devient l'identité de poste** fixée à l'enrôlement. Brique d'identité du client. Prérequis fort. |
 | **G — Fond de caisse & levée** | Inchangé, exécuté au magasin ; le ledger par caisse est répliqué au cloud. |
 | **A — Solde théorique unifié** | Inchangé (logique au magasin). |
-| **E / M3 — Numérotation** | À faire **par poste** (`VTE-<codePoste>-YYYY-NNNNN`) pour rester unique à l'échelle organisation. Devient un prérequis du multi-magasin. |
-| **Hash d'intégrité** | À chaîner **par caisse** (ajustement `integrity.ts`). |
+| **E / M3 — Numérotation** | **Livrée par poste** (`VTE-<codePoste>-YYYY-NNNNN`, séquence par poste/année) pour rester unique à l'échelle organisation — prérequis du multi-magasin. |
+| **Hash d'intégrité** | **Chaîné par caisse** (`integrity.ts`, lien via `caisseId`). |
 
-> Recommandation : livrer **B, C, G/A** (déjà planifiés) **avant** ou **pendant** le PoC desktop ; intégrer la **numérotation par poste** et le **hash par caisse** au périmètre desktop.
+> Tous ces lots (B, C, G/A, numérotation par poste, hash par caisse) sont **livrés** et intégrés au périmètre desktop.
 
 ## 2. Changements de schéma induits (niveau cloud surtout)
 

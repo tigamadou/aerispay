@@ -1,9 +1,12 @@
 # Lot C — Multi-caisse / multi-poste (Option B) — Design
 
+> **Statut : ✅ Livré (2026-06-26).** Document de conception conservé comme archive. Comportement
+> réel à jour : `docs/product/04-caisse-sessions.md` §14 et `docs/product/03-comptoir-ventes.md` §6.
+
 | | |
 |---|---|
 | **Date** | 26 juin 2026 |
-| **Lot** | C (Option B) — F1.1 de `docs/architecture-desktop/00-ROADMAP-IMPLEMENTATION.md` |
+| **Lot** | C (Option B) — F1.1 (multi-caisse), livré |
 | **Priorité** | P0 |
 | **Dépend de** | G + A (livrés) |
 | **Migration DB** | Oui (`caisseId` sur `ComptoirSession` + backfill) |

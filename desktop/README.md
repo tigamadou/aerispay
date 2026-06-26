@@ -6,7 +6,7 @@ Client caisse **sans base de données** : coquille kiosque qui affiche l'UI serv
 
 ## Périmètre des fichiers
 
-| Fichier | Tâche roadmap |
+| Fichier | Rôle (réf. tâche) |
 |---|---|
 | `src/security.ts` | C2.2 — webPreferences durcies, navigation restreinte, CSP (testé) |
 | `src/config.ts` | E3.3 — validation/normalisation config d'enrôlement (testé) |

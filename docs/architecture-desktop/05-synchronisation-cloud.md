@@ -16,7 +16,7 @@ Nœud magasin  ◄──(référence ↓ : produits, prix, users, params, taxes,
 ### Référence (cloud → magasin)
 - Données : catalogue, prix, utilisateurs/rôles (+ hash mot de passe), paramètres, taxes, seuils.
 - Autorité **cloud**. Le magasin applique les mises à jour reçues.
-- Conflit : simple — **le cloud gagne** (last-writer-wins) ; surcharges magasin éventuelles à cadrer (décision ouverte).
+- Conflit : simple — **le cloud gagne** (last-writer-wins) ; **pas de surcharge magasin** sur la référence descendante (ADR-006).
 
 ### Transactionnel (magasin → cloud)
 - Données : ventes, lignes, paiements, sessions, mouvements de caisse, mouvements de stock, journal d'activité, hash d'intégrité.

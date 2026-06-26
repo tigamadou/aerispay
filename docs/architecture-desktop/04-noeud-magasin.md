@@ -37,7 +37,7 @@ La contrepartie de la règle « pas de base = blocage » est que **le nœud maga
 - **Réplication MySQL** (primaire/réplica) sur un second nœud + bascule.
 - **Nœud de secours** prêt à reprendre l'adresse de service.
 
-> Décision ouverte : niveau de HA retenu (mini-PC + UPS seul vs réplication/bascule). À acter selon la criticité du commerce — voir [08](08-impacts-glossaire.md).
+> Décision actée (ADR-005) : **aucune HA en V1**, SPOF du nœud assumé + sauvegardes (dump + réplication cloud) — voir [08](08-impacts-glossaire.md) et [09](09-adr.md).
 
 ## 4. API exposée aux caisses
 

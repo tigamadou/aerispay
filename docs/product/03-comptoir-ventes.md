@@ -186,27 +186,19 @@ Remise : au niveau **vente**, la remise est transmise en **montant** (`remise`,
 
 ## 6. Numérotation (Sequence, format, atomicité)
 
-- **Format** : `VTE-<annee>-<NNNNN>`, `NNNNN` = séquence sur **minimum 5 chiffres**
-  (`padStart(5, "0")`), **sans plafond** au-delà de 99 999
-  (`genererNumeroVente`, `route.ts:12`).
-- **Atomicité** : dans la transaction, `tx.sequence.upsert` sur la clé `VTE-<annee>`
+- **Format** : `VTE-<codePoste>-<annee>-<NNNNN>`, où `codePoste` est le **code de la caisse** de la
+  session (`session.caisse.code`, `route.ts:101`) et `NNNNN` la séquence sur **minimum 5 chiffres**
+  (`padStart(5, "0")`), **sans plafond** au-delà de 99 999 (`genererNumeroVente`, `route.ts:13`).
+  Le **préfixe poste** (RULE-NUM-001 / F1.2) garantit l'unicité à l'échelle de l'organisation lors
+  de l'agrégation cloud de plusieurs magasins/caisses.
+- **Atomicité** : dans la transaction, `tx.sequence.upsert` sur la clé `VTE-<codePoste>-<annee>`
   (`create valeur:1` / `update valeur:{ increment: 1 }`) délivre une valeur **unique et
-  monotone** par année, même sous concurrence (`route.ts:188`).
+  monotone** par poste et par année, même sous concurrence (`route.ts:188`).
 - **Garde de course** : la contrainte `@unique` sur `Vente.numero` (`schema.prisma:274`)
   protège en dernier ressort ; une collision `P2002` déclenche jusqu'à **3 re-tentatives**
   (`MAX_P2002_RETRIES`, `route.ts:8`) ; échec final → `409`
-  « Conflit de numéro de vente, veuillez réessayer » (`route.ts:319`).
-- Compteur séparé par préfixe/année → la **séquence redémarre** chaque année.
-
-### Évolution Desktop (multi-postes) — prévu, non implémenté
-
-L'architecture desktop prévoit une numérotation **préfixée par poste** :
-`VTE-<codePoste>-YYYY-NNNNN`, afin de garantir l'unicité à l'échelle de l'organisation lors de
-l'agrégation de plusieurs magasins/caisses dans le cloud. Voir
-`docs/architecture-desktop/00-ROADMAP-IMPLEMENTATION.md:111` (tâche **F1.2**) et
-`docs/architecture-desktop/05-synchronisation-cloud.md:47`. L'implémentation **actuelle** reste
-une séquence **globale sans préfixe poste** (jalon décrit comme tel,
-`00-ROADMAP-IMPLEMENTATION.md:53`).
+  « Conflit de numéro de vente, veuillez réessayer » (`route.ts:320`).
+- Compteur séparé par poste/année → la **séquence redémarre** chaque année, par caisse.
 
 ---
 

@@ -30,7 +30,7 @@ Toutes les caisses du magasin lisent et écrivent **ici**, en réseau local. C'e
 |---|---|---|---|
 | Produits, prix, catégories | **Cloud** | Cloud → magasin (référence) | Édition centrale ; diffusion descendante |
 | Utilisateurs, rôles, mots de passe (hash) | **Cloud** | Cloud → magasin | Désactivation propagée ; login servi par le magasin |
-| Paramètres, taxes, seuils | **Cloud** | Cloud → magasin | Surcharges magasin possibles (décision ouverte) |
+| Paramètres, taxes, seuils | **Cloud** | Cloud → magasin | Référence descendante stricte : pas d'édition au magasin (ADR-006) |
 | **Stock** (produit.stockActuel, mouvements) | **Magasin** | Magasin → cloud (agrégation) | Cohérent au sein du magasin (base unique) |
 | **Ventes** (vente, lignes, paiements) | **Magasin** | Magasin → cloud (append-only) | Générées par les caisses, persistées au magasin |
 | **Sessions de caisse, mouvements caisse** | **Magasin** | Magasin → cloud (append-only) | Ledger ; partitionné par caisse |

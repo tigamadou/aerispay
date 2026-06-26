@@ -14,7 +14,7 @@ AerisPay produit un **ticket de caisse** à partir d'une vente, sous deux formes
 
 La **douchette code-barres** est gérée en mode **clavier (HID)** : elle saisit le code dans le champ de recherche du comptoir, sans pilote ni intégration dédiée.
 
-Point d'attention majeur : l'impression thermique réelle n'est **pas encore construite** — `printReceipt()` est un **stub** (voir §3.3). Le PDF, lui, est pleinement fonctionnel.
+L'impression thermique réelle est **construite** : `printReceipt()` imprime les lignes mises en forme par `buildReceiptContent` (voir §3.3). En desktop, le pont périphériques du main Electron pilote l'imprimante locale du poste (voir §9). Le ticket PDF reste pleinement fonctionnel côté navigateur/manager.
 
 ---
 
@@ -61,7 +61,7 @@ Détails de comportement :
 
 ## 3. Impression thermique ESC/POS
 
-Implémentée dans `web/app/src/lib/receipt/thermal-printer.ts`. Import **dynamique** de `node-thermal-printer` pour éviter toute erreur si le paquet/matériel est absent (thermal-printer.ts:56).
+Implémentée dans `web/app/src/lib/receipt/thermal-printer.ts`. Import **dynamique** de `node-thermal-printer` pour éviter toute erreur si le paquet/matériel est absent (thermal-printer.ts:62).
 
 ### 3.1 Configuration (`getPrinterConfig`, thermal-printer.ts:21-28)
 
@@ -76,25 +76,23 @@ Implémentée dans `web/app/src/lib/receipt/thermal-printer.ts`. Import **dynami
 
 Le flux ne lève jamais d'exception non maîtrisée ; il retourne un `PrintResult { success, message }` :
 
-- imprimante désactivée → `{ success: false, "Imprimante désactivée (PRINTER_ENABLED=false)" }` (thermal-printer.ts:50-52) ;
-- imprimante injoignable (`isPrinterConnected()` faux) → `{ success: false, "Imprimante non joignable" }` (thermal-printer.ts:64-67) ;
-- toute exception (import, connexion…) est capturée → `{ success: false, "Erreur imprimante : <msg>" }` (thermal-printer.ts:74-77).
+- imprimante désactivée → `{ success: false, "Imprimante désactivée (PRINTER_ENABLED=false)" }` (thermal-printer.ts:56-57) ;
+- imprimante injoignable (`isPrinterConnected()` faux) → `{ success: false, "Imprimante non joignable" }` (thermal-printer.ts:70-73) ;
+- toute exception (import, connexion…) est capturée → `{ success: false, "Erreur imprimante : <msg>" }` (thermal-printer.ts:83-86).
 
-### 3.3 État : `printReceipt()` est un STUB
+### 3.3 Construction et impression du reçu
 
-`printReceipt(venteId, config?)` (thermal-printer.ts:44-78) **ne construit pas encore le contenu du reçu**. Après vérification de connexion il exécute `printer.execute()` sur un buffer **vide**, puis renvoie `{ success: true, "Ticket envoyé à l'imprimante" }`.
+`printReceipt(venteId, options?)` (thermal-printer.ts:50-87) imprime les **lignes** fournies dans `options.lines`, puis `printer.cut()` et `printer.execute()`. Le contenu ESC/POS est construit en amont par **`buildReceiptContent`** (`web/app/src/lib/receipt/receipt-content.ts:91`), qui met en forme les lignes (en-tête commerce, articles, totaux, paiements) selon la largeur 32/48 colonnes.
 
 ```ts
-// TODO: Build receipt content from vente data
-// For now, this is a stub that will be completed when PDF generation is implemented
-await printer.execute();   // thermal-printer.ts:69-71
+for (const line of options?.lines ?? []) {
+  printer.println(line);
+}
+printer.cut();
+await printer.execute();   // thermal-printer.ts:76-80
 ```
 
-Conséquences :
-- le paramètre `venteId` est ignoré (`_venteId`, thermal-printer.ts:45) : aucune donnée de vente n'est lue ni mise en forme ESC/POS ;
-- une « impression » réussie n'imprime, en pratique, **aucune ligne**.
-
-La construction réelle du reçu fait l'objet de la tâche **C2.1** de la roadmap desktop (voir §8).
+En architecture desktop (C2.1, livré), c'est le **main Electron** qui appelle le pont périphériques local avec les lignes de `buildReceiptContent` ; le nœud magasin ne fournit que la charge utile du ticket (voir §9).
 
 ### 3.4 Endpoint impression
 
@@ -179,7 +177,7 @@ Déclarées dans `web/development.env.example` (l.53-62) et `web/production.env.
 | Méthode | Route | Auth / rôle | Effet | Activity log | Codes |
 |---------|-------|-------------|-------|--------------|-------|
 | `GET` | `/api/tickets/[id]/pdf` | Auth ; CAISSIER limité à ses ventes (IDOR) | Génère et renvoie le ticket PDF | `TICKET_PDF_DOWNLOADED` | 200 / 401 / 403 / 404 / 500 |
-| `POST` | `/api/tickets/[id]/print` | Auth | Impression thermique (stub) | `TICKET_THERMAL_PRINT_REQUESTED` | 200 / 401 / 404 / 503 / 500 |
+| `POST` | `/api/tickets/[id]/print` | Auth | Impression thermique ESC/POS | `TICKET_THERMAL_PRINT_REQUESTED` | 200 / 401 / 404 / 503 / 500 |
 | `POST` | `/api/cash-drawer/open` | Auth | Impulsion d'ouverture tiroir | `CASH_DRAWER_OPENED` / `CASH_DRAWER_OPEN_FAILED` | 200 / 401 / 503 / 500 |
 
 Constantes d'action : `web/app/src/lib/activity-log.ts:52-55`.
@@ -203,27 +201,23 @@ Lacunes constatées (état actuel du dépôt) :
 
 ---
 
-## 9. Transition vers l'architecture desktop (tâche C2.1)
+## 9. Architecture desktop — impression locale au poste (C2.1, livré)
 
-Aujourd'hui, impression et tiroir vivent **côté serveur** : les routes `tickets/[id]/print` et `cash-drawer/open` chargent `node-thermal-printer` dans le process Next.js et adressent une imprimante via `PRINTER_INTERFACE`. Ce modèle suppose que le matériel est joignable depuis le serveur — ce qui ne tient plus dès qu'on multiplie les caisses.
+Côté **nœud magasin**, les routes `tickets/[id]/print` et `cash-drawer/open` chargent encore `node-thermal-printer` dans le process Next.js (utile en mono-poste co-localisé). En **desktop**, les périphériques sont **locaux au poste** : la logique d'impression et d'ouverture tiroir vit dans le **main Electron** de chaque caisse (`desktop/src/devices.ts`) ; le **nœud magasin** ne fournit que la **charge utile** du ticket. Voir `docs/architecture-desktop/02-client-desktop.md`.
 
-Dans l'architecture **desktop** (Electron), les périphériques sont **locaux au poste** de caisse. La logique d'impression et d'ouverture tiroir se **déplace dans le main process Electron** de chaque caisse ; le **nœud magasin** ne fournit plus que la **charge utile** du ticket. Voir `docs/architecture-desktop/02-client-desktop.md` (l.10, 19-21, 54-66, 81) et `docs/architecture-desktop/00-ROADMAP-IMPLEMENTATION.md` (l.57, 126).
+Implémentation livrée (`desktop/`) :
 
-Principes de la cible (02-client-desktop.md) :
+- **Pont périphériques** (`src/devices.ts`) : `printTicket(lines)` charge `node-thermal-printer`, imprime les lignes, coupe et exécute ; `openDrawer()` déclenche l'impulsion tiroir.
+- **Preload bridge** (`src/preload.ts`) : expose une **liste blanche** via `contextBridge` — `window.aerisDevices.printTicket(lines)`, `.openDrawer()`, `.printerStatus()`. Le renderer n'a aucun accès `fs` / `child_process` / réseau brut.
+- **Canaux IPC** (`src/channels.ts`) : `aeris:print-ticket`, `aeris:open-drawer`, `aeris:printer-status`.
 
-- **Pont périphériques** dans le main Electron : pilote l'imprimante ESC/POS, le tiroir et expose le statut matériel ; c'est lui qui charge `node-thermal-printer` (l.42-46, 55).
-- **Preload bridge** : expose une liste blanche restreinte de fonctions vers le renderer via `contextBridge`, p. ex. `window.aerisDevices.printTicket(payload)` et `window.aerisDevices.openDrawer()` (l.54, 71). Le renderer n'a aucun accès `fs` / `child_process` / réseau brut.
-- **Flux d'impression cible** (l.60-64) :
-  1. l'API du nœud magasin renvoie les **données du ticket** (ou directement la séquence ESC/POS) ;
-  2. le renderer appelle `window.aerisDevices.printTicket(payload)` ;
-  3. le **main Electron de la caisse** envoie la séquence à **son** imprimante locale, puis déclenche l'impulsion **tiroir** si demandé.
-- **Douchette** : inchangée — captée directement par l'UI en HID clavier (l.64).
-- Les données restent **centralisées au magasin**, mais l'impression/tiroir sont pilotés **sur la bonne machine**.
+Flux d'impression :
 
-Travail attendu — **C2.1** (`00-ROADMAP-IMPLEMENTATION.md:126`), dépend de D0.2 :
+1. l'API du nœud magasin renvoie les **données du ticket**, mises en forme par `buildReceiptContent` (`web/app/src/lib/receipt/receipt-content.ts`) en lignes ESC/POS ;
+2. le renderer appelle `window.aerisDevices.printTicket(lines)` ;
+3. le **main Electron de la caisse** envoie la séquence à **son** imprimante locale, puis déclenche l'impulsion **tiroir** si demandé.
 
-1. **Construire le reçu réel** dans `printReceipt` (lever le stub actuel, thermal-printer.ts:69) ;
-2. **Déplacer** `tickets/[id]/print` et `cash-drawer/open` vers le **main Electron** ;
-3. Mettre en place l'IPC `window.aerisDevices.*`.
+- **Douchette** : captée directement par l'UI en HID clavier.
+- Les données restent **centralisées au magasin**, l'impression/tiroir sont pilotés **sur la bonne machine**.
 
-Critère de sortie V2 (Jalon J2) : « vente depuis Electron → nœud → impression locale + tiroir » avec impression ESC/POS fonctionnelle dans un Electron packagé sur au moins un OS cible (00-ROADMAP-IMPLEMENTATION.md:100, 130). Le ticket **PDF** reste pertinent côté navigateur/manager, qui ne pilote pas l'ESC/POS local (02-client-desktop.md:21).
+Le ticket **PDF** reste pertinent côté navigateur/manager, qui ne pilote pas l'ESC/POS local (`02-client-desktop.md`).

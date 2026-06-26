@@ -1,7 +1,7 @@
 # Architecture Desktop & Multi-magasin — AerisPay
 
-> Documentation de référence de l'architecture cible : **application desktop (Electron)** organisée en **trois niveaux** — caisse, magasin, cloud — avec base de données **locale au magasin** et **base parente dans le cloud**.
-> Statut : conception validée (issue des échanges de juin 2026). Cette documentation est autonome ; elle ne fait pas partie du backlog de corrections (`docs/architecture-desktop/00-ROADMAP-IMPLEMENTATION.md`) mais s'y articule (voir chapitre 08).
+> Documentation de référence de l'architecture desktop **livrée** : **application desktop (Electron)** organisée en **trois niveaux** — caisse, magasin, cloud — avec base de données **locale au magasin** et **base parente dans le cloud**.
+> Statut : **implémentée** (2026-06-26). Cette documentation décrit l'architecture cible désormais réalisée ; son articulation avec les lots de correction est détaillée au chapitre 08.
 
 ## Objectifs
 
@@ -66,7 +66,7 @@ En V1, **seuls les caissiers utilisent l'application desktop**. Les administrate
 | 05 | [Synchronisation cloud](05-synchronisation-cloud.md) | Canaux, outbox `EventCaisse`, idempotence, conflits, offline WAN |
 | 06 | [Sécurité](06-securite.md) | Tokens, trousseau OS, TLS, comptes scoppés, révocation, durcissement |
 | 07 | [Déploiement & exploitation](07-deploiement-exploitation.md) | Packaging Electron, modules natifs, auto-update, runbook |
-| 08 | [Impacts, décisions ouvertes & glossaire](08-impacts-glossaire.md) | Articulation avec les lots de correction, décisions à acter, glossaire/FAQ |
+| 08 | [Impacts, décisions & glossaire](08-impacts-glossaire.md) | Articulation avec les lots de correction, décisions actées (ADR), glossaire/FAQ |
 
 ## Emplacement dans le dépôt
 
@@ -83,9 +83,7 @@ aerispay/                     ← racine du dépôt
 └── docker-compose*.yml
 ```
 
-`web/` reste la base de code applicative (et fournit l'image du nœud magasin) ; `desktop/` consomme cette application (la charge depuis le nœud magasin) et ajoute la couche périphériques. Structure interne proposée de `desktop/` : voir [07 — Déploiement & exploitation](07-deploiement-exploitation.md) §0.
-
-> Note : `CLAUDE.md` décrit aujourd'hui uniquement `web/` ; l'ajout de `desktop/` devra y être reflété (recoupe l'item de réalignement doc — Lot D / M5 du backlog corrections).
+`web/` reste la base de code applicative (et fournit l'image du nœud magasin) ; `desktop/` consomme cette application (la charge depuis le nœud magasin) et ajoute la couche périphériques. Structure interne de `desktop/` : voir [07 — Déploiement & exploitation](07-deploiement-exploitation.md) §0 et `desktop/README.md`.
 
 ## Décisions structurantes déjà actées
 
@@ -96,10 +94,10 @@ aerispay/                     ← racine du dépôt
 - **Electron** retenu (plutôt que Tauri/PWA) car la périphérie et Prisma sont en écosystème Node.
 - Code du client desktop localisé dans **`desktop/`** à la racine du dépôt (monorepo avec `web/`).
 
-## Décisions encore à acter
+## Décisions actées (voir [09 — ADR](09-adr.md))
 
-- Politique de **haute disponibilité** du nœud magasin (mini-PC + UPS seul, ou réplication/bascule).
-- Modèle exact de **base cloud** (MySQL managé vs PostgreSQL) et stratégie de réplication.
-- Granularité de la **gestion des données de référence** (édition possible au niveau magasin ou cloud uniquement).
+- **Haute disponibilité** du nœud magasin : aucune HA en V1, SPOF assumé + sauvegardes (ADR-005).
+- **Base cloud** : MySQL managé réutilisant le schéma magasin + clés d'agrégation (ADR-002).
+- **Données de référence** : référence descendante stricte, pas d'édition au niveau magasin (ADR-006).
 
-Voir le détail dans [08 — Impacts, décisions ouvertes & glossaire](08-impacts-glossaire.md).
+Détail et impacts : [09 — ADR](09-adr.md) et [08 — Impacts, décisions & glossaire](08-impacts-glossaire.md).

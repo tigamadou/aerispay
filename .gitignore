@@ -11,3 +11,7 @@ node_modules/
 
 # Docker env overrides
 docker/env/production.env
+dist/
+
+# Logs d'exécution du runner roadmap (scripts/run-roadmap.sh)
+.roadmap-logs/

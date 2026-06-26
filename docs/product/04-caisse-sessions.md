@@ -37,11 +37,12 @@ Tous les montants sont en **FCFA** (entiers manipulés en `Decimal(10,2)` côté
 |---|---|---|
 | `id` | `cuid` | PK |
 | `nom` | `String` | |
-| `active` | `Boolean` (def. `true`) | la caisse active est résolue par `findFirst({ active: true })` |
+| `active` | `Boolean` (def. `true`) | filtre les caisses sélectionnables ; une caisse unique active sert de fallback à l'ouverture |
 | `mouvements` | `MouvementCaisse[]` | grand livre physique de la caisse |
 
-> **Note multi-caisse (état actuel)** : `ComptoirSession` **n'a pas encore de `caisseId`**.
-> La caisse est résolue par `findFirst({ active: true })` dans ~8 endpoints. Voir §11.
+> **Multi-caisse (livré, Lot C / F1.1, Option B)** : `ComptoirSession` porte un **`caisseId`**.
+> À l'ouverture, la caisse est passée en paramètre (`caisseId`) ou résolue par fallback si une
+> seule caisse active. Voir §14.
 
 ### 2.2 `ComptoirSession` (schema.prisma:126)
 
@@ -176,7 +177,7 @@ Permission requise : `comptoir:vendre` (CAISSIER, MANAGER, ADMIN).
 Déroulé :
 
 1. **Validation Zod** du corps (`openSessionSchema`) : `{ declarations: { mode: montant }, confirmeEcart?: boolean }`.
-2. **Caisse active** requise (`findFirst({ active: true })`), sinon `422`.
+2. **Caisse** : `caisseId` fourni en paramètre (validé actif), sinon **fallback** sur l'unique caisse active ; `409` « caisseId requis » si plusieurs caisses actives, `422` si aucune (`route.ts:62-86`).
 3. **Solde caisse > 0** : la somme du grand livre (`computeSoldeCaisseParMode`) doit être
    strictement positive, sinon `422` (« effectuez un apport de fonds d'abord »).
 4. **Écart d'ouverture catégorisé** : pour chaque mode, `ecart = declare − theorique`
@@ -188,9 +189,9 @@ Déroulé :
 6. **Imputation (RULE-FOND-004)** : si écarts, l'`ecartOuvertureImputeSessionId` pointe vers
    la dernière session finalisée (`VALIDEE|FORCEE|CORRIGEE|FERMEE`) — l'écart de fond est
    attribué à la session précédente, pas à la nouvelle (route.ts:136-143).
-7. **Unicité atomique (RULE-CAISSE-002, Option A — tiroir partagé séquentiel)** : dans une
-   `$transaction`, vérification qu'aucune session `OUVERTE` n'existe globalement ; sinon `409`
-   (route.ts:147-191).
+7. **Unicité atomique (RULE-CAISSE-002, Option B — multi-caisse)** : dans une `$transaction`,
+   vérification qu'aucune session `OUVERTE` n'existe **pour cette caisse** (`CAISSE_DEJA_OUVERTE`)
+   **ni pour ce caissier** (`CAISSIER_SESSION_DEJA_OUVERTE`) ; sinon `409` (route.ts:168-226).
 8. **Fond d'ouverture (RULE-FOND-001)** : pour chaque mode déclaré > 0, création d'un
    mouvement `FOND_OUVERTURE` rattaché à la session. Le fond devient donc un mouvement,
    inclus nativement par `computeSoldeSession` (route.ts:169-181).
@@ -379,15 +380,17 @@ Journal `SESSION_CORRECTED`.
 
 ### 10.3 Intégrité — hash chaîné (`integrity.ts`)
 
-`computeSessionHash` (integrity.ts:26) produit un **SHA-256** d'une concaténation déterministe
-(séparateur `|`) de : `sessionId`, `userId`, `ouvertureAt`, `validationAt`, les **mouvements**
+`computeSessionHash` (integrity.ts:27) produit un **SHA-256** d'une concaténation déterministe
+(séparateur `|`) de : `sessionId`, **`caisseId`** (F1.3 — lie le hash à la caisse), `userId`,
+`ouvertureAt`, `validationAt`, les **mouvements**
 triés par `createdAt` puis `id` (`id:type:montant:mode:createdAt`), les **déclarations caissier**
 (`C:mode:montant`, triées), les **déclarations valideur** (`V:…`, omises si force-close), les
 **écarts** (`E:mode:ecart`), et enfin le **hash de la session précédente** (chaînage).
 
 `computeHashForSession` (integrity.ts:72) reconstruit cet input depuis la base et résout la
-**session précédente** par `ouvertureAt < session.ouvertureAt` parmi les statuts finalisés
-(`VALIDEE|FORCEE|CORRIGEE|FERMEE`) — chaînage global, ordonné par date d'ouverture.
+**session précédente de la même caisse** (`caisseId`) par `ouvertureAt < session.ouvertureAt`
+parmi les statuts finalisés (`VALIDEE|FORCEE|CORRIGEE|FERMEE`) — chaînage **par caisse** (F1.3),
+ordonné par date d'ouverture.
 
 `verifySessionIntegrity` (integrity.ts:136) recalcule le hash et le compare au stocké →
 `{ valid, storedHash, computedHash }`. Exposé par `POST /[id]/verify` (permission
@@ -477,20 +480,17 @@ correction (`integrity`, `correct-hash-integrity`).
 
 ---
 
-## 14. Évolutions prévues — note Desktop (multi-caisse)
+## 14. Multi-caisse (livré — Lot C / F1.1, Option B)
 
-État **actuel** : `ComptoirSession` **n'a pas de `caisseId`**. La caisse est résolue par
-`findFirst({ active: true })` dans ~8 endpoints, et l'unicité de session ouverte est **globale**
-(une seule session `OUVERTE` sur toute la base — modèle « tiroir partagé séquentiel »).
+`ComptoirSession` porte un **`caisseId`** (le `caisse.code` sert de **code poste**, fixé à
+l'enrôlement en desktop). Comportement livré :
 
-Chantier **F1.1** de la roadmap desktop (`docs/architecture-desktop/00-ROADMAP-IMPLEMENTATION.md`) :
+- **ouverture** : `caisseId` en paramètre, avec **fallback** sur l'unique caisse active ;
+- **unicité** de session ouverte **par caisse ET par caissier** (plus de session globale unique) ;
+- résolution de la caisse via `session.caisseId` dans les endpoints de session ;
+- **hash d'intégrité chaîné par caisse** (`integrity.ts`, lien via `caisseId`) ;
+- **numérotation des ventes par poste** `VTE-<codePoste>-YYYY-NNNNN` (voir
+  [03-comptoir-ventes.md](03-comptoir-ventes.md) §6).
 
-- ajout de `caisseId` (= identité de poste fixée à l'enrôlement) ;
-- unicité de session ouverte **par caisse + caissier** (non plus globale) ;
-- câblage des 8 `findFirst({ active })` sur `session.caisseId` ;
-- **hash d'intégrité chaîné par caisse** (F1.3) — aujourd'hui le chaînage est global par date
-  d'ouverture (`integrity.ts:95`) ;
-- numérotation des ventes par poste (F1.2), caissier solo / auto-validation tracée (F1.5).
-
-Référence d'architecture : `docs/architecture-desktop/00-ROADMAP-IMPLEMENTATION.md`
-(spec détaillée : `docs/superpowers/specs/2026-06-26-lot-c-multi-caisse-design.md`).
+Architecture : [`../architecture-desktop/`](../architecture-desktop/) ; spec de conception :
+`docs/superpowers/specs/2026-06-26-lot-c-multi-caisse-design.md`.

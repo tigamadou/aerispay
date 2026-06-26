@@ -1,6 +1,6 @@
-# ADR — Décisions d'architecture desktop (D0.1)
+# ADR — Décisions d'architecture desktop
 
-> **Statut : ☑ Actées le 2026-06-26.** Réf. roadmap `00-ROADMAP-IMPLEMENTATION.md` (§3, tâche D0.1).
+> **Statut : ☑ Actées le 2026-06-26** (migration desktop livrée).
 > Ces décisions tranchent les 6 points ouverts laissés par `08-impacts-glossaire.md §3`,
 > plus une décision structurante (ADR-001) qui révise la doc `02`/`03`/`07`.
 
@@ -97,9 +97,9 @@ niveau magasin.**
 
 ---
 
-## Synthèse des impacts sur la roadmap
+## Synthèse des impacts (vagues livrées)
 
-| ADR | Impact roadmap |
+| ADR | Impact |
 |---|---|
 | 001 | D0.2 allégé · P5.3 supprimé · enrôlement = 2 modes (E3.1) · déploiement nœud inchangé |
 | 002 | S4.1 : schéma cloud = MySQL + clés d'agrégation |

@@ -5,11 +5,12 @@
 
 ---
 
-## 1. Contexte & architecture cible
+## 1. Contexte & architecture
 
 **AerisPay** est une application de **caisse enregistreuse (POS)** et de **gestion commerciale**
-pour petits et moyens commerces. Le produit évolue d'une application web mono-base vers une
-**architecture desktop à 3 niveaux** :
+pour petits et moyens commerces. Le produit a migré d'une application web mono-base vers une
+**architecture desktop à 3 niveaux** (livrée le 2026-06-26 : logique nœud multi-caisse, client
+Electron `desktop/`, packaging electron-builder et schéma cloud `cloud/prisma/`) :
 
 ```
 ┌─ Niveau 1 — CAISSE / POSTE ────────── Client Electron, SANS base de données
@@ -41,27 +42,31 @@ Dashboard.
 |---|---|
 | **Le *QUOI*** — comportement produit dérivé du code (règles, modèles, endpoints) | **`docs/product/`** (index dans `docs/product/README.md`) |
 | **Le *COMMENT*** — architecture desktop, synchronisation, sécurité | `docs/architecture-desktop/01..08` |
-| **Roadmap & avancement** du programme desktop (vagues, jalons, journal) | `docs/architecture-desktop/00-ROADMAP-IMPLEMENTATION.md` |
 | **Décisions d'architecture actées** | `docs/architecture-desktop/09-adr.md` |
+| **Exploitation du nœud** (supervision, sauvegardes/restauration, incidents) | `docs/architecture-desktop/RUNBOOK.md` |
+| **Backlog fonctionnel résiduel** (hors migration desktop) | `docs/product/README.md` |
 | **Architecture & schéma de données** | `ARCHITECTURE_MVP.md` |
 | **Déploiement (nœud magasin)** | `DOCKER.md` |
 
 > La doc produit (`docs/product/`) est dérivée du code et fait foi ; l'ancien dossier de specs
-> a été retiré. Avant toute tâche : lire la doc produit du module concerné + la roadmap pour la tâche en cours.
+> a été retiré. La migration desktop 3 niveaux est **livrée** (2026-06-26) ; le pilotage par roadmap
+> n'est plus actif. Avant toute tâche : lire la doc produit du module concerné et le backlog résiduel
+> (`docs/product/README.md`).
 
 ---
 
 ## 3. Stack technique
 
 ```
-Client desktop : Electron (main Node : périphériques ; renderer : UI du nœud)   [en construction]
+Client desktop : Electron (main Node : périphériques ; renderer : UI du nœud) — livré sous `desktop/`
 Frontend       : Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS · shadcn/ui
 State          : Zustand (panier POS) · TanStack Query (données async)
 Forms          : React Hook Form + Zod
 Backend (nœud) : Next.js API Routes · Prisma · MySQL
 Auth           : NextAuth.js v5 (credentials) — au niveau nœud magasin
 PDF            : @react-pdf/renderer
-Thermique      : node-thermal-printer (ESC/POS) — déplacé vers le main Electron (tâche C2.1)
+Thermique      : node-thermal-printer (ESC/POS) — dans le main Electron (`desktop/src/devices.ts`) ;
+                 contenu du ticket construit par `web/app` (`lib/receipt/buildReceiptContent`)
 Sync           : worker magasin ↔ cloud, outbox EventCaisse (référence descendante / transactionnel montant)
 Tests          : Vitest + React Testing Library + Cypress/Playwright (e2e)
 Qualité        : ESLint + Prettier
@@ -81,7 +86,9 @@ aerispay/
 ├── CLAUDE.md · ARCHITECTURE_MVP.md · CONVENTIONS.md · README.md
 ├── docs/
 │   ├── product/                  ← doc produit (le QUOI), dérivée du code — 01..09 + README
-│   └── architecture-desktop/     ← archi 3 niveaux (le COMMENT) + 00-ROADMAP + 09-adr
+│   └── architecture-desktop/     ← archi 3 niveaux (le COMMENT) : 01..09 + RUNBOOK + 09-adr
+├── desktop/                       ← client Electron (niveau 1) : main périphériques + renderer kiosque
+├── cloud/                         ← schéma cloud (niveau 3) : prisma/schema.prisma (agrégation)
 └── web/
     ├── Dockerfile · development.env.example · production.env.example
     └── app/                       ← nœud magasin (npm/npx/prisma depuis ici)
@@ -103,7 +110,7 @@ aerispay/
 ## 5. Règles impératives
 
 ### 5.1 Avant de coder
-- Lire `CONVENTIONS.md`, la doc produit du module (`docs/product/`), et la roadmap pour la tâche en cours.
+- Lire `CONVENTIONS.md`, la doc produit du module (`docs/product/`), et le backlog résiduel (`docs/product/README.md`).
 - Pour une action sensible (caisse, ventes, auth, stock) : vérifier `docs/product/07-journal-activite.md`
   et appeler `logActivity` lorsque c'est prévu.
 - **TDD obligatoire** : écrire les tests d'abord, les voir échouer, puis le code minimal pour les faire passer.
@@ -192,11 +199,11 @@ npm run lint  ·  npm run format  ·  npm run type-check
 ## 8. Comportement attendu des agents
 
 1. **Lire ce fichier en entier.**
-2. Identifier la tâche dans `docs/architecture-desktop/00-ROADMAP-IMPLEMENTATION.md` (backlog résiduel : `docs/product/README.md`).
+2. Identifier la tâche dans le **backlog fonctionnel résiduel** (`docs/product/README.md`) ; pour une nouvelle vague de travail, créer un document de pilotage dédié.
 3. Lire la **doc produit** du module (`docs/product/`) et `CONVENTIONS.md`.
 4. **Écrire/mettre à jour les tests d'abord** (TDD), puis du code complet et fonctionnel (pas de pseudo-code, pas de `// TODO`).
-5. Tester avant de marquer terminé ; **mettre à jour le journal §10 de la roadmap** et les cases de tâches.
-6. Ne pas modifier `CLAUDE.md`, les ADR ou la roadmap sans instruction explicite.
+5. Tester avant de marquer terminé ; **mettre à jour la doc produit concernée** si le comportement change.
+6. Ne pas modifier `CLAUDE.md` ou les ADR sans instruction explicite.
 
 ---
 
