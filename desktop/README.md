@@ -37,6 +37,50 @@ npm run dist             # installeur de l'OS courant (electron-builder)
 > `npmRebuild: true` + le script `rebuild:native` recompilent les addons natifs pour l'ABI
 > d'Electron — c'est le risque principal levé par le PoC. Pas de Prisma embarqué (ADR-001).
 
+## Build & distribution (Windows / macOS / Linux)
+
+> **Règle d'or : chaque installeur se construit sur son OS natif.** L'app embarque des modules
+> natifs (`node-thermal-printer`, `serialport`) recompilés **par OS/arch** (`electron-rebuild`) ;
+> macOS exige macOS (+ certificat Apple), Windows exige Windows (Authenticode). Pas de cross-build fiable.
+
+### Pour l'OS courant (local)
+
+```bash
+cd desktop
+npm install
+npm run rebuild:native   # recompile les modules natifs pour l'ABI Electron
+npm run dist             # build TS + electron-builder → desktop/release/
+```
+
+Sorties dans **`desktop/release/`** selon l'OS (cf. `electron-builder.yml`) :
+
+| OS | Cibles |
+|---|---|
+| macOS | `.dmg` + `.zip` |
+| Windows | installeur **NSIS** (`.exe`) |
+| Linux | **AppImage** + `.deb` |
+
+Cibler explicitement (sur la machine correspondante) : `npx electron-builder --mac` | `--win` | `--linux`.
+
+### Les trois OS → CI (recommandé)
+
+Le workflow `.github/workflows/desktop-build.yml` build **en parallèle** sur macOS / Windows / Linux
+(rebuild natif + tests + installeurs signés + publication S3). Déclenchement :
+
+- **par tag** : `git tag desktop-v0.1.0 && git push origin desktop-v0.1.0`
+- **manuellement** : onglet *Actions* → *desktop-build* → **Run workflow** (`workflow_dispatch`)
+
+Les installeurs des 3 OS sont dans les **artifacts** du run.
+
+### Signature & auto-update
+
+Builds **signés** (requis pour l'auto-update `electron-updater` et pour éviter les alertes OS) : secrets
+CI `CSC_LINK`, `CSC_KEY_PASSWORD`, `AERIS_UPDATE_BUCKET`, `AERIS_UPDATE_REGION`, `AWS_ACCESS_KEY_ID`,
+`AWS_SECRET_ACCESS_KEY`. Un build local **sans** ces secrets est **non signé** (test uniquement, pas d'auto-update).
+
+> ⚠ Éviter `npm run dist:all` (`electron-builder -mwl`) : il ne recompile pas les modules natifs ni
+> ne signe pour les autres OS depuis une seule machine. Pour le multi-OS, utiliser la **CI**.
+
 ## Tests
 
 ```bash
