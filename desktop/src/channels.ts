@@ -11,3 +11,8 @@ export const DEVICE_CHANNELS = {
   openDrawer: "aeris:open-drawer",
   printerStatus: "aeris:printer-status",
 } as const;
+
+// Canal d'enrôlement (fenêtre locale d'enrôlement → main).
+export const ENROLL_CHANNELS = {
+  submit: "aeris:enroll-submit",
+} as const;
