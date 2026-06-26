@@ -147,9 +147,9 @@ blocage propre si nœud coupé. *(Combiné à D0.2 = PoC desktop validé.)*
 | ID | Tâche | Dépend | Statut |
 |---|---|---|---|
 | **S4.1** | Schéma cloud : base + clés `magasinId`/`organisationId` + tables enrôlement/curseurs | D0.1 | ☐ |
-| **S4.2** | Worker push transactionnel : outbox → cloud, idempotent, par lots, accusé | F1.4, S4.1 | ☐ |
-| **S4.3** | Worker pull référence : catalogue/prix/users/taxes descendants (LWW, curseur) | S4.1 | ☐ |
-| **S4.4** | Résilience WAN : reprise sur coupure, rejeu | S4.2, S4.3 | ☐ |
+| **S4.2** | Worker push transactionnel : outbox → cloud, idempotent, par lots, accusé | F1.4, S4.1 | ☑ **2026-06-26** *(logique nœud)* |
+| **S4.3** | Worker pull référence : catalogue/prix/users/taxes descendants (LWW, curseur) | S4.1 | ☑ **2026-06-26** *(logique nœud)* |
+| **S4.4** | Résilience WAN : reprise sur coupure, rejeu | S4.2, S4.3 | ☑ **2026-06-26** *(logique nœud)* |
 
 **Jalon J4 :** sync cloud opérationnelle (réplication transactionnelle + référence).
 
@@ -220,6 +220,7 @@ Doc produit : `docs/product/`. Ne pas modifier `components/ui/` (shadcn).
 |---|---|---|
 | 2026-06-26 | — | Cadrage validé. Roadmap rédigée. Décisions Lot C actées. |
 | 2026-06-26 | **D0.1** | ☑ **Terminée.** 6 décisions actées → `09-adr.md`. ADR-001 (pas de mode autonome) répercutée : D0.2 allégé, P5.3 supprimé, enrôlement = 2 modes. **Prochaine étape : D0.2 (PoC packaging) + F1.1 (Lot C) en parallèle.** |
+| 2026-06-26 | **S4.2/S4.3/S4.4** | ☑ **Logique nœud livrée + testée.** Service `lib/services/cloud-sync.ts` : `pushTransactionalEvents` (push outbox `EventCaisse` par lots, idempotent, accusé partiel géré, résilient — rien marqué consommé si échec transport), `pullReferenceUpdates` (référence descendante LWW, curseur non avancé en cas d'échec → rejeu), `withRetry` (reprise WAN). **Transport = port injectable** (l'impl HTTPS/mTLS réelle vers le cloud et le **schéma cloud S4.1** — base MySQL managée multi-magasins — restent hors de ce dépôt backend, par construction archi §38). Tests `cloud-push-worker` + `cloud-pull-worker` (11 cas). **881 tests verts, tsc OK.** |
 | 2026-06-26 | **F1.5** | ☑ **Terminée.** RULE-FOND-005 caissier solo : seuil paramétrable `THRESHOLD_SOLO_AUTO_VALIDATION` (défaut 0 = désactivé). Quand > 0, le caissier propriétaire peut auto-valider sa propre session (contournement tracé de RULE-AUTH-003) tant que l'écart final ≤ seuil ; au-delà → 422 `SOLO_THRESHOLD_EXCEEDED` (clôture différée vers un tiers). Auto-validation tracée (`soloAutoValidation` dans log + outbox). Tests `solo-validation`. **870 tests verts, tsc OK. → Jalon J1 (Vague 1) atteint : multi-caisse cohérent, soldes/écarts isolés, numéro & hash partitionnés par poste, outbox câblé.** |
 | 2026-06-26 | **F1.4** | ☑ **Terminée.** Outbox `EventCaisse` câblé : `emitEvent` (service existant, jamais bloquant) appelé sur ouverture session (`SESSION_OPENED`), mouvement caisse (`CASH_MOVEMENT_CREATED`), demande clôture (`SESSION_CLOSURE_REQUESTED`), validation (`SESSION_VALIDATED` + `DISCREPANCY_DETECTED`), contestation (`SESSION_DISPUTED`), force-close (`SESSION_FORCE_CLOSED`), correction (`SESSION_CORRECTED`). Test `event-outbox` + `event-emitter` existant. **867 tests verts, tsc OK.** |
 | 2026-06-26 | **F1.3** | ☑ **Terminée.** Hash d'intégrité partitionné par caisse : `caisseId` intégré au `computeSessionHash` (lie le hash au poste) et le chaînage (`previousSession`) filtré par `caisseId` → chaque caisse a sa propre chaîne. Tests `integrity` + `integrity-service` mis à jour (caisseId, chaînage filtré). **865 tests verts, tsc OK.** |
