@@ -204,6 +204,12 @@ npm run lint  ·  npm run format  ·  npm run type-check
 5. Tester avant de marquer terminé ; **mettre à jour la doc produit concernée** si le comportement change.
 6. Ne pas modifier `CLAUDE.md` ou les ADR sans instruction explicite.
 
+### 8.1 Specs & plans d'implémentation — **éphémères**
+Les documents de **spec** (`docs/superpowers/specs/`) et de **plan d'implémentation** sont des artefacts de travail **temporaires**, pas de la doc pérenne. Dès qu'une fonctionnalité est **implémentée et vérifiée** (tests verts), **supprimer** le fichier de spec et le fichier de plan correspondants — dans le **même commit/PR** que la fin de l'implémentation. La connaissance pérenne va dans la **doc produit** (`docs/product/`, le QUOI) et `ARCHITECTURE_MVP.md` (le COMMENT + ADR), pas dans les specs/plans.
+
+### 8.2 Convention de commit
+Les messages de commit **ne contiennent jamais** de mention de **co-auteur** (`Co-Authored-By`). (Le trailer `Claude-Session:` reste autorisé.)
+
 ---
 
 *AerisPay · architecture desktop 3 niveaux · doc produit dérivée du code (`docs/product/`).*
