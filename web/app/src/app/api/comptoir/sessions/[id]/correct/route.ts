@@ -4,6 +4,7 @@ import { correctiveSessionSchema } from "@/lib/validations/mouvement-caisse";
 import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
 import { createMovementInTx } from "@/lib/services/cash-movement";
 import { computeHashForSession } from "@/lib/services/integrity";
+import { emitEvent, EVENTS } from "@/lib/services/event-emitter";
 import * as bcrypt from "bcryptjs";
 
 const CORRECTABLE_STATUSES = ["VALIDEE", "FORCEE"];
@@ -132,6 +133,13 @@ export async function POST(
       },
       ipAddress: getClientIp(req),
       userAgent: getClientUserAgent(req),
+    });
+
+    // F1.4 — Outbox : événement de correction de session
+    await emitEvent({
+      type: EVENTS.SESSION_CORRECTED,
+      sessionId: correctiveSession.id,
+      payload: { originalSessionId: id, caisseId, motif: parsed.data.motif, hash },
     });
 
     return Response.json({

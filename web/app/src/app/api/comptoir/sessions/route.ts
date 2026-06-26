@@ -5,6 +5,7 @@ import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/act
 import { computeSoldeCaisseParMode, createMovementInTx } from "@/lib/services/cash-movement";
 import { getSeuil } from "@/lib/services/seuils";
 import { categorizeDiscrepancy } from "@/lib/services/reconciliation";
+import { emitEvent, EVENTS } from "@/lib/services/event-emitter";
 
 export async function GET() {
   const result = await requireAuth();
@@ -246,6 +247,13 @@ export async function POST(req: Request) {
       metadata: logMetadata,
       ipAddress: getClientIp(req),
       userAgent: getClientUserAgent(req),
+    });
+
+    // F1.4 — Outbox : événement transactionnel d'ouverture de session
+    await emitEvent({
+      type: EVENTS.SESSION_OPENED,
+      sessionId: session.id,
+      payload: { caisseId: caisse.id, userId: result.user.id, declarations },
     });
 
     return Response.json({ data: session }, { status: 201 });

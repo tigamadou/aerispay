@@ -4,6 +4,7 @@ import { requireAuth, hasRole } from "@/lib/permissions";
 import { declarationCloturSchema } from "@/lib/validations/mouvement-caisse";
 import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
 import { computeSoldeSession } from "@/lib/services/cash-movement";
+import { emitEvent, EVENTS } from "@/lib/services/event-emitter";
 
 /**
  * POST — RULE-CLOSE-001 + RULE-CLOSE-002
@@ -114,6 +115,13 @@ export async function POST(
       },
       ipAddress: getClientIp(req),
       userAgent: getClientUserAgent(req),
+    });
+
+    // F1.4 — Outbox : événement de demande de clôture
+    await emitEvent({
+      type: EVENTS.SESSION_CLOSURE_REQUESTED,
+      sessionId: id,
+      payload: { declarations, ecartsParMode },
     });
 
     return Response.json({

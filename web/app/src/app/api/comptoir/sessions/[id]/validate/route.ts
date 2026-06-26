@@ -7,6 +7,7 @@ import { computeSoldeSession, leverRecettesInTx } from "@/lib/services/cash-move
 import { reconcile } from "@/lib/services/reconciliation";
 import { computeHashForSession } from "@/lib/services/integrity";
 import { getSeuilOrZero } from "@/lib/services/seuils";
+import { emitEvent, EVENTS } from "@/lib/services/event-emitter";
 
 /**
  * POST — ACT-BLIND-VALIDATE + ACT-RECONCILE
@@ -156,6 +157,13 @@ export async function POST(
         userAgent: getClientUserAgent(req),
       });
 
+      // F1.4 — Outbox : événement de validation de session
+      await emitEvent({
+        type: EVENTS.SESSION_VALIDATED,
+        sessionId: id,
+        payload: { caisseId: session.caisseId, valideurId: result.user.id, ecartsParMode, hash },
+      });
+
       // Emit discrepancy alert if any non-zero ecart
       const hasDiscrepancy = reconcResult.modes.some((m) => m.ecartFinal !== 0);
       if (hasDiscrepancy) {
@@ -170,6 +178,12 @@ export async function POST(
           },
           ipAddress: getClientIp(req),
           userAgent: getClientUserAgent(req),
+        });
+        // F1.4 — Outbox : événement d'écart détecté
+        await emitEvent({
+          type: EVENTS.DISCREPANCY_DETECTED,
+          sessionId: id,
+          payload: { caisseId: session.caisseId, ecartsParMode },
         });
       }
 
@@ -226,6 +240,13 @@ export async function POST(
       },
       ipAddress: getClientIp(req),
       userAgent: getClientUserAgent(req),
+    });
+
+    // F1.4 — Outbox : événement de contestation de session
+    await emitEvent({
+      type: EVENTS.SESSION_DISPUTED,
+      sessionId: id,
+      payload: { caisseId: session.caisseId, reason: reconcResult.reason },
     });
 
     return Response.json({

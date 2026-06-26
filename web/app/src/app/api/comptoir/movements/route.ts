@@ -5,6 +5,7 @@ import { createMouvementManuelSchema } from "@/lib/validations/mouvement-caisse"
 import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
 import { createMovement } from "@/lib/services/cash-movement";
 import { getSeuil } from "@/lib/services/seuils";
+import { emitEvent, EVENTS } from "@/lib/services/event-emitter";
 
 const VALID_TYPES: TypeMouvementCaisse[] = [
   "FOND_INITIAL", "VENTE", "REMBOURSEMENT", "APPORT", "RETRAIT", "DEPENSE", "CORRECTION",
@@ -192,6 +193,13 @@ export async function POST(req: Request) {
       },
       ipAddress: getClientIp(req),
       userAgent: getClientUserAgent(req),
+    });
+
+    // F1.4 — Outbox : événement transactionnel de mouvement de caisse
+    await emitEvent({
+      type: EVENTS.CASH_MOVEMENT_CREATED,
+      sessionId,
+      payload: { mouvementId: mouvement.id, type, mode, montant: signedMontant, caisseId: session.caisseId },
     });
 
     return Response.json({ data: mouvement }, { status: 201 });

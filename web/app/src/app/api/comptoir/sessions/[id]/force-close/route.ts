@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/permissions";
 import { forceCloseSchema } from "@/lib/validations/mouvement-caisse";
 import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
 import { computeHashForSession } from "@/lib/services/integrity";
+import { emitEvent, EVENTS } from "@/lib/services/event-emitter";
 import * as bcrypt from "bcryptjs";
 
 const ALLOWED_STATUSES = ["OUVERTE", "EN_ATTENTE_CLOTURE", "EN_ATTENTE_VALIDATION", "CONTESTEE"];
@@ -88,6 +89,13 @@ export async function POST(
       },
       ipAddress: getClientIp(req),
       userAgent: getClientUserAgent(req),
+    });
+
+    // F1.4 — Outbox : événement de clôture forcée
+    await emitEvent({
+      type: EVENTS.SESSION_FORCE_CLOSED,
+      sessionId: id,
+      payload: { motif: parsed.data.motif, previousStatut: session.statut, hash },
     });
 
     return Response.json({ data: updated });
