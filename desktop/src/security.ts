@@ -38,8 +38,12 @@ export function isAllowedNavigation(targetUrl: string, nodeOrigin: string): bool
 }
 
 /**
- * CSP stricte : ressources limitées à l'origine du nœud ; pas d'inline script ;
- * connexions (XHR/WebSocket) limitées au nœud.
+ * CSP du kiosque : ressources limitées à l'origine du nœud (navigation déjà verrouillée
+ * sur cette origine). `script-src` autorise `'unsafe-inline'` et `'unsafe-eval'` car Next.js
+ * en a besoin (scripts inline d'hydratation + `eval` de Turbopack en dev) — sans quoi la page
+ * ne s'hydrate pas et les formulaires retombent en soumission GET native. `connect-src` inclut
+ * `ws:`/`wss:` pour le HMR en dev. Compromis acceptable : la coquille ne charge QUE le nœud LAN
+ * de confiance et ne peut naviguer ailleurs (cf. isAllowedNavigation).
  */
 export function buildCsp(nodeOrigin: string): string {
   const o = (() => {
@@ -51,10 +55,12 @@ export function buildCsp(nodeOrigin: string): string {
   })();
   return [
     `default-src 'self' ${o}`,
-    `script-src 'self' ${o}`,
+    `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${o}`,
     `style-src 'self' 'unsafe-inline' ${o}`,
-    `img-src 'self' data: ${o}`,
-    `connect-src 'self' ${o}`,
+    `img-src 'self' data: blob: ${o}`,
+    `font-src 'self' data: ${o}`,
+    `connect-src 'self' ${o} ws: wss:`,
+    `worker-src 'self' blob:`,
     `object-src 'none'`,
     `frame-ancestors 'none'`,
     `base-uri 'self'`,

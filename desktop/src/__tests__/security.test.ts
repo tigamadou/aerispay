@@ -19,11 +19,19 @@ describe("C2.2 — durcissement Electron", () => {
     expect(isAllowedNavigation("pas-une-url", node)).toBe(false);
   });
 
-  it("construit une CSP stricte limitée au nœud (pas d'object, frame-ancestors none)", () => {
+  it("construit une CSP limitée au nœud (pas d'object, frame-ancestors none)", () => {
     const csp = buildCsp("https://magasin.local:3000");
     expect(csp).toContain("default-src 'self' https://magasin.local:3000");
     expect(csp).toContain("object-src 'none'");
     expect(csp).toContain("frame-ancestors 'none'");
     expect(csp).toContain("connect-src 'self' https://magasin.local:3000");
+  });
+
+  it("autorise les scripts inline + eval requis par Next (hydratation / Turbopack)", () => {
+    const csp = buildCsp("https://magasin.local:3000");
+    expect(csp).toMatch(/script-src[^;]*'unsafe-inline'/);
+    expect(csp).toMatch(/script-src[^;]*'unsafe-eval'/);
+    // WebSocket HMR du nœud en dev
+    expect(csp).toMatch(/connect-src[^;]*ws:/);
   });
 });
