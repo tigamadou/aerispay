@@ -2,21 +2,25 @@
 #
 # run-plans.sh — Exécution autonome des plans d'implémentation AerisPay.
 #
-# Relance Claude Code en boucle (headless + /goal) jusqu'à ce que TOUS les plans
-# de docs/superpowers/plans/ soient exécutés. Un plan PRÉSENT dans ce dossier =
+# Relance Claude Code en boucle (headless) jusqu'à ce que TOUS les plans de
+# docs/superpowers/plans/ soient exécutés. Un plan PRÉSENT dans ce dossier =
 # un plan EN ATTENTE ; sa tâche finale le supprime une fois implémenté et vérifié
-# (politique « specs/plans éphémères », CLAUDE.md §8.1). Le runner s'arrête donc
-# quand le dossier ne contient plus aucun plan.
+# (politique « specs/plans éphémères », CLAUDE.md §8.1).
 #
-# Survit à la fin de session et aux limites d'usage (token/rate-limit) : il sleep
-# puis relance automatiquement (--continue conserve le contexte, auto-compacté).
+# COMPLÉTION = le dossier des plans est vide (signal DÉTERMINISTE, basé sur l'état
+# du système de fichiers — surtout PAS sur la présence d'un mot dans le log, qui
+# produit des faux positifs car le prompt/raisonnement réécho ce mot et faisait
+# sortir la boucle dès le 1er tour).
+#
+# Survit à la fin de session et aux limites d'usage : il sleep puis relance
+# (--continue conserve le contexte, auto-compacté).
 #
 # Usage :
 #   ./scripts/run-plans.sh
 #   MAX_ITER=500 MODEL=claude-sonnet-4-6 ./scripts/run-plans.sh
 #
-# Arrêt : Ctrl-C, automatiquement quand plus aucun plan ne reste (ou sentinelle
-# PLANS_COMPLETE émise par Claude).
+# Arrêt : Ctrl-C ; automatiquement quand plus aucun plan ne reste ; ou après
+# STALL_LIMIT tours consécutifs sans qu'un plan se termine.
 
 set -u
 
@@ -30,6 +34,7 @@ MAX_ITER="${MAX_ITER:-300}"          # plafond de sécurité (nombre de relances
 MAX_TURNS="${MAX_TURNS:-200}"        # tours max par invocation
 COOLDOWN="${COOLDOWN:-10}"           # pause normale entre deux relances (s)
 LIMIT_SLEEP="${LIMIT_SLEEP:-1800}"   # pause si limite d'usage atteinte (s = 30 min)
+STALL_LIMIT="${STALL_LIMIT:-4}"      # tours consécutifs sans progrès avant abandon
 LOGDIR="${LOGDIR:-$REPO_ROOT/.plan-logs}"
 STREAM="${STREAM:-1}"                # 1 = tout voir en direct (outils, raisonnement) ; 0 = sortie finale seule
 
@@ -57,11 +62,17 @@ format_stream() {
   fi
 }
 
-SENTINEL="PLANS_COMPLETE"
-
 # Compte les plans encore en attente (fichiers .md hors README éventuel).
+# C'est LE signal de complétion : 0 => terminé.
 count_pending_plans() {
   find "$REPO_ROOT/$PLANS_DIR" -maxdepth 1 -type f -name '*.md' ! -name 'README.md' 2>/dev/null | wc -l | tr -d ' '
+}
+
+# Détecte une limite d'usage / rate-limit dans la FIN du log uniquement (le message
+# d'erreur apparaît en queue de flux). Motifs stricts pour éviter les faux positifs
+# venant du contenu métier (tests, code) au milieu du flux.
+hit_usage_limit() {
+  tail -n 80 "$1" | grep -qiE 'usage limit reached|rate.?limit|too many requests|429|overloaded|quota exceeded|reset at'
 }
 
 # Consigne de concision injectée dans le system prompt pour économiser les tokens.
@@ -69,13 +80,12 @@ TERSE="Sois extrêmement bref dans ton texte. Pas de préambule, pas de récap, 
 d'explication de ce que tu vas faire. Agis directement via les outils. Une ligne \
 maximum entre deux actions. N'écris des phrases que si c'est strictement nécessaire."
 
-# Condition de complétion évaluée par /goal — formulée comme un fait que la
-# SORTIE de Claude doit démontrer (pas une commande à lancer).
-GOAL="Le dossier $PLANS_DIR ne contient plus aucun plan (.md) et les suites de tests \
-passent (web/app : 'npx vitest run' ; desktop : 'npx vitest run'). Quand c'est vrai, \
-écris exactement le mot $SENTINEL sur la dernière ligne."
+# Objectif (focalise le modèle ; la boucle, elle, décide de l'arrêt via l'état du dossier).
+GOAL="Exécuter tous les plans de $PLANS_DIR jusqu'à ce que le dossier soit vide, en \
+gardant les suites de tests vertes (web/app et desktop : 'npx vitest run')."
 
-# Prompt de travail (une itération = exécuter le plus loin possible le plan courant).
+# Prompt de travail : une invocation doit avancer LE PLUS LOIN POSSIBLE (idéalement
+# tout terminer), pas seulement une tâche.
 read -r -d '' PROMPT <<EOF
 /goal $GOAL
 
@@ -83,35 +93,31 @@ Tu travailles sur AerisPay (monorepo : web/app = nœud magasin, desktop = client
 Respecte STRICTEMENT CLAUDE.md (TDD obligatoire, TypeScript strict, Zod, Prisma singleton,
 pas de any ; commits SANS mention Co-Authored-By, CLAUDE.md §8.2).
 
-Boucle de travail :
-1. Liste $PLANS_DIR. S'il ne reste aucun plan (.md), vérifie que les tests passent puis écris $SENTINEL.
-2. Sinon, prends le PLUS ANCIEN plan (ordre alphabétique du nom de fichier = ordre chronologique).
-3. Exécute-le tâche par tâche avec la compétence superpowers:executing-plans :
+Boucle de travail — NE T'ARRÊTE PAS après une seule tâche ni un seul plan, enchaîne :
+1. Liste $PLANS_DIR. Tant qu'il reste un plan (.md), prends le PLUS ANCIEN (ordre du nom = chronologique).
+2. Exécute-le tâche par tâche avec la compétence superpowers:executing-plans :
    pour chaque tâche, écris le test d'abord, vois-le échouer, code minimal, tests verts, commit.
-4. La DERNIÈRE tâche du plan supprime la spec ET le plan correspondants (politique éphémère,
-   CLAUDE.md §8.1) puis commit. Le plan disparaît donc de $PLANS_DIR quand il est terminé.
-5. Passe au plan suivant. Continue jusqu'à ce que $PLANS_DIR soit vide et les tests verts.
+3. La DERNIÈRE tâche du plan supprime la spec ET le plan correspondants (politique éphémère,
+   CLAUDE.md §8.1) puis commit — le plan disparaît donc de $PLANS_DIR.
+4. Passe IMMÉDIATEMENT au plan suivant. Continue jusqu'à ce que $PLANS_DIR ne contienne PLUS aucun plan.
 
 N'avance jamais sur une tâche dont les tests échouent. Un commit par tâche terminée.
-Quand $PLANS_DIR ne contient plus aucun plan et que les tests passent, écris $SENTINEL.
+Va le plus loin possible dans cette invocation ; le superviseur te relancera si besoin.
 EOF
 
 mkdir -p "$LOGDIR"
 cd "$WORKDIR" || { echo "Répertoire introuvable : $WORKDIR"; exit 1; }
 
-PENDING="$(count_pending_plans)"
 echo "▶ Démarrage exécution autonome des plans — repo: $WORKDIR — modèle: $MODEL"
-echo "  Plans en attente: $PENDING ($PLANS_DIR)"
+echo "  Plans en attente: $(count_pending_plans) ($PLANS_DIR)"
 echo "  Logs: $LOGDIR"
 
-if [[ "$PENDING" == "0" ]]; then
-  echo "✅ Aucun plan en attente. Rien à faire."
-  exit 0
-fi
+stall=0
 
 for ((i = 1; i <= MAX_ITER; i++)); do
-  # Arrêt déterministe : plus aucun plan en attente -> terminé.
-  if [[ "$(count_pending_plans)" == "0" ]]; then
+  # === Autorité d'arrêt : plus aucun plan en attente -> terminé. ===
+  current="$(count_pending_plans)"
+  if [[ "$current" == "0" ]]; then
     echo ""
     echo "✅ Tous les plans sont exécutés (dossier $PLANS_DIR vide)."
     exit 0
@@ -120,7 +126,7 @@ for ((i = 1; i <= MAX_ITER; i++)); do
   TS="$(date '+%Y-%m-%d_%H-%M-%S')"
   LOG="$LOGDIR/iter-$(printf '%03d' "$i")-$TS.log"
   echo ""
-  echo "=== Itération $i / $MAX_ITER — $TS — plans restants: $(count_pending_plans) ==="
+  echo "=== Itération $i / $MAX_ITER — $TS — plans restants: $current ==="
 
   # --continue : reprend la session précédente (contexte conservé, auto-compacté).
   # bypassPermissions : autonomie totale (édition/commande sans confirmation).
@@ -142,20 +148,33 @@ for ((i = 1; i <= MAX_ITER; i++)); do
       --output-format text 2>&1 | tee "$LOG"
   fi
 
-  # Succès explicite : sentinelle présente -> on revérifie le dossier et on s'arrête.
-  if grep -q "$SENTINEL" "$LOG" && [[ "$(count_pending_plans)" == "0" ]]; then
-    echo ""
-    echo "✅ Plans terminés à l'itération $i. Voir $LOG"
-    exit 0
-  fi
-
-  # Limite d'usage / rate-limit détectée -> pause longue avant de réessayer.
-  if grep -qiE "usage limit|rate limit|limit reached|429|quota|reset at" "$LOG"; then
+  # Limite d'usage : pause longue puis on relance SANS compter comme stagnation.
+  if hit_usage_limit "$LOG"; then
     echo "⏳ Limite d'usage atteinte. Pause ${LIMIT_SLEEP}s avant relance…"
     sleep "$LIMIT_SLEEP"
-  else
-    sleep "$COOLDOWN"
+    continue
   fi
+
+  # Progrès = au moins un plan terminé (donc supprimé) durant cette itération.
+  after="$(count_pending_plans)"
+  if [[ "$after" == "0" ]]; then
+    echo ""
+    echo "✅ Tous les plans sont exécutés (itération $i)."
+    exit 0
+  fi
+  if (( after < current )); then
+    stall=0
+  else
+    stall=$((stall + 1))
+    echo "… aucun plan terminé à ce tour (sans progrès : $stall/$STALL_LIMIT)."
+  fi
+
+  if (( stall >= STALL_LIMIT )); then
+    echo "⚠ $STALL_LIMIT tours consécutifs sans qu'un plan se termine — arrêt. Voir $LOG."
+    exit 1
+  fi
+
+  sleep "$COOLDOWN"
 done
 
 echo "⚠ Plafond MAX_ITER=$MAX_ITER atteint. Plans restants: $(count_pending_plans). Vérifie $LOGDIR."
