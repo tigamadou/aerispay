@@ -1,671 +1,351 @@
-# AerisPay — Architecture Technique MVP
+# Architecture AerisPay
 
-> **Version :** 1.0 — MVP  
-> **Date :** Avril 2026  
-> **Modules couverts :** Gestion de Stock · Comptoir (POS) · Périphériques de caisse · Journal d’activité (audit)  
-> **Stack :** Next.js 14 · TypeScript · Prisma · MySQL · Tailwind CSS
+> **Version :** 2.0 — Architecture desktop 3 niveaux
+> **Date :** Juin 2026
+> **Modules couverts :** Stock · Comptoir (POS) · Caisse & sessions · Taxes/Paramètres · Périphériques · Journal d'activité · Dashboard
+> **Stack nœud magasin :** Next.js 16 (App Router) · React 19 · TypeScript · Prisma · MySQL · Tailwind CSS · shadcn/ui
+> **Client caisse cible :** Electron (présentation + pont périphériques, **sans base de données**)
 
----
-
-## 1. Vue d'ensemble
-
-AerisPay MVP est une application web de caisse enregistreuse et de gestion commerciale conçue pour les petits et moyens commerces. La première version se concentre sur la **gestion de stock**, le **comptoir (POS)**, la compatibilité avec les périphériques de caisse (imprimante ticket, douchette code-barres, tiroir-caisse), l’impression de tickets normalisés (PDF + thermique) et un **journal d’activité** centralisé pour l’audit des opérations.
-
-```
-┌─────────────────────────────────────────────────┐
-│                  Navigateur Web                  │
-│         Next.js 14 · App Router · React          │
-│         Tailwind CSS · shadcn/ui                 │
-└──────────────────────┬──────────────────────────┘
-                       │ HTTP / API Routes
-┌──────────────────────▼──────────────────────────┐
-│               Next.js API Routes                 │
-│         Logique métier · Validations             │
-│         PDF · ESC/POS · Douchette · Tiroir       │
-└──────────────────────┬──────────────────────────┘
-                       │ Prisma ORM
-┌──────────────────────▼──────────────────────────┐
-│                 MySQL Database                    │
-│   Produits · Stock · Ventes · Sessions · Users · Activity logs │
-└─────────────────────────────────────────────────┘
-```
-
-### 1.1 Cible produit : structure, magasins, local & cloud (hors scope MVP complet)
-
-En **objectif** (détaillé dans `SPECS/MULTI_ORGANISATION.md`) :
-
-- Une **même structure** (groupe) peut déployer l’app sur **plusieurs points de vente** (supermarchés) : en pratique, **une base MySQL locale** par site est recommandée pour la **caisse** (latence, continuité si la liaison Internet tombe).
-- Chaque site peut avoir **plusieurs postes de caisse** (multi-terminaux) et **plusieurs caissiers** (sessions de caisse par opérateur) — le schéma MVP actuel est **mono-magasin implicite** ; l’évolution passera par des clés `organisation` / `magasin` / `poste` au fil de la roadmap.
-- **Sauvegarde en ligne** : copies chiffrées périodiques (ex. dump MySQL vers stockage objet) pour **reprise** et **contrôle** ; l’**accès à distance** (reporting, direction) doit passer par des **canaux applicatifs ou VPN** sécurisés, **pas** par une exposition directe de MySQL sur Internet.
-
-Cette section n’impose pas encore toutes les tables du schéma Prisma : elle fixe l’**alignement** produit / infra pour les sprints “multi-PDV”.
+> **Où trouver quoi.**
+> - **Le QUOI fonctionnel** (comportements réels dérivés du code) : `docs/product/` (auth/rôles, stock, comptoir/ventes, caisse/sessions, impression/périphériques, dashboard, journal, taxes/paramètres, pages & API).
+> - **Le COMMENT cible + roadmap + décisions** (migration desktop 3 niveaux) : `docs/architecture-desktop/` (modèle 3 niveaux, client desktop, enrôlement, nœud magasin, synchronisation cloud, sécurité, déploiement, **ADR** `09-adr.md`, **roadmap** `00-ROADMAP-IMPLEMENTATION.md`).
+> - Ce document **ne duplique pas** ces sources : il fixe la topologie cible, ancre les invariants (schéma, rôles, endpoints) et renvoie.
 
 ---
 
-## 2. Stack Technique Recommandée
+## 1. Vue d'ensemble — topologie desktop à trois niveaux
 
-### 2.1 Frontend
-| Technologie | Rôle | Justification |
+AerisPay est un système de caisse enregistreuse et de gestion commerciale. La cible n'est **plus** une « application web mono-base » mais un **système desktop à trois niveaux** : un client de caisse (Electron) parle à un **nœud magasin** (le backend Next + Prisma + MySQL actuel, tournant **en local** dans le magasin et **source de vérité du magasin**), lequel se synchronise vers un **cloud organisation** (agrégation multi-magasins + référence descendante).
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Niveau 3 — CLOUD / ORGANISATION (entité parente)             │
+│   Base cloud agrégée · référence descendante · audit groupe  │
+│   Enrôlement magasins/postes · sauvegardes · accès distant   │
+└───────────────▲─────────────────────────────────────────────┘
+                │  sync magasin ↔ cloud (worker, eventual consistency)
+                │  montant = append-only · descendant = référence LWW
+┌───────────────┴─────────────────────────────────────────────┐
+│ Niveau 2 — NŒUD MAGASIN (source de vérité du magasin)        │
+│   Backend Next 16 + Prisma + MySQL ACTUEL, tournant en local │
+│   API HTTPS LAN · logique métier · worker de sync · outbox   │
+└───────────────▲─────────────────────────────────────────────┘
+                │  HTTPS LAN (token magasin scopé par poste)
+┌───────────────┴─────────────────────────────────────────────┐
+│ Niveau 1 — CAISSE / POSTE (client Electron, SANS BD)         │
+│   Renderer = UI servie par le nœud · main = périphériques    │
+│   ESC/POS · tiroir · douchette · BLOQUE si nœud indisponible │
+└─────────────────────────────────────────────────────────────┘
+```
+
+| Niveau | Rôle | Embarque | Autorité |
+|---|---|---|---|
+| **1 — Caisse / poste** | Terminal de présentation + pont périphériques (imprimante ESC/POS, tiroir, douchette). Identifié par un `caisseId` fixé à l'enrôlement. | **Aucune BD, aucun serveur applicatif.** UI servie par le nœud. | Hash d'intégrité chaîné **par caisse** (cible). |
+| **2 — Nœud magasin** | Serveur applicatif (Next + Prisma) + base MySQL du magasin + worker de sync. Toutes les caisses lisent/écrivent **ici** en LAN. | **Le backend actuel, inchangé.** | **Transactionnel** : stock, ventes, sessions, mouvements caisse, journal. |
+| **3 — Cloud organisation** | Agrégation inter-magasins, reporting consolidé, données de référence, enrôlement, sauvegardes en ligne, accès distant. | Base cloud MySQL managé (ADR-002). | **Référence** : catalogue, prix, utilisateurs/rôles, taxes, paramètres, seuils. |
+
+Principe directeur (voir `docs/architecture-desktop/01-modele-trois-niveaux.md`) : **référence descendante** (le cloud fait foi, diffusion vers les magasins) et **transactionnel montant** (le magasin fait foi, agrégé append-only par le cloud). Le cloud **ne réécrit jamais** le transactionnel d'un magasin.
+
+### 1.1 Pourquoi ce modèle (et pas du local-first par caisse)
+
+- **Stock strictement cohérent** : toutes les caisses d'un magasin partagent **une seule base**. Le décrément conditionnel atomique (anti-survente) s'exécute contre cette base unique → **pas de survente entre caisses**. Le problème du stock distribué n'apparaît pas.
+- **Ledger de caisse intègre** : sessions, mouvements et réconciliation appartiennent à une caisse et vivent dans la base magasin → pas de conflit multi-maître.
+- **Le distribué est confiné** à la frontière magasin ↔ cloud, où les flux montants sont **append-only** donc faciles à fusionner.
+- **Périphériques fiables** : Electron pilote l'imprimante ESC/POS et le tiroir-caisse hors de portée d'un navigateur.
+
+### 1.2 ADR-001 — Pas de mode autonome (décision structurante actée)
+
+> **Le client Electron est TOUJOURS un client du nœud magasin.** Il n'embarque **jamais** de base de données ni de serveur applicatif. Réf. `docs/architecture-desktop/09-adr.md`.
+
+- Le **nœud magasin** est toujours un service serveur distinct — soit sur une machine dédiée, soit **co-localisé en `localhost`** sur la même machine qu'un poste pour un commerce mono-caisse, mais **jamais empaqueté dans** le client Electron.
+- **Conséquences :** 2 modes d'enrôlement (nœud magasin / client) au lieu de 3 ; packaging Electron allégé (pas de Prisma/MySQL à packager, seuls les modules natifs ESC/POS `node-thermal-printer`/`serialport` via `electron-rebuild`) ; déploiement du nœud **inchangé** vs aujourd'hui (Next + Prisma + MySQL, ex. via Docker).
+- **Disponibilité assumée :** si le nœud magasin est injoignable, la caisse **bloque** (pas de file locale, pas de mode dégradé). Si le **cloud** est coupé, le magasin continue de fonctionner et rattrape la synchronisation au retour du WAN.
+
+### 1.3 Autres décisions cadre (ADR)
+
+| ADR | Décision | Conséquence clé |
 |---|---|---|
-| **Next.js 14** (App Router) | Framework principal | SSR, routing, API intégrée |
-| **TypeScript** | Typage statique | Sécurité du code, maintenabilité |
-| **Tailwind CSS** | Styles | Rapidité de développement |
-| **shadcn/ui** | Composants UI | Composants accessibles et personnalisables |
-| **React Hook Form + Zod** | Formulaires & validation | Validation côté client robuste |
-| **Zustand** | État global (panier POS) | Léger et simple |
-| **TanStack Query** | Gestion des données async | Cache, refetch automatique |
+| **001** | Pas de mode autonome | Client = toujours client du nœud ; 2 modes d'enrôlement |
+| **002** | Cloud = **MySQL managé** | Schéma cloud réutilise le schéma magasin + clés `magasinId`/`organisationId` |
+| **003** | Transport « Simple V1 » | Tokens longue durée + **révocation** ; mTLS/rotation auto → backlog V2 |
+| **004** | Rétention outbox `EventCaisse` | **30 jours** après accusé cloud puis purge |
+| **005** | **Aucune HA** du nœud en V1 | SPOF assumé ; sauvegardes (dump + réplication cloud) |
+| **006** | Référence **descendante stricte** | Édition catalogue/prix/users via l'app cloud ; pas d'édition magasin |
 
-### 2.2 Backend
-| Technologie | Rôle | Justification |
+Détail complet et conséquences sur la roadmap : `docs/architecture-desktop/09-adr.md`.
+
+---
+
+## 2. Carte d'autorité — qui écrit quoi, où
+
+| Donnée | Autorité | Propagation | Remarque |
+|---|---|---|---|
+| Produits, prix, catégories | **Cloud** | Cloud → magasin | Édition centrale, diffusion descendante (LWW) |
+| Utilisateurs, rôles, mots de passe (hash) | **Cloud** | Cloud → magasin | Login servi par le magasin ; désactivation propagée |
+| Paramètres, taxes, seuils | **Cloud** | Cloud → magasin | Référence descendante |
+| **Stock** (`Produit.stockActuel`, `MouvementStock`) | **Magasin** | Magasin → cloud (agrégation) | Cohérent au sein du magasin (base unique) |
+| **Ventes** (`Vente`, `LigneVente`, `Paiement`) | **Magasin** | Magasin → cloud (append-only) | Générées par les caisses, persistées au magasin |
+| **Sessions & mouvements caisse** | **Magasin** | Magasin → cloud (append-only) | Ledger, partitionné par caisse |
+| **Hash d'intégrité de session** | **Caisse** (au magasin) | Magasin → cloud | Chaîné **par caisse** (cible) |
+| **Journal d'activité** | **Magasin** | Magasin → cloud | Audit |
+
+---
+
+## 3. Stack technique
+
+### 3.1 Nœud magasin (backend + UI servie)
+| Domaine | Technologie | Rôle |
 |---|---|---|
-| **Next.js API Routes** | API REST | Intégré au framework, zéro config |
-| **Prisma ORM** | Accès base de données | Type-safe, migrations automatiques |
-| **MySQL 8** | Base de données | Fiable, relationnel, support Prisma natif (via `provider = "mysql"`) |
-| **NextAuth.js** | Authentification | Sessions sécurisées, multi-providers |
+| Framework | **Next.js 16** (App Router) · React 19 | SSR, routing, API Routes intégrées |
+| Langage | **TypeScript** (strict) | Typage statique |
+| ORM / BD | **Prisma** · **MySQL 8** | Accès type-safe, migrations, source de vérité magasin |
+| Auth | **NextAuth.js v5** (credentials) | Sessions, login servi par le nœud |
+| UI | **Tailwind CSS** · **shadcn/ui** | Styles, composants accessibles |
+| Formulaires | **React Hook Form + Zod** | Validation client/serveur |
+| État | **Zustand** (panier POS) · **TanStack Query** (data async) | UI locale persistante · cache/refetch |
+| Impression | **@react-pdf/renderer** · **node-thermal-printer** · **qrcode** | Ticket PDF · ESC/POS 58/80 mm · QR vérification |
+| Sync | Worker magasin ↔ cloud + outbox **`EventCaisse`** | Réplication transactionnelle + pull référence |
+| Tests | **Vitest** · **React Testing Library** · **Cypress/Playwright** | Unitaires · composants · e2e |
 
-### 2.3 Impression
-| Technologie | Rôle | Justification |
+> ⚠️ **Next.js 16 introduit des breaking changes** par rapport aux versions antérieures. Avant d'écrire du code Next, consulter les guides versionnés dans `web/app/node_modules/next/dist/docs/` (cf. `web/app/AGENTS.md`).
+
+### 3.2 Client caisse (Electron — cible)
+| Domaine | Technologie | Rôle |
 |---|---|---|
-| **@react-pdf/renderer** | Génération PDF | Tickets PDF normalisés côté serveur |
-| **node-thermal-printer** | Imprimante thermique | Support ESC/POS 58mm / 80mm |
-| **qrcode** | QR Code sur ticket | Lien de vérification du ticket |
+| Coquille | **Electron** | Fenêtre, `contextIsolation`, `sandbox`, CSP, navigation restreinte |
+| Renderer | UI **servie par le nœud magasin** | Aucune logique métier embarquée |
+| Main process | **node-thermal-printer** · **serialport** | Pont périphériques ESC/POS / tiroir / douchette via IPC `window.aerisDevices.*` |
+| Recompilation native | **electron-rebuild** + CI multi-OS | Modules natifs sur Windows/macOS/Linux |
+| Distribution | **electron-builder** · **electron-updater** + S3 | Installeurs signés, auto-update |
 
-### 2.4 Périphériques de caisse
-| Périphérique | Mode de support | Notes |
+Détails : `docs/architecture-desktop/02-client-desktop.md`.
+
+### 3.3 Périphériques de caisse
+| Périphérique | Mode | Notes |
 |---|---|---|
-| **Imprimante ticket** | ESC/POS réseau, USB ou série | Réseau recommandé en production Docker ; USB/série nécessite exposition explicite du device |
-| **Douchette code-barres** | USB/HID en mode clavier | Compatible navigateur sans driver ; scan capturé via champ recherche POS / buffer clavier |
-| **Tiroir-caisse** | Impulsion ESC/POS via imprimante, ou interface directe configurée | Ouverture automatique après paiement espèces validé |
+| **Imprimante ticket** | ESC/POS USB, série ou réseau | Pilotée par le **main Electron** (cible) ; le nœud fournit le contenu du reçu |
+| **Douchette code-barres** | USB/HID mode clavier | Sans driver ; scan capturé dans le champ recherche POS |
+| **Tiroir-caisse** | Impulsion ESC/POS via imprimante, ou interface directe | Ouverture après paiement espèces validé |
 
-### 2.5 Infrastructure
-| Technologie | Rôle |
+> Une **panne périphérique APRÈS qu'une vente est validée ne doit jamais annuler la vente** (la vente est persistée au nœud ; l'impression/tiroir sont best-effort). Cf. `docs/product/05-impression-peripheriques.md`.
+
+### 3.4 Infrastructure
+| Niveau | Déploiement |
 |---|---|
-| **Docker & Docker Compose** | Environnements reproductibles : `docker-compose.yml` (dev) et `docker-compose.prod.yml` (prod) — voir `DOCKER.md` |
-| **MySQL 8** | Base de données (conteneur local, phpMyAdmin en dev, ou service managé) |
-| **Vercel / PaaS** | Déploiement Next.js possible en alternative au conteneur applicatif |
-| **Cloud DB** | MySQL / MariaDB managé (PlanetScale, AWS RDS, etc., hors Docker local) |
-| **Cloudinary / S3** | Stockage images produits (optionnel MVP) |
+| **Nœud magasin** | Machine locale du magasin. Next + Prisma + MySQL, ex. via **Docker Compose** (`docker-compose.yml` dev, `docker-compose.prod.yml` prod ; voir `DOCKER.md`). Pas de HA en V1 (ADR-005) : sauvegardes (dump planifié + réplication cloud comme filet). |
+| **Cloud organisation** | **MySQL managé** (ADR-002) + app cloud (agrégation, référence, enrôlement). Sauvegardes en ligne (S3). Accès distant via canaux applicatifs/VPN, **jamais** MySQL exposé directement. |
 
 ---
 
-## 2.6 Méthodologie TDD
+## 4. Méthodologie TDD
 
-Le MVP est développé en **Test-Driven Development**. Pour chaque fonctionnalité, correction métier ou régression :
+Développement en **Test-Driven Development** (obligatoire, cf. `web/app/AGENTS.md`) :
 
-1. Écrire d’abord les tests qui décrivent le comportement attendu.
-2. Vérifier que les tests échouent lorsque le comportement n’existe pas encore, si le contexte le permet.
-3. Implémenter le code minimal pour faire passer ces tests.
+1. Écrire d'abord les tests décrivant le comportement attendu.
+2. Vérifier l'échec attendu si le contexte le permet.
+3. Implémenter le code minimal pour les faire passer.
 4. Refactorer sans affaiblir la couverture.
 
-Les API Routes et transactions Prisma sont couvertes par Vitest, les composants et formulaires critiques par React Testing Library, et les parcours de comptoir/stock/impression par Playwright lorsque le comportement est de bout en bout.
+API Routes et transactions Prisma → **Vitest** ; composants/formulaires critiques → **RTL** ; parcours de bout en bout → **Cypress/Playwright**. Baseline de référence : suite verte (≈ 839 tests sur `feat/audit_refacto`).
 
 ---
 
-## 3. Structure du Projet
+## 5. Structure du projet (nœud magasin)
 
-> **Règle :** le code applicatif vit sous **`web/app/`**. Les fichiers Docker Compose et la documentation sont à la **racine**. Les commandes `npm`/`npx`/`prisma` se lancent depuis `web/app/` ; les commandes `docker compose` depuis la racine.
+> **Règle :** le code applicatif vit sous **`web/app/src/`** (App Router, composants, `lib`, tests dans `web/app/src/__tests__/`). Prisma sous `web/app/prisma/`. Docker Compose et docs à la **racine**. Commandes `npm`/`npx`/`prisma` depuis `web/app/`.
 
 ```
 aerispay/                              # Racine du dépôt
 ├── docker-compose.yml                 # Dev : MySQL + phpMyAdmin + app
 ├── docker-compose.prod.yml            # Prod : image buildée + MySQL
-├── DOCKER.md                          # Guide conteneurisation
-├── ARCHITECTURE_MVP.md                # Ce fichier
-├── CLAUDE.md                          # Consignes agents IA
-├── ROADMAP.md
-├── CONVENTIONS.md
-├── TODO.md
-├── SPECS/
-│   ├── AUTH.md
-│   ├── STOCK.md
-│   ├── COMPTOIR.md
-│   ├── IMPRESSION.md
-│   ├── PERIPHERIQUES.md
-│   ├── MULTI_ORGANISATION.md
-│   └── ACTIVITY_LOG.md
-└── web/                               # Artefacts applicatifs
-    ├── Dockerfile                     # Image production Next.js (standalone)
-    ├── development.env.example        # Exemple variables dev
-    ├── production.env.example         # Exemple variables prod
-    └── app/                           # Application Next.js (npm/npx depuis ici)
-        ├── app/                       # App Router Next.js
-        │   ├── (auth)/                # Pages auth (pas d’inscription publique)
-        │   │   └── login/
-        │   ├── (dashboard)/           # Layout principal avec sidebar
-        │   │   ├── layout.tsx
-        │   │   ├── page.tsx           # Dashboard / KPIs
-        │   │   ├── users/             # ADMIN : gestion des comptes
-        │   │   │   ├── page.tsx
-        │   │   │   └── nouveau/
-        │   │   ├── activity-logs/     # ADMIN + MANAGER : journal d’audit
-        │   │   │   └── page.tsx
-        │   │   ├── stock/             # Module Stock
-        │   │   │   ├── page.tsx
-        │   │   │   ├── [id]/page.tsx
-        │   │   │   ├── nouveau/page.tsx
-        │   │   │   ├── categories/
-        │   │   │   └── mouvements/
-        │   │   └── comptoir/           # Module Comptoir (POS)
-        │   │       ├── page.tsx       # Interface POS
-        │   │       ├── sessions/
-        │   │       ├── ventes/
-        │   │       └── tickets/[id]/
-        │   └── api/                   # API Routes
-        │       ├── auth/[...nextauth]/
-        │       ├── users/             # CRUD utilisateurs (réservé ADMIN)
-        │       ├── activity-logs/     # GET liste (ADMIN + MANAGER)
-        │       ├── produits/
-        │       ├── categories/
-        │       ├── stock/mouvements/
-        │       ├── stock/alertes/
-        │       ├── comptoir/sessions/
-        │       ├── ventes/
-        │       ├── ventes/[id]/annuler/
-        │       ├── tickets/[id]/pdf/
-        │       ├── tickets/[id]/print/
-        │       ├── cash-drawer/open/
-        │       └── dashboard/kpis/
-        ├── components/                # Composants réutilisables
-        │   ├── ui/                    # shadcn/ui — ne pas modifier
-        │   ├── stock/
-        │   │   ├── ProductCard.tsx
-        │   │   ├── ProductForm.tsx
-        │   │   ├── StockAlertBadge.tsx
-        │   │   └── MovementTable.tsx
-        │   ├── comptoir/
-        │   │   ├── POSGrid.tsx
-        │   │   ├── Cart.tsx
-        │   │   ├── PaymentModal.tsx
-        │   │   └── ReceiptPreview.tsx
-        │   ├── users/
-        │   │   ├── UserForm.tsx
-        │   │   └── UsersTable.tsx
-        │   ├── activity-logs/
-        │   │   └── ActivityLogTable.tsx
-        │   └── shared/
-        │       ├── Navbar.tsx
-        │       ├── Sidebar.tsx
-        │       └── KPICard.tsx
-        ├── hooks/                     # TanStack Query hooks (ex. useProduits.ts)
-        ├── store/                     # Zustand stores (ex. cartStore.ts)
-        ├── lib/                       # Utilitaires & logique serveur
-        │   ├── db.ts                  # Client Prisma singleton
-        │   ├── auth.ts                # Config NextAuth
-        │   ├── activity-log.ts        # logActivity + catalogue d’actions
-        │   ├── validations/           # Schémas Zod
-        │   ├── receipt/
-        │   │   ├── pdf-generator.ts
-        │   │   └── thermal-printer.ts
-        │   └── utils.ts
+├── DOCKER.md
+├── ARCHITECTURE_MVP.md                # Ce fichier (architecture cible)
+├── CLAUDE.md · CONVENTIONS.md · README.md
+├── docs/
+│   ├── product/                       # Le QUOI fonctionnel (dérivé du code)
+│   └── architecture-desktop/          # Le COMMENT cible + ADR + roadmap
+└── web/
+    ├── Dockerfile · development.env.example · production.env.example
+    └── app/                           # Application Next.js (nœud magasin)
+        ├── src/
+        │   ├── app/                   # App Router
+        │   │   ├── (auth)/login/
+        │   │   ├── (dashboard)/       # layout sidebar + pages
+        │   │   │   ├── page.tsx       # Dashboard KPIs
+        │   │   │   ├── users/ · activity-logs/ · parametres/ · taxes/
+        │   │   │   ├── stock/         # produits, catégories, mouvements
+        │   │   │   └── comptoir/      # POS, sessions, ventes, tickets
+        │   │   └── api/               # API Routes (voir §8)
+        │   ├── components/            # ui/ (shadcn — ne pas modifier), stock/, comptoir/, …
+        │   ├── hooks/                 # TanStack Query
+        │   ├── store/                 # Zustand (panier POS)
+        │   ├── lib/
+        │   │   ├── db.ts · auth.ts · permissions.ts · activity-log.ts
+        │   │   ├── validations/       # Schémas Zod
+        │   │   ├── services/          # cash-movement, reconciliation, seuils, integrity…
+        │   │   └── receipt/           # pdf-generator, thermal-printer
+        │   └── __tests__/             # Vitest + RTL
         ├── prisma/
-        │   ├── schema.prisma          # Modèle de données
-        │   └── migrations/
+        │   ├── schema.prisma          # Modèle de données (§6)
+        │   ├── migrations/
+        │   └── seed.ts
         └── types/
-            └── index.ts
 ```
 
 ---
 
-## 4. Modèle de Données (Base de Données)
+## 6. Modèle de données (nœud magasin)
 
-### 4.1 Schéma Prisma Complet
+> **Source de vérité du schéma : `web/app/prisma/schema.prisma`.** Le tableau ci-dessous reflète le schéma **réel** (branche `feat/audit_refacto`). **Au niveau magasin, le schéma reste celui-ci** ; les clés d'agrégation (`magasinId`/`organisationId`) et les tables d'enrôlement vivent **au niveau cloud** (ADR-002, `docs/architecture-desktop/08-impacts-glossaire.md`).
 
-```prisma
-// prisma/schema.prisma
+### 6.1 Inventaire des modèles
 
-generator client {
-  provider = "prisma-client-js"
-}
-
-datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
-}
-
-// ─── UTILISATEURS & AUTH ────────────────────────────
-
-model User {
-  id          String    @id @default(cuid())
-  nom         String
-  email       String    @unique
-  motDePasse  String
-  role        Role      @default(CAISSIER)
-  actif       Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  sessions     ComptoirSession[]
-  ventes       Vente[]
-  activityLogs ActivityLog[]
-
-  @@map("users")
-}
-
-enum Role {
-  ADMIN
-  MANAGER
-  CAISSIER
-}
-
-// ─── MODULE STOCK ───────────────────────────────────
-
-model Categorie {
-  id          String     @id @default(cuid())
-  nom         String
-  description String?
-  couleur     String?    // code hex pour l'UI
-  createdAt   DateTime   @default(now())
-
-  produits    Produit[]
-
-  @@map("categories")
-}
-
-model Produit {
-  id              String   @id @default(cuid())
-  reference       String   @unique
-  codeBarres      String?  @unique
-  nom             String
-  description     String?
-  image           String?  // URL image
-  prixAchat       Decimal  @db.Decimal(10, 2)
-  prixVente       Decimal  @db.Decimal(10, 2)
-  tva             Decimal  @default(0) @db.Decimal(5, 2) // % TVA
-  unite           String   @default("unité") // pcs, kg, litre...
-  stockActuel     Int      @default(0)
-  stockMinimum    Int      @default(5)   // seuil alerte
-  stockMaximum    Int?
-  actif           Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  categorieId     String
-  categorie       Categorie   @relation(fields: [categorieId], references: [id])
-  mouvements      MouvementStock[]
-  lignesVente     LigneVente[]
-
-  @@map("produits")
-}
-
-model MouvementStock {
-  id          String          @id @default(cuid())
-  type        TypeMouvement
-  quantite    Int
-  quantiteAvant Int
-  quantiteApres Int
-  motif       String?
-  reference   String?         // référence bon livraison/commande
-  createdAt   DateTime        @default(now())
-
-  produitId   String
-  produit     Produit         @relation(fields: [produitId], references: [id])
-  venteId     String?
-  vente       Vente?          @relation(fields: [venteId], references: [id])
-
-  @@map("mouvements_stock")
-}
-
-enum TypeMouvement {
-  ENTREE        // réapprovisionnement
-  SORTIE        // vente ou consommation
-  AJUSTEMENT    // correction inventaire
-  RETOUR        // retour client
-  PERTE         // casse, vol, expiration
-}
-
-// ─── MODULE COMPTOIR ─────────────────────────────────
-
-model ComptoirSession {
-  id              String    @id @default(cuid())
-  ouvertureAt     DateTime  @default(now())
-  fermetureAt     DateTime?
-  montantOuverture Decimal  @db.Decimal(10, 2)
-  montantFermeture Decimal? @db.Decimal(10, 2)
-  statut          StatutSession @default(OUVERTE)
-  notes           String?
-
-  userId          String
-  utilisateur     User      @relation(fields: [userId], references: [id])
-  ventes          Vente[]
-
-  @@map("comptoir_sessions")
-}
-
-enum StatutSession {
-  OUVERTE
-  FERMEE
-}
-
-model Vente {
-  id              String    @id @default(cuid())
-  numero          String    @unique // ex: VTE-2026-00001
-  dateVente       DateTime  @default(now())
-  sousTotal       Decimal   @db.Decimal(10, 2)
-  remise          Decimal   @default(0) @db.Decimal(10, 2)
-  tva             Decimal   @default(0) @db.Decimal(10, 2)
-  total           Decimal   @db.Decimal(10, 2)
-  statut          StatutVente @default(VALIDEE)
-  nomClient       String?
-  notesCaissier   String?
-  createdAt       DateTime  @default(now())
-
-  sessionId       String
-  session         ComptoirSession @relation(fields: [sessionId], references: [id])
-  userId          String
-  caissier        User      @relation(fields: [userId], references: [id])
-  lignes          LigneVente[]
-  paiements       Paiement[]
-  mouvementsStock MouvementStock[]
-
-  @@map("ventes")
-}
-
-enum StatutVente {
-  VALIDEE
-  ANNULEE
-  REMBOURSEE
-}
-
-model LigneVente {
-  id          String   @id @default(cuid())
-  quantite    Int
-  prixUnitaire Decimal @db.Decimal(10, 2)
-  remise      Decimal  @default(0) @db.Decimal(10, 2)
-  tva         Decimal  @default(0) @db.Decimal(10, 2)
-  sousTotal   Decimal  @db.Decimal(10, 2)
-
-  venteId     String
-  vente       Vente    @relation(fields: [venteId], references: [id])
-  produitId   String
-  produit     Produit  @relation(fields: [produitId], references: [id])
-
-  @@map("lignes_vente")
-}
-
-model Paiement {
-  id          String       @id @default(cuid())
-  mode        ModePaiement
-  montant     Decimal      @db.Decimal(10, 2)
-  reference   String?      // ref. mobile money, numéro carte...
-  createdAt   DateTime     @default(now())
-
-  venteId     String
-  vente       Vente        @relation(fields: [venteId], references: [id])
-
-  @@map("paiements")
-}
-
-enum ModePaiement {
-  ESPECES
-  MOBILE_MONEY   // Wave, Orange Money, etc.
-}
-
-// ─── JOURNAL D’ACTIVITÉ (audit) ─────────────────────
-
-model ActivityLog {
-  id          String   @id @default(cuid())
-  action      String
-  entityType  String?
-  entityId    String?
-  metadata    Json?
-  ipAddress   String?  @db.VarChar(45)
-  userAgent   String?  @db.Text
-  createdAt   DateTime @default(now())
-
-  actorId     String?
-  actor       User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
-
-  @@index([createdAt])
-  @@index([actorId])
-  @@index([action])
-  @@index([entityType, entityId])
-  @@map("activity_logs")
-}
-```
-
----
-
-## 5. Architecture des Modules
-
-### 5.1 Module Gestion de Stock
-
-**Fonctionnalités :**
-- Liste des produits avec filtres (catégorie, stock, statut)
-- Fiche produit complète (prix achat/vente, TVA, unité, seuils)
-- Tableau de bord stock avec alertes (produits sous seuil minimum)
-- Mouvements de stock : entrée, sortie, ajustement, retour, perte
-- Historique complet des mouvements avec filtres par date/produit
-- Export CSV/PDF de l'inventaire
-
-**Flux principal — Entrée de stock :**
-```
-Utilisateur → Formulaire Entrée Stock
-→ POST /api/stock/mouvements
-→ Validation Zod (quantité > 0, produit existant)
-→ Transaction Prisma :
-   ├── Créer MouvementStock (type: ENTREE)
-   └── Incrémenter Produit.stockActuel
-→ Réponse → Mise à jour UI (TanStack Query invalidation)
-```
-
-### 5.2 Module Comptoir (POS)
-
-**Fonctionnalités :**
-- Interface POS tactile avec grille de produits
-- Recherche produit en temps réel (nom, référence, code-barres)
-- Ajout rapide au panier par douchette lecteur de code-barres USB/HID
-- Panier de vente (ajout, suppression, modification quantité)
-- Application de remises (globale ou par ligne)
-- Paiement multi-modes (espèces avec calcul monnaie, mobile money)
-- Historique des ventes avec filtres
-- Gestion des sessions de comptoir (ouverture/fermeture avec fonds)
-- Impression ticket (PDF + thermique)
-- Ouverture tiroir-caisse après paiement espèces validé
-
-**Flux principal — Vente :**
-```
-Caissier → Interface POS
-→ Sélection produits ou scan douchette → Panier (Zustand store)
-→ Clic "Encaisser" → Modale paiement
-→ Saisie montant reçu / mode paiement
-→ POST /api/ventes
-→ Transaction Prisma :
-   ├── Créer Vente + LignesVente + Paiement(s)
-   └── Décrémenter Produit.stockActuel pour chaque ligne
-       └── Créer MouvementStock (type: SORTIE) par produit
-→ GET /api/tickets/[id]/pdf → Génération PDF
-→ Option : envoi commande ESC/POS vers imprimante thermique
-→ Si paiement espèces : impulsion ESC/POS d’ouverture tiroir-caisse
-→ Réinitialisation panier
-```
-
-### 5.3 Journal d’activité (audit)
-
-**Fonctionnalités :**
-- Enregistrement append-only des actions sensibles et métier (auth, utilisateurs, stock, comptoir, tickets)
-- Consultation filtrée par période, acteur, type d’action et entité
-- Détails techniques optionnels : IP, user-agent (audit réseau)
-
-**Implémentation :**
-- Table Prisma `ActivityLog` ; fonction serveur `logActivity()` dans `lib/activity-log.ts`
-- Appels depuis les API Routes après succès métier (et depuis les événements NextAuth pour la connexion / déconnexion)
-
-**Spécification détaillée :** `SPECS/ACTIVITY_LOG.md`
-
----
-
-## 6. Format du Ticket de Caisse Normalisé
-
-```
-┌─────────────────────────────────┐
-│         AERISPAY                │
-│      [Nom de la boutique]       │
-│   [Adresse] · [Téléphone]       │
-│   RCCM: XXXX · NIF: XXXX        │
-├─────────────────────────────────┤
-│ Ticket N° : VTE-2026-00001      │
-│ Date : 23/04/2026  14:35        │
-│ Caissier : [Nom]                │
-│ Session : #42                   │
-├─────────────────────────────────┤
-│ DÉSIGNATION   QTÉ  PU    TOTAL  │
-├─────────────────────────────────┤
-│ Produit A      2  5 000  10 000 │
-│ Produit B      1  3 500   3 500 │
-│ Produit C      3  1 200   3 600 │
-├─────────────────────────────────┤
-│              Sous-total : 17 100│
-│              Remise (-5%) :  855│
-│              TVA (18%) :  2 924 │
-│              TOTAL :     19 169 │
-├─────────────────────────────────┤
-│ Paiement : Espèces              │
-│ Reçu :             20 000 FCFA  │
-│ Monnaie :             831 FCFA  │
-├─────────────────────────────────┤
-│         [QR Code vérification]  │
-│   Merci de votre confiance !    │
-│   Conservez ce ticket svp.      │
-└─────────────────────────────────┘
-```
-
-**Informations obligatoires (normalisation) :**
-- Nom et coordonnées du commerce (RCCM, NIF/IFU selon pays)
-- Numéro de ticket séquentiel unique
-- Date et heure de la transaction
-- Identité du caissier
-- Détail des articles (désignation, quantité, prix unitaire, sous-total)
-- Sous-total, remises, TVA ventilée, total TTC
-- Mode(s) de paiement
-- Montant reçu et monnaie rendue (si espèces)
-- QR code de vérification (optionnel mais recommandé)
-
----
-
-## 7. API Routes — Endpoints Principaux
-
-### Stock
-| Méthode | Endpoint | Description |
+| Modèle | Rôle | Notes saillantes |
 |---|---|---|
-| GET | `/api/produits` | Liste produits (avec filtres) |
-| POST | `/api/produits` | Créer un produit |
-| GET | `/api/produits/[id]` | Détail produit |
-| PUT | `/api/produits/[id]` | Modifier produit |
-| DELETE | `/api/produits/[id]` | Désactiver produit |
-| GET | `/api/categories` | Liste catégories |
-| POST | `/api/categories` | Créer catégorie |
-| GET | `/api/stock/mouvements` | Historique mouvements |
-| POST | `/api/stock/mouvements` | Enregistrer mouvement |
-| GET | `/api/stock/alertes` | Produits sous seuil |
+| `User` + enum `Role` | Comptes & rôles (`ADMIN`, `MANAGER`, `CAISSIER`) | Mot de passe haché ; relations sessions/ventes/mouvements/logs |
+| `Categorie` | Catégories produits | Couleur UI |
+| `Produit` | Catalogue | `Produit.tva` = attribut **catalogue informatif**, **non** utilisé pour le calcul de taxe (modèle de **taxe globale**, voir `Taxe`) |
+| `MouvementStock` + enum `TypeMouvement` | Mouvements de stock | `ENTREE/SORTIE/AJUSTEMENT/RETOUR/PERTE` ; lien optionnel `vente` |
+| **`Caisse`** | Poste de caisse physique | `active` ; relation `mouvements` |
+| `ComptoirSession` + enum `StatutSession` | Sessions de caisse | Workflow de clôture/validation à l'aveugle, écarts par mode, **hash d'intégrité** (`hashIntegrite`/`hashSessionPrecedente`), session corrective, fond d'ouverture (Lot G). Statuts : `OUVERTE`, `EN_ATTENTE_CLOTURE`, `EN_ATTENTE_VALIDATION`, `VALIDEE`, `CONTESTEE`, `FORCEE`, `CORRIGEE`, `FERMEE` (rétrocompat) |
+| `MouvementCaisse` + enum `TypeMouvementCaisse` | Ledger de caisse | `FOND_INITIAL`, `FOND_OUVERTURE`, `LEVEE`, `VENTE`, `REMBOURSEMENT`, `APPORT`, `RETRAIT`, `DEPENSE`, `CORRECTION` ; rattaché à `caisseId`/`sessionId`/`auteurId` |
+| `SeuilCaisse` | Seuils paramétrables | Seuils centralisés (Lot D) |
+| **`EventCaisse`** | **Outbox** d'événements métier | `type`, `payload`, `consumed`, index `(consumed, createdAt)` → base du worker de sync (ADR-004 : purge à 30 j après accusé) |
+| `Vente` + enum `StatutVente` | Ventes | `tva` + `taxesDetail` (taxe **globale**, M2) ; `VALIDEE/ANNULEE/REMBOURSEE` |
+| `LigneVente` | Lignes de vente | Pas de taxation par-ligne (`tva` reste 0) |
+| `Sequence` | Compteur transactionnel | Numérotation atomique des ventes (M3) ; clé ex. `VTE-2026` |
+| `Paiement` | Paiements | `mode` = code (cf. `ModePaiementConfig`) |
+| `Parametres` | Identité commerce | RCCM, NIF, logo ; relations `taxes`, `modesPaiement` |
+| `ModePaiementConfig` | Modes de paiement configurables | `code` unique, `active`, `ordre` |
+| `Taxe` | Taxes configurables | Modèle de **taxe globale** (taux appliqué à la base, M2) |
+| `ActivityLog` | Journal d'audit | Append-only ; index sur action/acteur/entité/date |
 
-### Utilisateurs (réservé `ADMIN`)
-| Méthode | Endpoint | Description |
-|---|---|---|
-| GET | `/api/users` | Liste utilisateurs |
-| POST | `/api/users` | Créer un utilisateur (name, email, password, role) |
-| GET | `/api/users/[id]` | Détail utilisateur |
-| PUT | `/api/users/[id]` | Mettre à jour (rôle, actif, etc.) |
-| DELETE | `/api/users/[id]` | Désactiver compte (soft delete `active: false` recommandé) |
+### 6.2 Évolutions de schéma prévues (migration desktop)
 
-### Journal d’activité (`ADMIN` + `MANAGER`, lecture seule)
-| Méthode | Endpoint | Description |
-|---|---|---|
-| GET | `/api/activity-logs` | Liste paginée + filtres (période, action, acteur, entité) |
+Détail et statut dans `docs/architecture-desktop/00-ROADMAP-IMPLEMENTATION.md` (Vague 1) et `08-impacts-glossaire.md`.
 
-### Comptoir
-| Méthode | Endpoint | Description |
+| Évolution | Niveau | Statut |
 |---|---|---|
-| GET | `/api/comptoir/sessions` | Liste sessions |
-| POST | `/api/comptoir/sessions` | Ouvrir session |
-| PUT | `/api/comptoir/sessions/[id]` | Fermer session |
-| GET | `/api/ventes` | Historique ventes |
-| POST | `/api/ventes` | Créer une vente |
-| GET | `/api/ventes/[id]` | Détail vente |
-| POST | `/api/ventes/[id]/annuler` | Annuler vente (action, pas une mise à jour de ressource) |
-| GET | `/api/tickets/[id]/pdf` | Générer PDF ticket |
-| POST | `/api/tickets/[id]/print` | Imprimer ticket thermique |
-| POST | `/api/cash-drawer/open` | Ouvrir tiroir-caisse configuré |
-
-### Dashboard
-| Méthode | Endpoint | Description |
-|---|---|---|
-| GET | `/api/dashboard/kpis` | Indicateurs tableau de bord : CA, ventes, panier moyen, répartition espèces / autre, alertes & ruptures stock, série 7 jours, top produits — périmètre par rôle ; voir **`SPECS/DASHBOARD.md`** |
+| `caisseId` sur `ComptoirSession` (multi-caisse, Lot C / F1.1) — aujourd'hui la caisse est résolue par `findFirst({ active: true })` dans plusieurs endpoints | Magasin | ☐ À faire |
+| Numérotation **par poste** `VTE-<codePoste>-YYYY-NNNNN` (étend `Sequence`, F1.2) | Magasin | ☐ À faire |
+| Hash d'intégrité **chaîné par caisse** (`lib/services/integrity.ts`, F1.3) | Magasin | ☐ À faire |
+| Outbox `EventCaisse` : champ d'horodatage de consommation + job de purge 30 j (F1.4, ADR-004) | Magasin | ☐ À compléter (table présente) |
+| Clés `magasinId` / `organisationId` + tables d'enrôlement, tokens, curseurs de sync (S4.1) | **Cloud** | ☐ À faire |
 
 ---
 
-## 8. Sécurité & Rôles
+## 7. Architecture des modules (fonctionnel)
 
-Les rôles `ADMIN`, `MANAGER` et `CAISSIER` en **MVP** sont des comptes **niveau point de vente** (un seul site par base). Détails, dénomination métier (administrateur local, gérant, caissier) et rôles **cible** pour le **niveau groupe** : `SPECS/AUTH.md`.
+Les comportements réels (règles métier, écrans, validations, rôles) sont documentés **module par module** dans `docs/product/`. Synthèse des renvois :
 
-| Fonctionnalité | `ADMIN` (admin. PDV) | `MANAGER` (gérant) | `CAISSIER` |
-|---|:---:|:---:|:---:|
-| Créer/modifier produits | ✅ | ✅ | ❌ |
-| Voir le stock | ✅ | ✅ | ✅ |
-| Faire une vente | ✅ | ✅ | ✅ |
-| Annuler une vente | ✅ | ✅ | ❌ |
-| Gérer les sessions | ✅ | ✅ | ✅ |
-| Voir les rapports | ✅ | ✅ | ❌ |
-| Gérer les utilisateurs **du site** | ✅ | ❌ | ❌ |
-| Consulter le journal d’activité | ✅ | ✅ | ❌ |
+| Module | Doc produit | Points clés |
+|---|---|---|
+| Authentification & rôles | `docs/product/01-auth-roles.md` | NextAuth v5 ; matrice de permissions `lib/permissions.ts` ; pas d'inscription publique |
+| Stock | `docs/product/02-stock.md` | Produits, catégories, mouvements, alertes de rupture, transactions Prisma |
+| Comptoir & ventes | `docs/product/03-comptoir-ventes.md` | POS, panier (Zustand), paiement multi-modes, **anti-survente atomique** (Lot B), annulation |
+| Caisse & sessions | `docs/product/04-caisse-sessions.md` | Ouverture/clôture/validation à l'aveugle, écarts, fond de caisse & levée (Lot G), hash d'intégrité, session corrective |
+| Impression & périphériques | `docs/product/05-impression-peripheriques.md` | Ticket PDF + ESC/POS, tiroir, douchette ; pont Electron (cible) |
+| Dashboard & reporting | `docs/product/06-dashboard-reporting.md` | KPI, périmètre par rôle |
+| Journal d'activité | `docs/product/07-journal-activite.md` | `logActivity()`, consultation filtrée |
+| Taxes & paramètres | `docs/product/08-taxes-parametres.md` | Taxe globale (M2), modes de paiement, identité commerce |
 
-*Les rôles de **niveau groupe** (ex. lecture consolidée multi-magasins) n’entrent qu’à l’évolution multi-organisation — voir `SPECS/MULTI_ORGANISATION.md`.*
+**Flux de vente (résumé)** : Caisse (Electron) → UI POS servie par le nœud → `POST /api/ventes` au **nœud magasin** → transaction Prisma (création `Vente` + `LigneVente` + `Paiement`, décrément stock conditionnel atomique, `MouvementStock` SORTIE, `MouvementCaisse` VENTE, écriture `EventCaisse`) → réponse → impression locale (main Electron) + ouverture tiroir si espèces. La vente persiste **au magasin** ; l'impression/tiroir sont best-effort et ne rollback jamais la vente.
 
 ---
 
-## 9. Roadmap MVP → Versions Futures
+## 8. API Routes — endpoints
+
+> **Référence exhaustive (dérivée du code), avec rôles et payloads : `docs/product/09-pages-api.md`.** Les routes sont servies par le **nœud magasin** et consommées par les caisses en LAN. Synthèse des familles :
+
+| Famille | Base | Exemples |
+|---|---|---|
+| Auth | `/api/auth/[...nextauth]` | login NextAuth v5 |
+| Utilisateurs (ADMIN) | `/api/users` | liste, création, détail, mise à jour, désactivation |
+| Stock | `/api/produits`, `/api/categories`, `/api/stock/mouvements`, `/api/stock/alertes` | CRUD produits/catégories, mouvements, seuils |
+| Comptoir | `/api/comptoir/sessions`, `/api/comptoir/sessions/[id]/closure`, `/.../validate` | ouverture, clôture, validation à l'aveugle |
+| Caisse | `/api/caisse`, mouvements caisse | CRUD caisses (cible), fond/levée, apport/retrait/dépense |
+| Ventes | `/api/ventes`, `/api/ventes/[id]`, `/api/ventes/[id]/annuler` | création, détail, annulation |
+| Tickets | `/api/tickets/[id]/pdf`, `/api/tickets/[id]/print` | PDF, impression thermique |
+| Tiroir | `/api/cash-drawer/open` | impulsion ESC/POS |
+| Taxes & paramètres | `/api/taxes`, `/api/parametres` | taxe globale, modes de paiement, identité |
+| Journal (ADMIN/MANAGER) | `/api/activity-logs` | liste paginée + filtres |
+| Dashboard (ADMIN/MANAGER) | `/api/dashboard/kpis` | CA, ventes, panier moyen, alertes stock, séries |
+
+**Conventions API** (cf. `CLAUDE.md` §4.3) : validation **Zod** avant Prisma, `try/catch`, erreurs `{ error, code? }`, succès `{ data, message? }`, transactions via `prisma.$transaction()`, vérification d'auth/rôle via `auth()` + `requireAuth`/`requireRole`/`hasPermission`.
+
+---
+
+## 9. Sécurité & rôles
+
+### 9.1 Matrice de permissions (réelle — `web/app/src/lib/permissions.ts`)
+
+L'autorisation repose sur `requireAuth()` (session valide), `requireRole(...)` et `hasPermission(role, permission)` sur la matrice `ROLE_PERMISSIONS`.
+
+| Permission | ADMIN | MANAGER | CAISSIER |
+|---|:--:|:--:|:--:|
+| `users:manage` | ✅ | — | — |
+| `stock:manage` | ✅ | ✅ | — |
+| `comptoir:vendre` | ✅ | ✅ | ✅ |
+| `comptoir:gerer_session_autre` | ✅ | ✅ | — |
+| `comptoir:valider_session` | ✅ | ✅ | — |
+| `comptoir:force_close` | ✅ | — | — |
+| `comptoir:session_corrective` | ✅ | — | — |
+| `comptoir:verifier_integrite` | ✅ | ✅ | — |
+| `comptoir:mouvement_manuel` | ✅ | ✅ | ✅ |
+| `comptoir:retrait_caisse` | ✅ | ✅ | — |
+| `comptoir:depense` | ✅ | ✅ | — |
+| `ventes:annuler` | ✅ | ✅ | — |
+| `activity_logs:consulter` | ✅ | ✅ | — |
+| `rapports:consulter` | ✅ | ✅ | — |
+| `parametres:manage` | ✅ | — | — |
+
+Détail (mécanismes, pages, niveau groupe vs PDV) : `docs/product/01-auth-roles.md`.
+
+### 9.2 Sécurité dans la topologie 3 niveaux
+
+- **Pas d'inscription publique** : création de comptes par `ADMIN` (à terme, autorité **cloud**, diffusion descendante — ADR-006).
+- **Login servi par le magasin** : la caisse n'a **jamais** d'accès direct à MySQL ni de credentials DB.
+- **Token de magasin** (caisse ↔ nœud) : secret scopé par poste, stocké en **trousseau OS**, longue durée + **révocation** (ADR-003). Transport HTTPS LAN ; mTLS différé V2.
+- **Device token cloud** (nœud ↔ cloud) : rotation manuelle au renouvellement (ADR-003).
+- **Cloud jamais sur le chemin critique** : la vente ne dépend pas du WAN.
+- Ne jamais logger de données sensibles (mots de passe, tokens).
+
+Détails : `docs/architecture-desktop/06-securite.md` et `09-adr.md`.
+
+### 9.3 Niveau groupe vs niveau point de vente
+
+Les rôles `ADMIN`/`MANAGER`/`CAISSIER` sont des comptes **niveau point de vente**. En V1 desktop, le **client Electron est réservé aux caissiers** (POS + périphériques) ; **admins et gérants utilisent l'application web** (stock, validation, écarts, ventes, utilisateurs, taxes, paramètres, journal, dashboards), servie par le nœud en LAN et/ou par le cloud. Les rôles **niveau groupe** (lecture consolidée multi-magasins) relèvent du cloud — voir `docs/architecture-desktop/01-modele-trois-niveaux.md` et `docs/product/01-auth-roles.md`.
+
+---
+
+## 10. Roadmap de migration desktop
+
+> **Source de pilotage : `docs/architecture-desktop/00-ROADMAP-IMPLEMENTATION.md`** (vagues, tâches, jalons, journal d'avancement). Synthèse :
 
 ```
-MVP v1.0 (Actuel)
-├── ✅ Gestion de stock
-├── ✅ Comptoir POS
-├── ✅ Périphériques caisse (imprimante ticket, douchette, tiroir-caisse)
-├── ✅ Impression tickets (PDF + thermique)
-└── ✅ Journal d’activité (audit)
-
-v1.1 — Rapports & Analytics
-├── Rapports de ventes (journalier, hebdo, mensuel)
-├── Rapport d'inventaire
-└── Export Excel/PDF
-
-v2.0 — Gestion RH
-├── Gestion employés & plannings
-├── Gestion des paies
-└── Présences & congés
-
-v3.0 — Comptabilité Générale
-├── Plan comptable
-├── Journal des opérations
-├── Bilan & compte de résultat
-└── Déclarations fiscales
+V0 — Décisions & dérisquage   : ADR (☑ actés) · PoC packaging Electron allégé
+V1 — Fondation métier magasin : caisseId/multi-caisse (Lot C) · numéro par poste · hash par caisse · outbox
+V2 — Client Electron          : pont périphériques · coquille durcie · health-check + blocage
+V3 — Enrôlement & identité    : 2 modes (nœud/client) · tokens trousseau OS · installation
+V4 — Synchronisation cloud    : schéma cloud · worker push transactionnel · pull référence · résilience WAN
+V5 — Packaging & exploitation : electron-builder 3 OS · auto-update · runbook sauvegardes (pas de HA)
 ```
 
----
-
-## 10. Prochaines Étapes
-
-1. **Initialisation du projet** — `npx create-next-app@latest aerispay --typescript --tailwind --app`
-2. **Conteneurisation locale (option recommandée)** — `docker compose up -d` (MySQL + phpMyAdmin), configurer `DATABASE_URL` (`mysql://...`) puis Prisma
-3. **Configuration Prisma** — Connexion MySQL, migration initiale
-4. **Authentification** — Mise en place NextAuth.js avec email/password
-5. **Tests d’abord** — écrire les tests du module avant les API, composants ou flux associés
-6. **Module Stock** — Modèles, API Routes, interfaces CRUD
-7. **Module Comptoir** — Interface POS, flux de vente, paiements, scan code-barres
-8. **Impression** — Génération PDF avec @react-pdf/renderer
-9. **Périphériques caisse** — Imprimante ticket ESC/POS, douchette USB/HID, tiroir-caisse
-10. **Impression thermique** — Intégration node-thermal-printer
-11. **Journal d’activité** — modèle `ActivityLog`, `logActivity`, page `/activity-logs`, `GET /api/activity-logs` (voir `SPECS/ACTIVITY_LOG.md`)
+État (snapshot 2026-06-26) : lots de correction d'audit livrés (solde théorique unifié, anti-survente, seuils, taxe globale + séquence, Decimal, fond de caisse) ; reste pour le desktop le multi-caisse (`caisseId`), la numérotation/hash par poste, l'outbox complète, puis le client Electron et la sync cloud.
 
 ---
 
-## 11. Conteneurisation (Docker)
+## 11. Conteneurisation (nœud magasin)
 
-Le dépôt inclut **deux stacks Compose** :
+Deux stacks Compose à la racine :
 
-- **Développement** (`docker-compose.yml`) : services `db` (MySQL) et `phpmyadmin` (UI web). L’app Next.js est lancée en local (`npm run dev`) avec `DATABASE_URL` (`mysql://...`) pointant vers le conteneur.
-- **Production** (`docker-compose.prod.yml`) : services `db` + `app` (image construite par le `Dockerfile`, sortie Next **standalone**).
+- **Développement** (`docker-compose.yml`) : services `db` (MySQL) + `phpmyadmin`. L'app Next est lancée en local (`npm run dev`) avec `DATABASE_URL` → conteneur MySQL.
+- **Production** (`docker-compose.prod.yml`) : services `db` + `app` (image `Dockerfile`, sortie Next **standalone**) — le **nœud magasin** déployé localement dans le magasin.
 
-Détails, commandes, variables et bonnes pratiques (migrations, réseau `db`, reverse proxy) : **`DOCKER.md`**.
+Commandes, variables, réseau `db`, reverse proxy, migrations : `DOCKER.md`. Le client Electron (niveau 1) et le cloud (niveau 3) **ne sont pas** dans ces stacks (ADR-001 : le client n'embarque jamais le serveur).
 
 ---
 
-*Document généré avec Claude · AerisPay MVP Architecture v1.0*
+*Architecture AerisPay v2.0 — modèle desktop 3 niveaux. Le QUOI : `docs/product/` · le COMMENT + ADR + roadmap : `docs/architecture-desktop/`.*
+</content>
+</invoke>
