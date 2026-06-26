@@ -13,6 +13,9 @@ const DEFAULT_SEUILS = [
   // Lot G (Modele 2) — float laisse dans le tiroir apres la levee de cloture, par mode.
   // 0 = remise a zero / refloat complet. Configurable par PDV (ex. FLOAT_ESPECES = 20000).
   { id: "FLOAT_ESPECES", valeur: 0, description: "Fond de caisse (float) laisse en especes apres la levee (FCFA)" },
+  // F1.5 (RULE-FOND-005) — caissier solo : 0 = desactive. Si > 0, le caissier peut
+  // auto-valider sa propre session tant que l'ecart final reste <= ce seuil (FCFA).
+  { id: "THRESHOLD_SOLO_AUTO_VALIDATION", valeur: 0, description: "Plafond d'ecart pour l'auto-validation en mode caissier solo (FCFA, 0 = desactive)" },
 ];
 
 /** Seed la caisse par defaut et les seuils (prod + dev). */

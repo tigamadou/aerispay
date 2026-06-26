@@ -111,7 +111,7 @@ Prérequis « forts » (doc 08). Tournent sur le backend existant ; **livrables 
 | **F1.2** | Numérotation par poste `VTE-<codePoste>-YYYY-NNNNN` (étend la séquence) | F1.1 | ☑ **2026-06-26** |
 | **F1.3** | Hash d'intégrité **par caisse** (`lib/services/integrity.ts`) | F1.1 | ☑ **2026-06-26** |
 | **F1.4** | Outbox `EventCaisse` : table d'événements transactionnels (consumed/createdAt) + écriture sur ventes/mouvements/sessions | — | ☑ **2026-06-26** |
-| **F1.5** | RULE-FOND-005 — caissier solo (auto-validation tracée sous seuil / clôture différée) | F1.1 | ☐ |
+| **F1.5** | RULE-FOND-005 — caissier solo (auto-validation tracée sous seuil / clôture différée) | F1.1 | ☑ **2026-06-26** |
 
 **Parallélisation interne :** F1.1 d'abord ; ensuite F1.2, F1.3, F1.5 en // ; F1.4 en // dès le départ.
 **Critère de sortie V1 (= Jalon J1) :** multi-caisse cohérent sur le backend actuel, soldes/écarts
@@ -220,6 +220,7 @@ Doc produit : `docs/product/`. Ne pas modifier `components/ui/` (shadcn).
 |---|---|---|
 | 2026-06-26 | — | Cadrage validé. Roadmap rédigée. Décisions Lot C actées. |
 | 2026-06-26 | **D0.1** | ☑ **Terminée.** 6 décisions actées → `09-adr.md`. ADR-001 (pas de mode autonome) répercutée : D0.2 allégé, P5.3 supprimé, enrôlement = 2 modes. **Prochaine étape : D0.2 (PoC packaging) + F1.1 (Lot C) en parallèle.** |
+| 2026-06-26 | **F1.5** | ☑ **Terminée.** RULE-FOND-005 caissier solo : seuil paramétrable `THRESHOLD_SOLO_AUTO_VALIDATION` (défaut 0 = désactivé). Quand > 0, le caissier propriétaire peut auto-valider sa propre session (contournement tracé de RULE-AUTH-003) tant que l'écart final ≤ seuil ; au-delà → 422 `SOLO_THRESHOLD_EXCEEDED` (clôture différée vers un tiers). Auto-validation tracée (`soloAutoValidation` dans log + outbox). Tests `solo-validation`. **870 tests verts, tsc OK. → Jalon J1 (Vague 1) atteint : multi-caisse cohérent, soldes/écarts isolés, numéro & hash partitionnés par poste, outbox câblé.** |
 | 2026-06-26 | **F1.4** | ☑ **Terminée.** Outbox `EventCaisse` câblé : `emitEvent` (service existant, jamais bloquant) appelé sur ouverture session (`SESSION_OPENED`), mouvement caisse (`CASH_MOVEMENT_CREATED`), demande clôture (`SESSION_CLOSURE_REQUESTED`), validation (`SESSION_VALIDATED` + `DISCREPANCY_DETECTED`), contestation (`SESSION_DISPUTED`), force-close (`SESSION_FORCE_CLOSED`), correction (`SESSION_CORRECTED`). Test `event-outbox` + `event-emitter` existant. **867 tests verts, tsc OK.** |
 | 2026-06-26 | **F1.3** | ☑ **Terminée.** Hash d'intégrité partitionné par caisse : `caisseId` intégré au `computeSessionHash` (lie le hash au poste) et le chaînage (`previousSession`) filtré par `caisseId` → chaque caisse a sa propre chaîne. Tests `integrity` + `integrity-service` mis à jour (caisseId, chaînage filtré). **865 tests verts, tsc OK.** |
 | 2026-06-26 | **F1.2** | ☑ **Terminée.** Numérotation préfixée par poste `VTE-<codePoste>-YYYY-NNNNN`. Champ `code` (@unique) ajouté sur `Caisse` (migration `f1_2_code_poste` + backfill P1/P2). Séquence dédiée par poste (clé `VTE-<code>-<annee>`). `POST /api/caisse` exige `code`. Tests `numerotation-poste` + maj `numerotation-sequence` et tous les mocks de session des tests ventes. **863 tests verts, tsc OK.** |

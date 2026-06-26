@@ -21,13 +21,6 @@ export async function POST(
   const result = await requireAuth();
   if (!result.authenticated) return result.response;
 
-  if (!hasPermission(result.user.role, "comptoir:valider_session")) {
-    return Response.json(
-      { error: "Seul un MANAGER ou ADMIN peut valider une session" },
-      { status: 403 },
-    );
-  }
-
   const { id } = await params;
 
   try {
@@ -47,6 +40,21 @@ export async function POST(
       return Response.json({ error: "Session introuvable" }, { status: 404 });
     }
 
+    // RULE-FOND-005 (F1.5) — caissier solo : si le mode est activé
+    // (THRESHOLD_SOLO_AUTO_VALIDATION > 0) et que le propriétaire valide lui-même,
+    // une auto-validation TRACÉE est autorisée sous seuil (sinon clôture différée vers un tiers).
+    const seuilSolo = await getSeuilOrZero("THRESHOLD_SOLO_AUTO_VALIDATION");
+    const isOwner = session.userId === result.user.id;
+    const isSoloValidation = isOwner && seuilSolo > 0;
+
+    // Permission : tiers validateur (MANAGER/ADMIN) OU auto-validation solo activée
+    if (!hasPermission(result.user.role, "comptoir:valider_session") && !isSoloValidation) {
+      return Response.json(
+        { error: "Seul un MANAGER ou ADMIN peut valider une session" },
+        { status: 403 },
+      );
+    }
+
     if (session.statut !== "EN_ATTENTE_VALIDATION") {
       return Response.json(
         { error: "La session n'est pas en attente de validation" },
@@ -54,8 +62,9 @@ export async function POST(
       );
     }
 
-    // RULE-AUTH-003: validator must be different from session owner
-    if (session.userId === result.user.id) {
+    // RULE-AUTH-003: validator must be different from session owner,
+    // sauf auto-validation solo tracée (RULE-FOND-005).
+    if (isOwner && !isSoloValidation) {
       return Response.json(
         { error: "Un caissier ne peut pas valider sa propre session" },
         { status: 403 },
@@ -99,6 +108,23 @@ export async function POST(
     });
 
     if (reconcResult.outcome === "VALIDATED") {
+      // RULE-FOND-005 (F1.5) — en auto-validation solo, l'écart final doit rester sous
+      // le seuil ; au-delà, la validation par un tiers est requise (clôture différée).
+      if (isSoloValidation) {
+        const maxEcart = Math.max(0, ...reconcResult.modes.map((m) => Math.abs(m.ecartFinal)));
+        if (maxEcart > seuilSolo) {
+          return Response.json(
+            {
+              error: "Écart trop élevé pour une auto-validation solo : validation par un tiers (MANAGER/ADMIN) requise.",
+              code: "SOLO_THRESHOLD_EXCEEDED",
+              maxEcart,
+              seuil: seuilSolo,
+            },
+            { status: 422 },
+          );
+        }
+      }
+
       // Build final ecarts par mode
       const ecartsParMode: Record<string, {
         theorique: number; declareCaissier: number; declareValideur: number;
@@ -152,7 +178,7 @@ export async function POST(
         actorId: result.user.id,
         entityType: "ComptoirSession",
         entityId: id,
-        metadata: { ecartsParMode, hash },
+        metadata: { ecartsParMode, hash, soloAutoValidation: isSoloValidation },
         ipAddress: getClientIp(req),
         userAgent: getClientUserAgent(req),
       });
@@ -161,7 +187,7 @@ export async function POST(
       await emitEvent({
         type: EVENTS.SESSION_VALIDATED,
         sessionId: id,
-        payload: { caisseId: session.caisseId, valideurId: result.user.id, ecartsParMode, hash },
+        payload: { caisseId: session.caisseId, valideurId: result.user.id, ecartsParMode, hash, soloAutoValidation: isSoloValidation },
       });
 
       // Emit discrepancy alert if any non-zero ecart
