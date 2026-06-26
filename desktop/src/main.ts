@@ -156,6 +156,10 @@ function buildMenu() {
         { role: "quit" },
       ],
     },
+    // Menu Édition standard : restaure Couper/Copier/Coller/Tout sélectionner et
+    // leurs raccourcis (Cmd+V / Ctrl+V). Sans lui, le menu applicatif custom écrase
+    // les défauts et le collage ne fonctionne pas dans les champs (ex. formulaire d'enrôlement).
+    { role: "editMenu" },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
