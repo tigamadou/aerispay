@@ -41,11 +41,17 @@ export interface PrintResult {
   message: string;
 }
 
+export interface PrintReceiptOptions {
+  config?: Partial<PrinterConfig>;
+  /** Lignes de texte du ticket (cf. `buildReceiptContent`). */
+  lines?: string[];
+}
+
 export async function printReceipt(
   _venteId: string,
-  config?: Partial<PrinterConfig>
+  options?: PrintReceiptOptions
 ): Promise<PrintResult> {
-  const printerConfig = { ...getPrinterConfig(), ...config };
+  const printerConfig = { ...getPrinterConfig(), ...options?.config };
 
   if (!printerConfig.enabled) {
     return { success: false, message: "Imprimante désactivée (PRINTER_ENABLED=false)" };
@@ -66,8 +72,11 @@ export async function printReceipt(
       return { success: false, message: "Imprimante non joignable" };
     }
 
-    // TODO: Build receipt content from vente data
-    // For now, this is a stub that will be completed when PDF generation is implemented
+    // C2.1 — contenu réel du ticket (construit via buildReceiptContent côté appelant).
+    for (const line of options?.lines ?? []) {
+      printer.println(line);
+    }
+    printer.cut();
     await printer.execute();
 
     return { success: true, message: "Ticket envoyé à l'imprimante" };

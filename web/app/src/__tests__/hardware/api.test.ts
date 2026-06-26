@@ -4,6 +4,7 @@ import type { Role } from "@prisma/client";
 vi.mock("@/lib/db", () => ({
   prisma: {
     vente: { findUnique: vi.fn() },
+    parametres: { findUnique: vi.fn() },
   },
 }));
 
@@ -23,6 +24,7 @@ vi.mock("@/lib/activity-log", () => ({
 vi.mock("@/lib/receipt/thermal-printer", () => ({
   printReceipt: vi.fn(),
   openCashDrawer: vi.fn(),
+  getPrinterConfig: vi.fn().mockReturnValue({ enabled: false, type: "EPSON", interface: "tcp://x", width: 48 }),
 }));
 
 import { prisma } from "@/lib/db";
@@ -33,6 +35,14 @@ function mockSession(role: Role) {
     user: { id: "user-1", email: "t@t.com", name: "T", role },
   });
 }
+
+const fullVente = {
+  id: "v-1", numero: "VTE-P1-2026-00001", dateVente: new Date("2026-06-26T10:00:00Z"),
+  sousTotal: 3000, remise: 0, tva: 0, taxesDetail: null, total: 3000,
+  lignes: [{ quantite: 1, prixUnitaire: 3000, sousTotal: 3000, produit: { nom: "Article" } }],
+  paiements: [{ mode: "ESPECES", montant: 3000 }],
+  caissier: { nom: "T" },
+};
 
 describe("POST /api/tickets/[id]/print", () => {
   let POST: (req: Request, ctx: { params: Promise<{ id: string }> }) => Promise<Response>;
@@ -63,7 +73,7 @@ describe("POST /api/tickets/[id]/print", () => {
 
   it("returns 200 on successful print", async () => {
     mockSession("CAISSIER");
-    (prisma.vente.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "v-1" });
+    (prisma.vente.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(fullVente);
     const { printReceipt } = await import("@/lib/receipt/thermal-printer");
     (printReceipt as ReturnType<typeof vi.fn>).mockResolvedValue({ success: true, message: "OK" });
 
@@ -76,7 +86,7 @@ describe("POST /api/tickets/[id]/print", () => {
 
   it("returns 503 on printer failure", async () => {
     mockSession("CAISSIER");
-    (prisma.vente.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "v-1" });
+    (prisma.vente.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(fullVente);
     const { printReceipt } = await import("@/lib/receipt/thermal-printer");
     (printReceipt as ReturnType<typeof vi.fn>).mockResolvedValue({ success: false, message: "Offline" });
 

@@ -13,6 +13,7 @@ vi.mock("@/lib/db", () => ({
     vente: { findUnique: vi.fn(), create: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), count: vi.fn(), aggregate: vi.fn() },
     comptoirSession: { findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     caisse: { findFirst: vi.fn(), findMany: vi.fn(), findUnique: vi.fn() },
+    parametres: { findUnique: vi.fn() },
     paiement: { aggregate: vi.fn() },
     activityLog: { create: vi.fn() },
     $transaction: vi.fn(),
@@ -55,6 +56,7 @@ vi.mock("@/lib/activity-log", () => ({
 vi.mock("@/lib/receipt/thermal-printer", () => ({
   printReceipt: vi.fn().mockResolvedValue({ success: true, message: "OK" }),
   openCashDrawer: vi.fn().mockResolvedValue({ success: true, message: "OK" }),
+  getPrinterConfig: vi.fn().mockReturnValue({ enabled: false, type: "EPSON", interface: "tcp://x", width: 48 }),
 }));
 
 vi.mock("@/lib/services/cash-movement", () => ({
@@ -257,7 +259,16 @@ describe("Ticket print activity logging", () => {
 
   it("logs TICKET_THERMAL_PRINT_REQUESTED", async () => {
     mockSession("CAISSIER");
-    (prisma.vente.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "v-1" });
+    (prisma.vente.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "v-1", numero: "VTE-P1-2026-00001", dateVente: new Date("2026-06-26T10:00:00Z"),
+      sousTotal: 3000, remise: 0, tva: 0, taxesDetail: null, total: 3000,
+      lignes: [{ quantite: 1, prixUnitaire: 3000, sousTotal: 3000, produit: { nom: "Article" } }],
+      paiements: [{ mode: "ESPECES", montant: 3000 }],
+      caissier: { nom: "T" },
+    });
+    (prisma.parametres.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "default", nomCommerce: "AerisShop", adresse: "", telephone: "", rccm: "", nif: "",
+    });
 
     const { POST } = await import("@/app/api/tickets/[id]/print/route");
     const res = await POST(
