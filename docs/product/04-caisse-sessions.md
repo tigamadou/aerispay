@@ -492,5 +492,4 @@ l'enrôlement en desktop). Comportement livré :
 - **numérotation des ventes par poste** `VTE-<codePoste>-YYYY-NNNNN` (voir
   [03-comptoir-ventes.md](03-comptoir-ventes.md) §6).
 
-Architecture : [`../../ARCHITECTURE_MVP.md`](../../ARCHITECTURE_MVP.md) ; spec de conception :
-`docs/superpowers/specs/2026-06-26-lot-c-multi-caisse-design.md`.
+Architecture : [`../../ARCHITECTURE_MVP.md`](../../ARCHITECTURE_MVP.md).
