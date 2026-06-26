@@ -66,7 +66,7 @@ for ((i = 1; i <= MAX_ITER; i++)); do
 
   # --continue : reprend la session précédente (contexte conservé, auto-compacté).
   # bypassPermissions : autonomie totale (édition/commande sans confirmation).
-  claude -p "$PROMPT" \
+  claude "$PROMPT" \
     --continue \
     --model "$MODEL" \
     --max-turns "$MAX_TURNS" \
