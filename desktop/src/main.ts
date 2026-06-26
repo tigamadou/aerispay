@@ -12,7 +12,7 @@ import { autoUpdater } from "electron-updater";
 import path from "path";
 
 import { secureWebPreferences, isAllowedNavigation, buildCsp } from "./security";
-import { DEVICE_CHANNELS } from "./preload";
+import { DEVICE_CHANNELS } from "./channels";
 import { printTicket, openDrawer } from "./devices";
 
 const NODE_URL = process.env.AERIS_NODE_URL ?? "http://localhost:3000";

@@ -5,17 +5,10 @@
  */
 import { contextBridge, ipcRenderer } from "electron";
 
-// Liste blanche des canaux IPC autorisés — toute autre invocation est impossible.
-const DEVICE_CHANNELS = {
-  printTicket: "aeris:print-ticket",
-  openDrawer: "aeris:open-drawer",
-  printerStatus: "aeris:printer-status",
-} as const;
+import { DEVICE_CHANNELS } from "./channels";
 
 contextBridge.exposeInMainWorld("aerisDevices", {
   printTicket: (lines: string[]) => ipcRenderer.invoke(DEVICE_CHANNELS.printTicket, lines),
   openDrawer: () => ipcRenderer.invoke(DEVICE_CHANNELS.openDrawer),
   printerStatus: () => ipcRenderer.invoke(DEVICE_CHANNELS.printerStatus),
 });
-
-export { DEVICE_CHANNELS };
