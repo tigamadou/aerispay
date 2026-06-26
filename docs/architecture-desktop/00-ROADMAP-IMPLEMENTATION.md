@@ -109,7 +109,7 @@ Prérequis « forts » (doc 08). Tournent sur le backend existant ; **livrables 
 |---|---|---|---|
 | **F1.1** | `caisseId` / multi-caisse (Lot C) — migration + backfill, unicité caisse+caissier, câbler les 8 `findFirst({active})` sur `session.caisseId`, seed 2 caisses, CRUD admin caisses, tests `multi-caissier` + `session-caisse-unicite` | — | ☑ **2026-06-26** |
 | **F1.2** | Numérotation par poste `VTE-<codePoste>-YYYY-NNNNN` (étend la séquence) | F1.1 | ☑ **2026-06-26** |
-| **F1.3** | Hash d'intégrité **par caisse** (`lib/services/integrity.ts`) | F1.1 | ☐ |
+| **F1.3** | Hash d'intégrité **par caisse** (`lib/services/integrity.ts`) | F1.1 | ☑ **2026-06-26** |
 | **F1.4** | Outbox `EventCaisse` : table d'événements transactionnels (consumed/createdAt) + écriture sur ventes/mouvements/sessions | — | ☐ |
 | **F1.5** | RULE-FOND-005 — caissier solo (auto-validation tracée sous seuil / clôture différée) | F1.1 | ☐ |
 
@@ -220,5 +220,6 @@ Doc produit : `docs/product/`. Ne pas modifier `components/ui/` (shadcn).
 |---|---|---|
 | 2026-06-26 | — | Cadrage validé. Roadmap rédigée. Décisions Lot C actées. |
 | 2026-06-26 | **D0.1** | ☑ **Terminée.** 6 décisions actées → `09-adr.md`. ADR-001 (pas de mode autonome) répercutée : D0.2 allégé, P5.3 supprimé, enrôlement = 2 modes. **Prochaine étape : D0.2 (PoC packaging) + F1.1 (Lot C) en parallèle.** |
+| 2026-06-26 | **F1.3** | ☑ **Terminée.** Hash d'intégrité partitionné par caisse : `caisseId` intégré au `computeSessionHash` (lie le hash au poste) et le chaînage (`previousSession`) filtré par `caisseId` → chaque caisse a sa propre chaîne. Tests `integrity` + `integrity-service` mis à jour (caisseId, chaînage filtré). **865 tests verts, tsc OK.** |
 | 2026-06-26 | **F1.2** | ☑ **Terminée.** Numérotation préfixée par poste `VTE-<codePoste>-YYYY-NNNNN`. Champ `code` (@unique) ajouté sur `Caisse` (migration `f1_2_code_poste` + backfill P1/P2). Séquence dédiée par poste (clé `VTE-<code>-<annee>`). `POST /api/caisse` exige `code`. Tests `numerotation-poste` + maj `numerotation-sequence` et tous les mocks de session des tests ventes. **863 tests verts, tsc OK.** |
 | 2026-06-26 | **F1.1** | ☑ **Terminée.** `caisseId` ajouté sur `ComptoirSession` (migration `lot_c_session_caisse` + backfill `caisse-principale` + index `(caisseId, statut)`). Unicité Option B (1 OUVERTE par caisse ET par caissier). Les 7 résolutions `findFirst({active})` recâblées sur `session.caisseId` (ventes, annuler, sessions GET/PUT, validate, movements, correct). Ouverture : fallback 1 caisse, 400 si ≥2 sans `caisseId`, 422 si inactive/introuvable. CRUD admin caisses (`POST /api/caisse`, `PUT/DELETE /api/caisse/[id]`, ADMIN, soft-delete). Seed 2 caisses. Tests : `multi-caissier`, `session-caisse-unicite`, `session-fallback-caisse`, `caisse/crud` + maj tests existants. **860 tests verts, tsc OK.** |

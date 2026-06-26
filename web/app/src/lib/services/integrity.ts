@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 
 interface HashInput {
   sessionId: string;
+  caisseId: string;
   userId: string;
   ouvertureAt: string; // ISO 8601
   validationAt: string; // ISO 8601
@@ -26,6 +27,8 @@ interface HashInput {
 export function computeSessionHash(input: HashInput): string {
   const parts: string[] = [
     input.sessionId,
+    // F1.3 — caisseId lie le hash à la caisse (chaîne d'intégrité par poste)
+    input.caisseId,
     input.userId,
     input.ouvertureAt,
     input.validationAt,
@@ -77,6 +80,7 @@ export async function computeHashForSession(
     where: { id: sessionId },
     select: {
       id: true,
+      caisseId: true,
       userId: true,
       ouvertureAt: true,
       declarationsCaissier: true,
@@ -91,10 +95,12 @@ export async function computeHashForSession(
     select: { id: true, type: true, montant: true, mode: true, createdAt: true },
   });
 
-  // Find previous session's hash for chaining
+  // F1.3 — Find previous session's hash for chaining, PARTITIONNÉ PAR CAISSE :
+  // chaque caisse possède sa propre chaîne d'intégrité.
   const previousSession = await prisma.comptoirSession.findFirst({
     where: {
       id: { not: sessionId },
+      caisseId: session.caisseId,
       statut: { in: ["VALIDEE", "FORCEE", "CORRIGEE", "FERMEE"] },
       ouvertureAt: { lt: session.ouvertureAt },
     },
@@ -112,6 +118,7 @@ export async function computeHashForSession(
 
   return computeSessionHash({
     sessionId: session.id,
+    caisseId: session.caisseId,
     userId: session.userId,
     ouvertureAt: session.ouvertureAt.toISOString(),
     validationAt: validationAt.toISOString(),
