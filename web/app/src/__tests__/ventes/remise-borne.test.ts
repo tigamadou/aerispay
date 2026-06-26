@@ -57,9 +57,10 @@ describe("P1-001: Sale total must be positive", () => {
 
     (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn: Function) => {
       const tx = {
-        produit: { findUnique: vi.fn().mockResolvedValue(mockProduct), update: vi.fn() },
+        produit: { findUnique: vi.fn().mockResolvedValue(mockProduct), update: vi.fn(), updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
         vente: { findFirst: vi.fn().mockResolvedValue(null), create: vi.fn() },
         mouvementStock: { create: vi.fn() },
+        sequence: { upsert: vi.fn().mockResolvedValue({ valeur: 1 }) },
       };
       return fn(tx);
     });
@@ -94,9 +95,10 @@ describe("P1-001: Sale total must be positive", () => {
 
     (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn: Function) => {
       const tx = {
-        produit: { findUnique: vi.fn().mockResolvedValue(mockProduct), update: vi.fn() },
+        produit: { findUnique: vi.fn().mockResolvedValue(mockProduct), update: vi.fn(), updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
         vente: { findFirst: vi.fn().mockResolvedValue(null), create: vi.fn().mockResolvedValue(newVente) },
         mouvementStock: { create: vi.fn() },
+        sequence: { upsert: vi.fn().mockResolvedValue({ valeur: 1 }) },
       };
       return fn(tx);
     });

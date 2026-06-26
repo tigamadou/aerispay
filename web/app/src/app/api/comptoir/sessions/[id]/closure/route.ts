@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireAuth, hasRole } from "@/lib/permissions";
 import { declarationCloturSchema } from "@/lib/validations/mouvement-caisse";
 import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
-import { computeSoldeCaisseParMode } from "@/lib/services/cash-movement";
+import { computeSoldeSession } from "@/lib/services/cash-movement";
 
 /**
  * POST — RULE-CLOSE-001 + RULE-CLOSE-002
@@ -51,14 +51,9 @@ export async function POST(
       );
     }
 
-    // Resolve active caisse
-    const caisse = await prisma.caisse.findFirst({ where: { active: true }, select: { id: true } });
-    if (!caisse) {
-      return Response.json({ error: "Aucune caisse active configuree" }, { status: 422 });
-    }
-
-    // RULE-CLOSE-002: grand livre = source de verite
-    const soldes = await computeSoldeCaisseParMode(caisse.id);
+    // Lot A (RULE-SOLDE-001/003) : la base théorique est le solde de SESSION
+    // (Σ mouvements de la session, FOND_OUVERTURE inclus), identique à `validate`.
+    const soldes = await computeSoldeSession(id);
     const soldesMap = new Map<string, number>();
     for (const s of soldes) {
       soldesMap.set(s.mode, s.solde);
@@ -85,7 +80,7 @@ export async function POST(
     }
 
     // Compute legacy cash/mobileMoney totals for backward compat (using updated soldesMap)
-    let soldeTheoriqueCash = soldesMap.get("ESPECES") ?? 0;
+    const soldeTheoriqueCash = soldesMap.get("ESPECES") ?? 0;
     let soldeTheoriqueMobileMoney = 0;
     for (const [mode, solde] of soldesMap.entries()) {
       if (mode !== "ESPECES") {

@@ -50,6 +50,15 @@ export async function getSeuil(id: string): Promise<number> {
   return val;
 }
 
+/**
+ * Lot G — lecture d'un seuil optionnel (ex. float par mode `FLOAT_<MODE>`),
+ * sans lever d'erreur : retourne 0 si la clé n'est pas configurée.
+ */
+export async function getSeuilOrZero(id: string): Promise<number> {
+  const seuils = await loadSeuils();
+  return seuils.get(id) ?? 0;
+}
+
 export function invalidateSeuilsCache(): void {
   cache = null;
   cacheTimestamp = 0;

@@ -49,6 +49,17 @@ vi.mock("@/lib/services/cash-movement", () => ({
   computeSoldeTheoriqueLegacy: vi.fn().mockResolvedValue({ cash: 0, mobileMoney: 0 }),
   computeSoldeTheoriqueParMode: vi.fn().mockResolvedValue([]),
   computeSoldeCaisseParMode: vi.fn().mockResolvedValue([]),
+  computeSoldeSession: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock("@/lib/services/seuils", () => ({
+  getSeuil: vi.fn().mockImplementation(async (id: string) => {
+    const d: Record<string, number> = {
+      THRESHOLD_DISCREPANCY_MINOR: 500,
+      THRESHOLD_DISCREPANCY_MAJOR: 5000,
+    };
+    return d[id] ?? 0;
+  }),
 }));
 
 vi.mock("@/auth", () => ({

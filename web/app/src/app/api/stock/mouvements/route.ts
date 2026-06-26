@@ -89,10 +89,19 @@ export async function POST(req: Request): Promise<Response> {
       switch (type) {
         case "ENTREE":
           stockApres = stockAvant + quantite;
+          await tx.produit.update({
+            where: { id: produitId },
+            data: { stockActuel: { increment: quantite } },
+          });
           break;
         case "SORTIE":
-        case "PERTE":
-          if (quantite > stockAvant) {
+        case "PERTE": {
+          // Lot B (C3) : décrément conditionnel atomique — pas de stock négatif sous concurrence.
+          const { count } = await tx.produit.updateMany({
+            where: { id: produitId, stockActuel: { gte: quantite } },
+            data: { stockActuel: { decrement: quantite } },
+          });
+          if (count === 0) {
             throw new TxError(
               `Stock insuffisant (disponible : ${stockAvant}, demandé : ${quantite})`,
               422,
@@ -100,18 +109,38 @@ export async function POST(req: Request): Promise<Response> {
           }
           stockApres = stockAvant - quantite;
           break;
-        case "AJUSTEMENT":
-          // Ajustement: quantity is the new absolute stock level
+        }
+        case "AJUSTEMENT": {
+          // Lot B (C3) : valeur absolue → verrou de ligne (FOR UPDATE) avant lecture/écriture
+          // pour éviter le lost update entre deux ajustements concurrents.
+          const locked = await tx.$queryRaw<{ stockActuel: number }[]>`
+            SELECT stockActuel FROM produits WHERE id = ${produitId} FOR UPDATE
+          `;
+          const stockVerrouille = locked[0]?.stockActuel ?? stockAvant;
           stockApres = quantite;
-          break;
+          await tx.produit.update({
+            where: { id: produitId },
+            data: { stockActuel: stockApres },
+          });
+          // quantiteAvant reflète la valeur verrouillée au moment de l'écriture
+          return tx.mouvementStock.create({
+            data: {
+              type,
+              quantite,
+              quantiteAvant: stockVerrouille,
+              quantiteApres: stockApres,
+              motif: motif ?? null,
+              reference: reference ?? null,
+              produitId,
+            },
+            include: {
+              produit: { select: { id: true, nom: true, reference: true } },
+            },
+          });
+        }
         default:
           throw new TxError("Type de mouvement invalide", 400);
       }
-
-      await tx.produit.update({
-        where: { id: produitId },
-        data: { stockActuel: stockApres },
-      });
 
       return tx.mouvementStock.create({
         data: {

@@ -6,6 +6,8 @@ import type { Role } from "@prisma/client";
 vi.mock("@/lib/db", () => ({
   prisma: {
     comptoirSession: { findUnique: vi.fn(), update: vi.fn() },
+    caisse: { findFirst: vi.fn().mockResolvedValue({ id: "caisse-1" }) },
+    mouvementCaisse: { findMany: vi.fn().mockResolvedValue([]) },
     seuilCaisse: { findMany: vi.fn().mockResolvedValue([]) },
   },
 }));
@@ -33,9 +35,11 @@ vi.mock("@/lib/activity-log", () => ({
 }));
 
 vi.mock("@/lib/services/cash-movement", () => ({
-  computeSoldeTheoriqueParMode: vi.fn().mockResolvedValue([
+  computeSoldeSession: vi.fn().mockResolvedValue([
     { mode: "ESPECES", solde: 50000 },
   ]),
+  computeSoldeTheoriqueParMode: vi.fn(),
+  leverRecettesInTx: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock("@/lib/services/reconciliation", () => ({

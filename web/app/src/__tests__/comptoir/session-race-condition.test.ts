@@ -26,6 +26,13 @@ vi.mock("@/lib/activity-log", () => ({
 
 vi.mock("@/lib/services/cash-movement", () => ({
   computeSoldeCaisseParMode: vi.fn().mockResolvedValue([{ mode: "ESPECES", solde: 50000 }]),
+  createMovementInTx: vi.fn(),
+}));
+
+vi.mock("@/lib/services/seuils", () => ({
+  getSeuil: vi.fn().mockImplementation(async (id: string) =>
+    ({ THRESHOLD_DISCREPANCY_MINOR: 500, THRESHOLD_DISCREPANCY_MAJOR: 5000 } as Record<string, number>)[id] ?? 0,
+  ),
 }));
 
 import { prisma } from "@/lib/db";

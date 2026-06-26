@@ -1,6 +1,13 @@
 /**
  * Simple in-memory rate limiter for API routes.
  * Tracks request counts per key (typically IP address) within a sliding window.
+ *
+ * ⚠️ Lot F (M4) — LIMITE MONO-INSTANCE : le store est une `Map` en mémoire de
+ * processus. En déploiement multi-instances (plusieurs conteneurs Next.js derrière
+ * un load-balancer), chaque instance a son propre compteur → la limite effective est
+ * multipliée par le nombre d'instances. Pour un vrai rate-limiting distribué, remplacer
+ * le store par un backend partagé (Redis : INCR + EXPIRE). Acceptable en mono-instance
+ * (déploiement PDV typique). Voir docs/SPEC_CORRECTIONS_AUDIT.md (Lot F).
  */
 
 interface RateLimitEntry {

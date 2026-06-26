@@ -7,8 +7,10 @@ import { createMovementInTx } from "@/lib/services/cash-movement";
 
 const MAX_P2002_RETRIES = 3;
 
-function genererNumeroVente(sequence: number): string {
-  return `VTE-${new Date().getFullYear()}-${String(sequence).padStart(5, "0")}`;
+// M3 (RULE-NUM-001) : format documenté VTE-YYYY-NNNNN.
+// padStart(5) = minimum 5 chiffres ; au-delà de 99 999 le numéro s'étend (aucun plafond).
+function genererNumeroVente(annee: number, sequence: number): string {
+  return `VTE-${annee}-${String(sequence).padStart(5, "0")}`;
 }
 
 export async function GET(req: Request) {
@@ -133,9 +135,11 @@ export async function POST(req: Request) {
           let sousTotal = new Prisma.Decimal(0);
           const lignesData = lignes.map((l, i) => {
             const p = produits[i];
-            const lineSubtotal =
-              l.prixUnitaire * l.quantite * (1 - l.remise / 100);
-            sousTotal = sousTotal.add(new Prisma.Decimal(lineSubtotal));
+            // Lot F — calcul en Decimal de bout en bout (pas d'arithmétique number intermédiaire).
+            const lineSubtotal = new Prisma.Decimal(l.prixUnitaire)
+              .mul(l.quantite)
+              .mul(new Prisma.Decimal(1).sub(new Prisma.Decimal(l.remise).div(100)));
+            sousTotal = sousTotal.add(lineSubtotal);
             return {
               quantite: l.quantite,
               prixUnitaire: l.prixUnitaire,
@@ -179,16 +183,15 @@ export async function POST(req: Request) {
             );
           }
 
-          // Generate sequential sale number
-          const lastVente = await tx.vente.findFirst({
-            where: { numero: { startsWith: `VTE-${new Date().getFullYear()}-` } },
-            orderBy: { numero: "desc" },
-            select: { numero: true },
+          // M3 (RULE-NUM-001) : numéro via compteur transactionnel dédié, incrémenté
+          // atomiquement (UPDATE ... valeur = valeur + 1). Unique, monotone, sans plafond.
+          const annee = new Date().getFullYear();
+          const seq = await tx.sequence.upsert({
+            where: { id: `VTE-${annee}` },
+            create: { id: `VTE-${annee}`, valeur: 1 },
+            update: { valeur: { increment: 1 } },
           });
-          const lastSeq = lastVente
-            ? parseInt(lastVente.numero.split("-")[2])
-            : 0;
-          const numero = genererNumeroVente(lastSeq + 1);
+          const numero = genererNumeroVente(annee, seq.valeur);
 
           // Create sale
           const newVente = await tx.vente.create({
@@ -220,14 +223,19 @@ export async function POST(req: Request) {
           });
 
           // Decrement stock + create stock movements
+          // Lot B (C3) : décrément conditionnel atomique — UPDATE ... WHERE stockActuel >= quantite.
+          // Garantit qu'aucune vente concurrente ne peut rendre le stock négatif (RULE-STOCK-001/002).
           for (let i = 0; i < lignes.length; i++) {
             const l = lignes[i];
             const p = produits[i];
 
-            await tx.produit.update({
-              where: { id: p.id },
+            const { count } = await tx.produit.updateMany({
+              where: { id: p.id, stockActuel: { gte: l.quantite } },
               data: { stockActuel: { decrement: l.quantite } },
             });
+            if (count === 0) {
+              throw new TxError(`Stock insuffisant pour "${p.nom}"`, 422);
+            }
 
             await tx.mouvementStock.create({
               data: {

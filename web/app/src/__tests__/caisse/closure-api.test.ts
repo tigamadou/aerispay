@@ -21,19 +21,18 @@ vi.mock("@/lib/activity-log", () => ({
 }));
 
 vi.mock("@/lib/services/cash-movement", () => ({
-  computeSoldeTheoriqueParMode: vi.fn().mockResolvedValue([
+  // Lot A : closure consomme désormais computeSoldeSession (solde de session)
+  computeSoldeSession: vi.fn().mockResolvedValue([
     { mode: "ESPECES", solde: 78000 },
     { mode: "MOBILE_MONEY_MTN", solde: 12000 },
   ]),
-  computeSoldeCaisseParMode: vi.fn().mockResolvedValue([
-    { mode: "ESPECES", solde: 78000 },
-    { mode: "MOBILE_MONEY_MTN", solde: 12000 },
-  ]),
+  computeSoldeTheoriqueParMode: vi.fn(),
+  computeSoldeCaisseParMode: vi.fn(),
 }));
 
 import { prisma } from "@/lib/db";
 import { auth } from "@/auth";
-import { computeSoldeCaisseParMode } from "@/lib/services/cash-movement";
+import { computeSoldeSession } from "@/lib/services/cash-movement";
 
 function mockUser(role: Role, id = "user-1") {
   (auth as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -72,7 +71,7 @@ describe("POST /api/comptoir/sessions/[id]/closure", () => {
       }),
     );
     (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
-    (computeSoldeCaisseParMode as ReturnType<typeof vi.fn>).mockResolvedValue([
+    (computeSoldeSession as ReturnType<typeof vi.fn>).mockResolvedValue([
       { mode: "ESPECES", solde: 78000 },
       { mode: "MOBILE_MONEY_MTN", solde: 12000 },
     ]);

@@ -29,7 +29,8 @@ export async function reconcile(
   tentativesRecomptage: number,
 ): Promise<ReconciliationResult> {
   const seuilMineur = await getSeuil("THRESHOLD_DISCREPANCY_MINOR");
-  const seuilMajeur = await getSeuil("THRESHOLD_DISCREPANCY_MAJOR");
+  // Lot D (M1) : borne MOYEN = THRESHOLD_DISCREPANCY_MEDIUM (MINEUR < x ≤ MEDIUM → MOYEN ; > MEDIUM → MAJEUR).
+  const seuilMoyen = await getSeuil("THRESHOLD_DISCREPANCY_MEDIUM");
   const seuilCVTolerance = await getSeuil("THRESHOLD_CV_TOLERANCE");
   const maxRecount = await getSeuil("THRESHOLD_MAX_RECOUNT_ATTEMPTS");
 
@@ -65,18 +66,9 @@ export async function reconcile(
     }
 
     const ecartFinal = montantReference - theorique;
-    const absEcart = Math.abs(ecartFinal);
 
-    let categorie: DiscrepancyCategory | null = null;
-    if (absEcart > 0) {
-      if (absEcart <= seuilMineur) {
-        categorie = "MINEUR";
-      } else if (absEcart <= seuilMajeur) {
-        categorie = "MOYEN";
-      } else {
-        categorie = "MAJEUR";
-      }
-    }
+    // Lot D (RULE-SEUIL-001) : catégorisation centralisée (zéro logique dupliquée)
+    const categorie = categorizeDiscrepancy(ecartFinal, seuilMineur, seuilMoyen);
 
     modes.push({
       mode,

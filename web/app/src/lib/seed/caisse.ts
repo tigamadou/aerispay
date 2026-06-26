@@ -10,6 +10,9 @@ const DEFAULT_SEUILS = [
   { id: "THRESHOLD_EXPENSE_AUTH", valeur: 5000, description: "Depense sans autorisation manager (FCFA)" },
   { id: "THRESHOLD_MAX_RECOUNT_ATTEMPTS", valeur: 3, description: "Nombre max de recomptages avant contestation" },
   { id: "THRESHOLD_OFFLINE_READONLY_HOURS", valeur: 4, description: "Duree avant passage en lecture seule hors ligne (heures)" },
+  // Lot G (Modele 2) — float laisse dans le tiroir apres la levee de cloture, par mode.
+  // 0 = remise a zero / refloat complet. Configurable par PDV (ex. FLOAT_ESPECES = 20000).
+  { id: "FLOAT_ESPECES", valeur: 0, description: "Fond de caisse (float) laisse en especes apres la levee (FCFA)" },
 ];
 
 /** Seed la caisse par defaut et les seuils (prod + dev). */

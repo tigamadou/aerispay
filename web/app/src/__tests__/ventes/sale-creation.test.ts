@@ -95,12 +95,14 @@ describe("POST /api/ventes (sale creation)", () => {
         produit: {
           findUnique: vi.fn().mockResolvedValue(mockProduct),
           update: vi.fn(),
+          updateMany: vi.fn().mockResolvedValue({ count: 1 }),
         },
         vente: {
           findFirst: vi.fn().mockResolvedValue(null),
           create: vi.fn().mockResolvedValue(newVente),
         },
         mouvementStock: { create: vi.fn() },
+        sequence: { upsert: vi.fn().mockResolvedValue({ valeur: 1 }) },
       };
       return fn(tx);
     });
@@ -112,7 +114,7 @@ describe("POST /api/ventes (sale creation)", () => {
     expect(res.status).toBe(201);
   });
 
-  it("decrements stock via tx.produit.update inside transaction", async () => {
+  it("decrements stock via conditional updateMany inside transaction", async () => {
     mockSession("CAISSIER");
     (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE" });
 
@@ -125,20 +127,22 @@ describe("POST /api/ventes (sale creation)", () => {
       caissier: { id: "user-1", nom: "T" },
     };
 
-    const txProduitUpdate = vi.fn();
+    const txProduitUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
     const txMouvementStockCreate = vi.fn();
 
     (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn: Function) => {
       const tx = {
         produit: {
           findUnique: vi.fn().mockResolvedValue(mockProduct),
-          update: txProduitUpdate,
+          update: vi.fn(),
+          updateMany: txProduitUpdateMany,
         },
         vente: {
           findFirst: vi.fn().mockResolvedValue(null),
           create: vi.fn().mockResolvedValue(newVente),
         },
         mouvementStock: { create: txMouvementStockCreate },
+        sequence: { upsert: vi.fn().mockResolvedValue({ valeur: 1 }) },
       };
       return fn(tx);
     });
@@ -148,10 +152,10 @@ describe("POST /api/ventes (sale creation)", () => {
       body: JSON.stringify(validSaleBody),
     }));
 
-    // Verify tx.produit.update called with stock decrement
-    expect(txProduitUpdate).toHaveBeenCalledWith(
+    // Décrément conditionnel atomique (Lot B) : UPDATE ... WHERE stockActuel >= quantite
+    expect(txProduitUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "p-1" },
+        where: { id: "p-1", stockActuel: { gte: 2 } },
         data: { stockActuel: { decrement: 2 } },
       })
     );
@@ -177,12 +181,14 @@ describe("POST /api/ventes (sale creation)", () => {
         produit: {
           findUnique: vi.fn().mockResolvedValue(mockProduct),
           update: vi.fn(),
+          updateMany: vi.fn().mockResolvedValue({ count: 1 }),
         },
         vente: {
           findFirst: vi.fn().mockResolvedValue(null),
           create: vi.fn().mockResolvedValue(newVente),
         },
         mouvementStock: { create: txMouvementStockCreate },
+        sequence: { upsert: vi.fn().mockResolvedValue({ valeur: 1 }) },
       };
       return fn(tx);
     });
@@ -229,12 +235,14 @@ describe("POST /api/ventes (sale creation)", () => {
         produit: {
           findUnique: vi.fn().mockResolvedValue(mockProduct),
           update: vi.fn(),
+          updateMany: vi.fn().mockResolvedValue({ count: 1 }),
         },
         vente: {
           findFirst: vi.fn().mockResolvedValue(null),
           create: vi.fn().mockResolvedValue(newVente),
         },
         mouvementStock: { create: vi.fn() },
+        sequence: { upsert: vi.fn().mockResolvedValue({ valeur: 1 }) },
       };
       capturedTx = tx;
       return fn(tx);
@@ -267,6 +275,7 @@ describe("POST /api/ventes (sale creation)", () => {
         },
         vente: { findFirst: vi.fn(), create: vi.fn() },
         mouvementStock: { create: vi.fn() },
+        sequence: { upsert: vi.fn().mockResolvedValue({ valeur: 1 }) },
       };
       return fn(tx);
     });
@@ -289,6 +298,7 @@ describe("POST /api/ventes (sale creation)", () => {
         },
         vente: { findFirst: vi.fn(), create: vi.fn() },
         mouvementStock: { create: vi.fn() },
+        sequence: { upsert: vi.fn().mockResolvedValue({ valeur: 1 }) },
       };
       return fn(tx);
     });
@@ -312,6 +322,7 @@ describe("POST /api/ventes (sale creation)", () => {
           lignes: [], paiements: [], caissier: { id: "user-1", nom: "T" },
         }) },
         mouvementStock: { create: vi.fn() },
+        sequence: { upsert: vi.fn().mockResolvedValue({ valeur: 1 }) },
       };
       return fn(tx);
     });
@@ -351,6 +362,7 @@ describe("POST /api/ventes (sale creation)", () => {
         produit: {
           findUnique: vi.fn().mockResolvedValue(mockProduct),
           update: vi.fn(),
+          updateMany: vi.fn().mockResolvedValue({ count: 1 }),
         },
         vente: {
           findFirst: vi.fn().mockResolvedValue(null),
@@ -360,6 +372,7 @@ describe("POST /api/ventes (sale creation)", () => {
           }),
         },
         mouvementStock: { create: vi.fn() },
+        sequence: { upsert: vi.fn().mockResolvedValue({ valeur: 1 }) },
       };
       return fn(tx);
     });
@@ -410,6 +423,7 @@ describe("POST /api/ventes (sale creation)", () => {
         produit: {
           findUnique: vi.fn().mockResolvedValue(mockProduct),
           update: vi.fn(),
+          updateMany: vi.fn().mockResolvedValue({ count: 1 }),
         },
         vente: {
           findFirst: vi.fn().mockResolvedValue(null),
@@ -419,6 +433,7 @@ describe("POST /api/ventes (sale creation)", () => {
           }),
         },
         mouvementStock: { create: vi.fn() },
+        sequence: { upsert: vi.fn().mockResolvedValue({ valeur: 1 }) },
       };
       return fn(tx);
     });
@@ -465,6 +480,7 @@ describe("POST /api/ventes (sale creation)", () => {
         produit: {
           findUnique: vi.fn().mockResolvedValue(mockProduct),
           update: vi.fn(),
+          updateMany: vi.fn().mockResolvedValue({ count: 1 }),
         },
         vente: {
           findFirst: vi.fn().mockResolvedValue(null),
@@ -474,6 +490,7 @@ describe("POST /api/ventes (sale creation)", () => {
           }),
         },
         mouvementStock: { create: vi.fn() },
+        sequence: { upsert: vi.fn().mockResolvedValue({ valeur: 1 }) },
       };
       return fn(tx);
     });

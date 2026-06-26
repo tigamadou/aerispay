@@ -99,7 +99,7 @@ describe("SessionManager", () => {
 
     await waitFor(() => {
       const closureCall = fetchMock.mock.calls.find(
-        (c: [string, ...unknown[]]) => typeof c[0] === "string" && c[0].includes("/closure"),
+        (c: unknown[]) => typeof c[0] === "string" && c[0].includes("/closure"),
       );
       expect(closureCall).toBeDefined();
       expect(closureCall![1].method).toBe("POST");

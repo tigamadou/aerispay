@@ -3,9 +3,10 @@ import { prisma } from "@/lib/db";
 import { requireAuth, hasPermission } from "@/lib/permissions";
 import { validationAveugSchema } from "@/lib/validations/mouvement-caisse";
 import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
-import { computeSoldeTheoriqueParMode } from "@/lib/services/cash-movement";
+import { computeSoldeSession, leverRecettesInTx } from "@/lib/services/cash-movement";
 import { reconcile } from "@/lib/services/reconciliation";
 import { computeHashForSession } from "@/lib/services/integrity";
+import { getSeuilOrZero } from "@/lib/services/seuils";
 
 /**
  * POST — ACT-BLIND-VALIDATE + ACT-RECONCILE
@@ -71,8 +72,8 @@ export async function POST(
     const declarationsValideur = parsed.data.declarations as Record<string, number>;
     const declarationsCaissier = (session.declarationsCaissier as Record<string, number>) ?? {};
 
-    // Compute theoretical balances
-    const soldesParMode = await computeSoldeTheoriqueParMode(id);
+    // Lot A (RULE-SOLDE-001/003) : même base théorique que `closure` (solde de session)
+    const soldesParMode = await computeSoldeSession(id);
 
     // Run reconciliation
     const reconcResult = await reconcile(
@@ -110,6 +111,24 @@ export async function POST(
           ecart: m.ecartFinal,
           categorie: m.categorie,
         };
+      }
+
+      // RULE-FOND-003 (Modèle 2) : levée des recettes vers le coffre à la finalisation.
+      // Créée AVANT le calcul du hash pour que l'intégrité couvre les mouvements LEVEE.
+      // Float par mode configurable via FLOAT_<MODE> (défaut 0 = remise à zéro / refloat).
+      const caisse = await prisma.caisse.findFirst({ where: { active: true }, select: { id: true } });
+      if (caisse) {
+        const floatParMode: Record<string, number> = {};
+        for (const m of reconcResult.modes) {
+          floatParMode[m.mode] = await getSeuilOrZero(`FLOAT_${m.mode}`);
+        }
+        await leverRecettesInTx(prisma, {
+          sessionId: id,
+          caisseId: caisse.id,
+          auteurId: result.user.id,
+          floatParMode,
+          justificatif: "Levée automatique à la validation de session",
+        });
       }
 
       const now = new Date();

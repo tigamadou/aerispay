@@ -2,7 +2,9 @@ import { prisma } from "@/lib/db";
 import { requireAuth, hasPermission } from "@/lib/permissions";
 import { openSessionSchema } from "@/lib/validations/session";
 import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
-import { computeSoldeCaisseParMode } from "@/lib/services/cash-movement";
+import { computeSoldeCaisseParMode, createMovementInTx } from "@/lib/services/cash-movement";
+import { getSeuil } from "@/lib/services/seuils";
+import { categorizeDiscrepancy } from "@/lib/services/reconciliation";
 
 export async function GET() {
   const result = await requireAuth();
@@ -33,13 +35,6 @@ interface EcartOuverture {
   declare: number;
   ecart: number;
   categorie: "MINEUR" | "MOYEN" | "MAJEUR";
-}
-
-function categorizeEcart(ecart: number): "MINEUR" | "MOYEN" | "MAJEUR" {
-  const abs = Math.abs(ecart);
-  if (abs > 5000) return "MAJEUR";
-  if (abs > 500) return "MOYEN";
-  return "MINEUR";
 }
 
 export async function POST(req: Request) {
@@ -85,6 +80,11 @@ export async function POST(req: Request) {
       soldeMap.set(s.mode, s.solde);
     }
 
+    // RULE-FOND-004 / RULE-SEUIL-001 : catégorisation via seuils paramétrables (zéro valeur en dur),
+    // mêmes bornes (MINEUR + MEDIUM) que la réconciliation.
+    const seuilMineur = await getSeuil("THRESHOLD_DISCREPANCY_MINOR");
+    const seuilMajeur = await getSeuil("THRESHOLD_DISCREPANCY_MEDIUM");
+
     // Compare each declared mode to the grand livre
     const allModes = new Set([...Object.keys(declarations), ...soldeMap.keys()]);
     const ecarts: EcartOuverture[] = [];
@@ -98,7 +98,8 @@ export async function POST(req: Request) {
           theorique,
           declare,
           ecart,
-          categorie: categorizeEcart(ecart),
+          // categorizeDiscrepancy ne renvoie null que pour ecart == 0 (exclu ici)
+          categorie: categorizeDiscrepancy(ecart, seuilMineur, seuilMajeur) ?? "MINEUR",
         });
       }
     }
@@ -132,30 +133,59 @@ export async function POST(req: Request) {
       .filter(([mode]) => mode !== "ESPECES")
       .reduce((sum, [, val]) => sum + val, 0);
 
-    // Atomically check for existing open session + create (prevents race condition)
+    // RULE-FOND-004 : un écart d'ouverture est imputé à la session précédente finalisée
+    const sessionPrecedente = hasEcarts
+      ? await prisma.comptoirSession.findFirst({
+          where: { statut: { in: ["VALIDEE", "FORCEE", "CORRIGEE", "FERMEE"] } },
+          orderBy: { ouvertureAt: "desc" },
+          select: { id: true },
+        })
+      : null;
+
+    // Lot C (RULE-CAISSE-002, Option A — tiroir partagé séquentiel) :
+    // au plus UNE session OUVERTE à la fois (globalement), vérifiée atomiquement.
     const session = await prisma.$transaction(async (tx) => {
       const existing = await tx.comptoirSession.findFirst({
-        where: { userId: result.user.id, statut: "OUVERTE" },
+        where: { statut: "OUVERTE" },
       });
       if (existing) {
-        return null; // Signal that a session already exists
+        return null; // Signal qu'une session est déjà ouverte
       }
 
-      return tx.comptoirSession.create({
+      const created = await tx.comptoirSession.create({
         data: {
           montantOuvertureCash,
           montantOuvertureMobileMoney,
           declarationsOuverture: declarations,
           ecartsOuverture: hasEcarts ? JSON.parse(JSON.stringify(ecarts)) : undefined,
+          ecartOuvertureImputeSessionId: sessionPrecedente?.id ?? null,
           userId: result.user.id,
         },
         include: { user: { select: { id: true, nom: true, email: true } } },
       });
+
+      // RULE-FOND-001 : le fond d'ouverture devient un MouvementCaisse rattaché à la session,
+      // par mode (= montant retenu à l'ouverture). computeSoldeSession l'inclut donc nativement.
+      for (const [mode, montant] of Object.entries(declarations)) {
+        if (montant > 0) {
+          await createMovementInTx(tx, {
+            type: "FOND_OUVERTURE",
+            mode,
+            montant,
+            caisseId: caisse.id,
+            sessionId: created.id,
+            auteurId: result.user.id,
+            motif: "Fond d'ouverture de session",
+          });
+        }
+      }
+
+      return created;
     });
 
     if (!session) {
       return Response.json(
-        { error: "Vous avez déjà une session de comptoir ouverte" },
+        { error: "Une session de comptoir est déjà ouverte sur la caisse. Clôturez-la avant d'en ouvrir une nouvelle." },
         { status: 409 }
       );
     }

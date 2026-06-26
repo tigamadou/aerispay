@@ -7,6 +7,7 @@ vi.mock("@/lib/services/seuils", () => ({
     const defaults: Record<string, number> = {
       THRESHOLD_DISCREPANCY_MINOR: 500,
       THRESHOLD_DISCREPANCY_MAJOR: 5000,
+          THRESHOLD_DISCREPANCY_MEDIUM: 5000,
       THRESHOLD_MAX_RECOUNT_ATTEMPTS: 3,
       THRESHOLD_CV_TOLERANCE: 500,
     };
@@ -147,6 +148,7 @@ describe("ReconciliationService", () => {
         const overrides: Record<string, number> = {
           THRESHOLD_DISCREPANCY_MINOR: 500,
           THRESHOLD_DISCREPANCY_MAJOR: 5000,
+          THRESHOLD_DISCREPANCY_MEDIUM: 5000,
           THRESHOLD_MAX_RECOUNT_ATTEMPTS: 3,
           THRESHOLD_CV_TOLERANCE: 1000,
         };
@@ -178,6 +180,7 @@ describe("ReconciliationService", () => {
         const overrides: Record<string, number> = {
           THRESHOLD_DISCREPANCY_MINOR: 500,
           THRESHOLD_DISCREPANCY_MAJOR: 5000,
+          THRESHOLD_DISCREPANCY_MEDIUM: 5000,
           THRESHOLD_MAX_RECOUNT_ATTEMPTS: 3,
           THRESHOLD_CV_TOLERANCE: 200,
         };

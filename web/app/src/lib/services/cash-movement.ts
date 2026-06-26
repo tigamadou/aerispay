@@ -71,8 +71,11 @@ export async function createMovement(params: CreateMovementParams) {
 }
 
 /**
- * Compute theoretical balance per payment mode for a caisse,
- * by summing all cash movements algebraically.
+ * Solde physique d'une caisse (grand livre), par mode = somme de TOUS les mouvements.
+ *
+ * ⚠️ Lot A (RULE-SOLDE-001) : réservé au solde caisse physique (monitoring, garde
+ * de retrait). NE PAS l'utiliser pour le théorique d'une session — utiliser
+ * `computeSoldeSession`, qui est scopé à la session et inclut le FOND_OUVERTURE.
  */
 export async function computeSoldeCaisseParMode(
   caisseId: string,
@@ -112,6 +115,81 @@ export async function computeSoldeTheoriqueParMode(
     mode,
     solde,
   }));
+}
+
+/**
+ * Lot A (RULE-SOLDE-001/002) — Source UNIQUE du solde théorique d'une session,
+ * consommée par `closure`, `validate` et l'intégrité.
+ *
+ *   soldeTheoriqueSession(mode) = Σ MouvementCaisse(session, mode)
+ *
+ * Le fond d'ouverture (Lot G, type FOND_OUVERTURE) étant un mouvement rattaché à la
+ * session, il est inclus nativement et exactement une fois. La levée (LEVEE) y est
+ * également incluse algébriquement.
+ */
+export async function computeSoldeSession(
+  sessionId: string,
+): Promise<SoldeTheoriqueParMode[]> {
+  return computeSoldeTheoriqueParMode(sessionId);
+}
+
+/**
+ * Lot G (Modèle 2, RULE-FOND-003) — Levée des recettes vers le coffre à la clôture.
+ * Crée, par mode, un mouvement LEVEE négatif ramenant le solde de session au float.
+ * Après la levée : soldeSession(mode) == float(mode). La levée est tracée (auteur,
+ * justificatif). À appeler dans la transaction de finalisation.
+ */
+export async function leverRecettesInTx(
+  tx: Prisma.TransactionClient,
+  params: {
+    sessionId: string;
+    caisseId: string;
+    auteurId: string;
+    floatParMode: Record<string, number>;
+    justificatif?: string;
+  },
+): Promise<Array<{ mode: string; montant: number }>> {
+  const soldes = await computeSoldeSessionInTx(tx, params.sessionId);
+  const levees: Array<{ mode: string; montant: number }> = [];
+
+  for (const { mode, solde } of soldes) {
+    const floatMode = params.floatParMode[mode] ?? 0;
+    const aLever = solde - floatMode; // montant de recettes à sortir vers le coffre
+    if (aLever > 0) {
+      await createMovementInTx(tx, {
+        type: "LEVEE",
+        mode,
+        montant: -aLever,
+        caisseId: params.caisseId,
+        sessionId: params.sessionId,
+        auteurId: params.auteurId,
+        motif: "Levée des recettes vers le coffre (clôture)",
+        justificatif: params.justificatif,
+      });
+      levees.push({ mode, montant: -aLever });
+    }
+  }
+
+  return levees;
+}
+
+/**
+ * Variante transactionnelle de computeSoldeSession (lecture verrouillée dans la même tx).
+ */
+async function computeSoldeSessionInTx(
+  tx: Prisma.TransactionClient,
+  sessionId: string,
+): Promise<SoldeTheoriqueParMode[]> {
+  const mouvements = await tx.mouvementCaisse.findMany({
+    where: { sessionId },
+    select: { mode: true, montant: true },
+  });
+
+  const soldes = new Map<string, number>();
+  for (const m of mouvements) {
+    soldes.set(m.mode, (soldes.get(m.mode) ?? 0) + Number(m.montant));
+  }
+  return Array.from(soldes.entries()).map(([mode, solde]) => ({ mode, solde }));
 }
 
 /**

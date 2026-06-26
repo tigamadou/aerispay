@@ -5,6 +5,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     comptoirSession: { findUnique: vi.fn(), update: vi.fn(), findFirst: vi.fn() },
     mouvementCaisse: { findMany: vi.fn() },
+    caisse: { findFirst: vi.fn() },
     user: { findUnique: vi.fn() },
     seuilCaisse: { findMany: vi.fn() },
   },
@@ -26,9 +27,13 @@ vi.mock("@/lib/activity-log", () => ({
 }));
 
 vi.mock("@/lib/services/cash-movement", () => ({
-  computeSoldeTheoriqueParMode: vi.fn().mockResolvedValue([
+  // Lot A : validate consomme désormais computeSoldeSession (même base que closure)
+  computeSoldeSession: vi.fn().mockResolvedValue([
     { mode: "ESPECES", solde: 78000 },
   ]),
+  computeSoldeTheoriqueParMode: vi.fn(),
+  // Lot G : levée à la validation
+  leverRecettesInTx: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock("@/lib/services/reconciliation", async () => {
@@ -46,6 +51,7 @@ vi.mock("@/lib/services/seuils", () => ({
     };
     return d[id] ?? 0;
   }),
+  getSeuilOrZero: vi.fn().mockResolvedValue(0),
 }));
 
 vi.mock("@/lib/services/integrity", () => ({
@@ -96,6 +102,7 @@ describe("POST /api/comptoir/sessions/[id]/validate", () => {
     );
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (prisma.mouvementCaisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
   });
 
   it("returns 401 if not authenticated", async () => {
@@ -194,6 +201,7 @@ describe("POST /api/comptoir/sessions/[id]/force-close", () => {
     );
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (prisma.mouvementCaisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
   });
 
   it("returns 403 if not ADMIN", async () => {

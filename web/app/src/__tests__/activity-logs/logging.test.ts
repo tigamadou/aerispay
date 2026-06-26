@@ -62,6 +62,13 @@ vi.mock("@/lib/services/cash-movement", () => ({
   computeSoldeTheoriqueLegacy: vi.fn().mockResolvedValue({ cash: 0, mobileMoney: 0 }),
   computeSoldeTheoriqueParMode: vi.fn().mockResolvedValue([]),
   computeSoldeCaisseParMode: vi.fn().mockResolvedValue([{ mode: "ESPECES", solde: 50000 }]),
+  computeSoldeSession: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock("@/lib/services/seuils", () => ({
+  getSeuil: vi.fn().mockImplementation(async (id: string) =>
+    ({ THRESHOLD_DISCREPANCY_MINOR: 500, THRESHOLD_DISCREPANCY_MAJOR: 5000 } as Record<string, number>)[id] ?? 0,
+  ),
 }));
 
 import { prisma } from "@/lib/db";

@@ -83,12 +83,13 @@ describe("P0-001: P2002 race condition on sale number", () => {
       }
       // Second attempt succeeds
       const tx = {
-        produit: { findUnique: vi.fn().mockResolvedValue(mockProduct), update: vi.fn() },
+        produit: { findUnique: vi.fn().mockResolvedValue(mockProduct), update: vi.fn(), updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
         vente: {
           findFirst: vi.fn().mockResolvedValue({ numero: "VTE-2026-00001" }),
           create: vi.fn().mockResolvedValue(newVente),
         },
         mouvementStock: { create: vi.fn() },
+        sequence: { upsert: vi.fn().mockResolvedValue({ valeur: 1 }) },
       };
       return fn(tx);
     });
