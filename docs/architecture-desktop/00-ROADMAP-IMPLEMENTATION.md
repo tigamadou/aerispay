@@ -125,7 +125,7 @@ isolés par caisse, numéro & hash partitionnés par poste, suite de tests verte
 |---|---|---|---|
 | **C2.1** | Pont périphériques : construire le **reçu réel** (`printReceipt`) ; déplacer `tickets/[id]/print` + `cash-drawer/open` dans le **main Electron** ; IPC `window.aerisDevices.*` | D0.2 | ☑ **2026-06-26** *(reçu réel ; IPC Electron hors dépôt)* |
 | **C2.2** | Coquille Electron : renderer charge l'UI du nœud ; durcissement (`contextIsolation`, `sandbox`, CSP, navigation restreinte) | D0.2 | ☐ |
-| **C2.3** | Health-check du nœud + écran de blocage (pas de mode dégradé) | C2.2 | ☐ |
+| **C2.3** | Health-check du nœud + écran de blocage (pas de mode dégradé) | C2.2 | ☑ **2026-06-26** *(endpoint nœud ; écran Electron hors dépôt)* |
 
 **Critère de sortie V2 (= Jalon J2) :** vente depuis Electron → nœud → impression locale + tiroir ;
 blocage propre si nœud coupé. *(Combiné à D0.2 = PoC desktop validé.)*
@@ -137,7 +137,7 @@ blocage propre si nœud coupé. *(Combiné à D0.2 = PoC desktop validé.)*
 ### Vague 3 — Enrôlement & identité poste
 | ID | Tâche | Dépend | Statut |
 |---|---|---|---|
-| **E3.1** | Modèle d'enrôlement : **2 modes** (nœud magasin / client — pas d'autonome, ADR-001) ; `caisseId` = identité fixée à l'enrôlement | F1.1, C2.2 | ☐ |
+| **E3.1** | Modèle d'enrôlement : **2 modes** (nœud magasin / client — pas d'autonome, ADR-001) ; `caisseId` = identité fixée à l'enrôlement | F1.1, C2.2 | ☑ **2026-06-26** *(endpoint nœud ; GUI Electron hors dépôt)* |
 | **E3.2** | Tokens & transport : tokens magasin scopés en trousseau OS, HTTPS LAN, révocation | D0.1 | ☑ **2026-06-26** *(logique nœud)* |
 | **E3.3** | Flux d'installation : GUI premier lancement, association poste↔nœud | E3.1, E3.2 | ☐ |
 
@@ -220,6 +220,7 @@ Doc produit : `docs/product/`. Ne pas modifier `components/ui/` (shadcn).
 |---|---|---|
 | 2026-06-26 | — | Cadrage validé. Roadmap rédigée. Décisions Lot C actées. |
 | 2026-06-26 | **D0.1** | ☑ **Terminée.** 6 décisions actées → `09-adr.md`. ADR-001 (pas de mode autonome) répercutée : D0.2 allégé, P5.3 supprimé, enrôlement = 2 modes. **Prochaine étape : D0.2 (PoC packaging) + F1.1 (Lot C) en parallèle.** |
+| 2026-06-26 | **C2.3 / E3.1** | ☑ **Endpoints nœud livrés + testés.** C2.3 : `GET /api/health` (statut + connectivité DB, 200/503) consommé par l'écran de blocage Electron. E3.1 : `POST /api/enrollment` (ADMIN) émet un token de magasin scoppé à une caisse (caisseId = identité poste fixée à l'enrôlement) via E3.2, action `POSTE_ENROLLED`. **Écran de blocage + GUI d'installation Electron restent hors dépôt.** Tests `health-api` + `enrollment-api`. **899 tests verts, tsc OK.** |
 | 2026-06-26 | **E3.2** | ☑ **Logique nœud livrée + testée.** Tokens de magasin scopés par poste : modèle `StoreToken` (migration `e3_2_store_token`, hash SHA-256 seul persisté, jamais le clair), service `lib/services/store-token.ts` (`issueStoreToken` scoppé caisse, `verifyStoreToken` actif+scope, `revokeStoreToken` perte/vol, `hashToken`). ADR-003 « Simple V1 » (longue durée + révocation). **Stockage trousseau OS + transport HTTPS/mTLS restent côté Electron.** Tests `store-token` (6 cas). **893 tests verts, tsc OK.** |
 | 2026-06-26 | **C2.1** | ☑ **Reçu réel livré + testé.** STUB `printReceipt` résolu : `lib/receipt/receipt-content.ts` (`buildReceiptContent`) construit le contenu ESC/POS texte (en-tête commerce, méta vente, lignes produits, totaux/remise/taxes, paiements, largeur 32/48 bornée), fonction pure testée (`receipt-content.test.ts`). `printReceipt` imprime ces lignes ; route `tickets/[id]/print` alimente le contenu depuis la vente + paramètres. **Le déplacement vers le main Electron + IPC `window.aerisDevices.*` reste hors de ce dépôt backend.** **887 tests verts, tsc OK.** |
 | 2026-06-26 | **S4.2/S4.3/S4.4** | ☑ **Logique nœud livrée + testée.** Service `lib/services/cloud-sync.ts` : `pushTransactionalEvents` (push outbox `EventCaisse` par lots, idempotent, accusé partiel géré, résilient — rien marqué consommé si échec transport), `pullReferenceUpdates` (référence descendante LWW, curseur non avancé en cas d'échec → rejeu), `withRetry` (reprise WAN). **Transport = port injectable** (l'impl HTTPS/mTLS réelle vers le cloud et le **schéma cloud S4.1** — base MySQL managée multi-magasins — restent hors de ce dépôt backend, par construction archi §38). Tests `cloud-push-worker` + `cloud-pull-worker` (11 cas). **881 tests verts, tsc OK.** |

@@ -75,6 +75,9 @@ export const ACTIONS = {
   CAISSE_CREATED: "CAISSE_CREATED",
   CAISSE_UPDATED: "CAISSE_UPDATED",
   CAISSE_DEACTIVATED: "CAISSE_DEACTIVATED",
+
+  // Enrôlement poste (E3.1)
+  POSTE_ENROLLED: "POSTE_ENROLLED",
 } as const;
 
 export type ActionCode = (typeof ACTIONS)[keyof typeof ACTIONS];
