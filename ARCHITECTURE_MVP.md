@@ -397,6 +397,7 @@ Le **nœud magasin** détient le secret cloud et est le seul à parler au cloud.
 | Renderer | UI **servie par le nœud magasin** | Aucune logique métier embarquée |
 | Main process | **node-thermal-printer** · **serialport** | Pont périphériques ESC/POS / tiroir / douchette via IPC `window.aerisDevices.*` |
 | Recompilation native | **electron-rebuild** + CI multi-OS | Modules natifs sur Windows/macOS/Linux |
+| Enrôlement & secret | **safeStorage** (trousseau OS) + JSON `userData` | Token de magasin chiffré au repos ; config (URL/caisseId) en clair |
 | Distribution | **electron-builder** · **electron-updater** + S3 | Installeurs signés, auto-update |
 
 ### 9.3 Périphériques de caisse

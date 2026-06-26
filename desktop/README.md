@@ -9,12 +9,15 @@ Client caisse **sans base de données** : coquille kiosque qui affiche l'UI serv
 | Fichier | Rôle (réf. tâche) |
 |---|---|
 | `src/security.ts` | C2.2 — webPreferences durcies, navigation restreinte, CSP (testé) |
-| `src/config.ts` | E3.3 — validation/normalisation config d'enrôlement (testé) |
-| `src/main.ts` | C2.2 (durcissement), C2.3 (health-check + blocage), C2.1 (IPC), P5.2 (auto-update) |
+| `src/config.ts` | Validation de la saisie d'enrôlement (URL + code + nom) + `authHeaders` (testé) |
+| `src/config-store.ts` | Persistance config (JSON userData) + token de magasin chiffré via **safeStorage** ; pure `encode/decode` testée |
+| `src/enrollment-client.ts` | Échange du code d'enrôlement → token de magasin (`POST /api/enrollment/exchange`, testé) |
+| `src/enroll-preload.ts` | Bridge `window.aerisEnroll.submit` (fenêtre d'enrôlement, preload isolé) |
+| `src/main.ts` | Orchestration enrôlement→kiosque (2 fenêtres/preloads), health-check + blocage, IPC, menu réinitialiser, auto-update |
 | `src/preload.ts` | C2.1 — bridge `window.aerisDevices.*` (liste blanche) |
 | `src/devices.ts` | C2.1 — pont ESC/POS / tiroir (node-thermal-printer) |
 | `renderer/blocked.html` | C2.3 — écran de blocage |
-| `renderer/config.html` | E3.3 — écran d'enrôlement premier lancement |
+| `renderer/config.html` + `renderer/config.js` | Écran + handler d'enrôlement au premier lancement (URL + code + nom) |
 | `electron-builder.yml` | P5.1 — installeurs 3 OS · P5.2 — publication S3 |
 | `../.github/workflows/desktop-build.yml` | P5.1 — CI multi-plateforme · P5.2 — signature |
 
