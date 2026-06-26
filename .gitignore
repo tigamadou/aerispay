@@ -13,5 +13,5 @@ node_modules/
 docker/env/production.env
 dist/
 
-# Logs d'exécution du runner roadmap (scripts/run-roadmap.sh)
-.roadmap-logs/
+# Logs d'exécution du runner de plans (scripts/run-plans.sh)
+.plan-logs/
