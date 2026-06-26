@@ -1517,13 +1517,30 @@ Expected: PASS (baseline ≈ 899 + nouveaux tests enrollment).
 Run: `cd desktop && npx tsc --noEmit && npx vitest run`
 Expected: PASS (7 + config/config-store/enrollment-client).
 
-- [ ] **Step 3: Supprimer la spec et le plan (CLAUDE.md §8.1)**
+- [ ] **Step 3: GARDE-FOU — la doc pérenne a bien absorbé la feature (BLOQUANT)**
+
+Vérifier que la connaissance durable est présente AVANT de supprimer spec/plan. Si une seule
+vérification échoue : **NE PAS supprimer** — retourner à la Task 12, compléter la doc, puis revenir.
+
+```bash
+set -e
+grep -q "ADR-007" ARCHITECTURE_MVP.md
+grep -q "EnrollmentToken" ARCHITECTURE_MVP.md
+grep -q "enrollment/exchange" docs/product/09-pages-api.md
+grep -q "config-store" desktop/README.md
+echo "✓ Doc pérenne à jour — suppression spec/plan autorisée"
+```
+
+Expected: les 4 `grep` réussissent et la ligne `✓ ...` s'affiche. Sinon (`grep` code ≠ 0) :
+arrêter, compléter la doc (Task 12), recommencer ce step.
+
+- [ ] **Step 4: Supprimer la spec et le plan (CLAUDE.md §8.1)**
 
 ```bash
 git rm docs/superpowers/specs/2026-06-26-enrolement-poste-design.md docs/superpowers/plans/2026-06-26-enrolement-poste.md
 ```
 
-- [ ] **Step 4: Commit final**
+- [ ] **Step 5: Commit final**
 
 ```bash
 git add -A
