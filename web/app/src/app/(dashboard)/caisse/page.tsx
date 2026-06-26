@@ -6,6 +6,7 @@ import { computeSoldeCaisseParMode } from "@/lib/services/cash-movement";
 import Link from "next/link";
 import type { Metadata } from "next";
 import type { Role } from "@prisma/client";
+import { EnrollmentCodeButton } from "@/components/caisse/EnrollmentCodeButton";
 
 export const dynamic = "force-dynamic";
 
@@ -236,6 +237,8 @@ export default async function CaissePage() {
           <p className="text-xs text-zinc-500">Gerer les sessions de caisse</p>
         </Link>
       </div>
+
+      {caisse && role === "ADMIN" && <EnrollmentCodeButton caisseId={caisse.id} />}
     </div>
   );
 }
