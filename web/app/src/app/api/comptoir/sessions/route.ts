@@ -54,15 +54,37 @@ export async function POST(req: Request) {
       );
     }
 
-    const { declarations, confirmeEcart } = parsed.data;
+    const { declarations, confirmeEcart, caisseId: caisseIdParam } = parsed.data;
 
-    // Verifier qu'une caisse active existe et a un solde > 0
-    const caisse = await prisma.caisse.findFirst({ where: { active: true }, select: { id: true } });
-    if (!caisse) {
-      return Response.json(
-        { error: "Aucune caisse active configuree" },
-        { status: 422 },
-      );
+    // F1.1 — Résolution multi-caisse
+    let caisse: { id: string };
+    if (caisseIdParam) {
+      const found = await prisma.caisse.findUnique({
+        where: { id: caisseIdParam },
+        select: { id: true, active: true },
+      });
+      if (!found || !found.active) {
+        return Response.json(
+          { error: "Caisse introuvable ou inactive" },
+          { status: 422 },
+        );
+      }
+      caisse = found;
+    } else {
+      const caisses = await prisma.caisse.findMany({ where: { active: true }, select: { id: true } });
+      if (caisses.length === 0) {
+        return Response.json(
+          { error: "Aucune caisse active configurée" },
+          { status: 422 },
+        );
+      }
+      if (caisses.length >= 2) {
+        return Response.json(
+          { error: "caisseId requis : plusieurs caisses actives" },
+          { status: 400 },
+        );
+      }
+      caisse = caisses[0];
     }
 
     const soldes = await computeSoldeCaisseParMode(caisse.id);
@@ -142,14 +164,21 @@ export async function POST(req: Request) {
         })
       : null;
 
-    // Lot C (RULE-CAISSE-002, Option A — tiroir partagé séquentiel) :
-    // au plus UNE session OUVERTE à la fois (globalement), vérifiée atomiquement.
+    // F1.1 (RULE-CAISSE-002, Option B — multi-caisse) :
+    // 1 session OUVERTE par caisse ET 1 par caissier, vérifiées atomiquement.
     const session = await prisma.$transaction(async (tx) => {
-      const existing = await tx.comptoirSession.findFirst({
-        where: { statut: "OUVERTE" },
+      const existingCaisse = await tx.comptoirSession.findFirst({
+        where: { statut: "OUVERTE", caisseId: caisse.id },
       });
-      if (existing) {
-        return null; // Signal qu'une session est déjà ouverte
+      if (existingCaisse) {
+        return { conflict: "CAISSE_DEJA_OUVERTE" } as const;
+      }
+
+      const existingCaissier = await tx.comptoirSession.findFirst({
+        where: { statut: "OUVERTE", userId: result.user.id },
+      });
+      if (existingCaissier) {
+        return { conflict: "CAISSIER_SESSION_DEJA_OUVERTE" } as const;
       }
 
       const created = await tx.comptoirSession.create({
@@ -160,6 +189,7 @@ export async function POST(req: Request) {
           ecartsOuverture: hasEcarts ? JSON.parse(JSON.stringify(ecarts)) : undefined,
           ecartOuvertureImputeSessionId: sessionPrecedente?.id ?? null,
           userId: result.user.id,
+          caisseId: caisse.id,
         },
         include: { user: { select: { id: true, nom: true, email: true } } },
       });
@@ -183,11 +213,20 @@ export async function POST(req: Request) {
       return created;
     });
 
-    if (!session) {
+    if (session && "conflict" in session) {
+      if (session.conflict === "CAISSE_DEJA_OUVERTE") {
+        return Response.json(
+          { error: "Une session est déjà ouverte sur cette caisse. Clôturez-la avant d'en ouvrir une nouvelle." },
+          { status: 409 }
+        );
+      }
       return Response.json(
-        { error: "Une session de comptoir est déjà ouverte sur la caisse. Clôturez-la avant d'en ouvrir une nouvelle." },
+        { error: "Vous avez déjà une session ouverte sur une autre caisse." },
         { status: 409 }
       );
+    }
+    if (!session) {
+      return Response.json({ error: "Erreur lors de la création de la session" }, { status: 500 });
     }
 
     const logMetadata: Record<string, unknown> = {

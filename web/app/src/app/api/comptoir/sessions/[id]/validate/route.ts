@@ -38,6 +38,7 @@ export async function POST(
         userId: true,
         declarationsCaissier: true,
         tentativesRecomptage: true,
+        caisseId: true,
       },
     });
 
@@ -116,20 +117,18 @@ export async function POST(
       // RULE-FOND-003 (Modèle 2) : levée des recettes vers le coffre à la finalisation.
       // Créée AVANT le calcul du hash pour que l'intégrité couvre les mouvements LEVEE.
       // Float par mode configurable via FLOAT_<MODE> (défaut 0 = remise à zéro / refloat).
-      const caisse = await prisma.caisse.findFirst({ where: { active: true }, select: { id: true } });
-      if (caisse) {
-        const floatParMode: Record<string, number> = {};
-        for (const m of reconcResult.modes) {
-          floatParMode[m.mode] = await getSeuilOrZero(`FLOAT_${m.mode}`);
-        }
-        await leverRecettesInTx(prisma, {
-          sessionId: id,
-          caisseId: caisse.id,
-          auteurId: result.user.id,
-          floatParMode,
-          justificatif: "Levée automatique à la validation de session",
-        });
+      // F1.1 — caisseId vient de la session (source de vérité)
+      const floatParMode: Record<string, number> = {};
+      for (const m of reconcResult.modes) {
+        floatParMode[m.mode] = await getSeuilOrZero(`FLOAT_${m.mode}`);
       }
+      await leverRecettesInTx(prisma, {
+        sessionId: id,
+        caisseId: session.caisseId,
+        auteurId: result.user.id,
+        floatParMode,
+        justificatif: "Levée automatique à la validation de session",
+      });
 
       const now = new Date();
       const hash = await computeHashForSession(id, now);

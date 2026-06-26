@@ -39,6 +39,8 @@ vi.mock("@/lib/db", () => ({
     },
     caisse: {
       findFirst: vi.fn(),
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
     },
     $transaction: vi.fn(),
   },
@@ -186,7 +188,7 @@ describe("POST /api/comptoir/sessions", () => {
     mockSession("ADMIN");
     mockTransactionPassthrough();
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", nom: "Caisse principale", active: true });
+    (prisma.caisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: "caisse-1", nom: "Caisse principale", active: true }]);
 
     const { computeSoldeCaisseParMode } = await import("@/lib/services/cash-movement");
     (computeSoldeCaisseParMode as ReturnType<typeof vi.fn>).mockResolvedValue([{ mode: "ESPECES", solde: 50000 }]);
@@ -207,7 +209,7 @@ describe("POST /api/comptoir/sessions", () => {
     mockSession("MANAGER");
     mockTransactionPassthrough();
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", nom: "Caisse principale", active: true });
+    (prisma.caisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: "caisse-1", nom: "Caisse principale", active: true }]);
 
     const { computeSoldeCaisseParMode } = await import("@/lib/services/cash-movement");
     (computeSoldeCaisseParMode as ReturnType<typeof vi.fn>).mockResolvedValue([{ mode: "ESPECES", solde: 50000 }]);
@@ -228,7 +230,7 @@ describe("POST /api/comptoir/sessions", () => {
     mockSession("CAISSIER");
     mockTransactionPassthrough();
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", nom: "Caisse principale", active: true });
+    (prisma.caisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: "caisse-1", nom: "Caisse principale", active: true }]);
 
     const { computeSoldeCaisseParMode } = await import("@/lib/services/cash-movement");
     (computeSoldeCaisseParMode as ReturnType<typeof vi.fn>).mockResolvedValue([{ mode: "ESPECES", solde: 50000 }]);
@@ -251,7 +253,7 @@ describe("POST /api/comptoir/sessions", () => {
   it("returns 409 if user already has an open session", async () => {
     mockSession("CAISSIER");
     mockTransactionPassthrough();
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
+    (prisma.caisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: "caisse-1", active: true }]);
 
     const { computeSoldeCaisseParMode } = await import("@/lib/services/cash-movement");
     (computeSoldeCaisseParMode as ReturnType<typeof vi.fn>).mockResolvedValue([{ mode: "ESPECES", solde: 50000 }]);
@@ -295,7 +297,7 @@ describe("POST /api/comptoir/sessions", () => {
   it("returns 422 if no active caisse exists", async () => {
     mockSession("CAISSIER");
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (prisma.caisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 
     const res = await POST(
       new Request("http://localhost/api/comptoir/sessions", {
@@ -312,7 +314,7 @@ describe("POST /api/comptoir/sessions", () => {
   it("returns 422 if caisse has zero balance", async () => {
     mockSession("CAISSIER");
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", nom: "Caisse principale", active: true });
+    (prisma.caisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: "caisse-1", nom: "Caisse principale", active: true }]);
 
     const { computeSoldeCaisseParMode } = await import("@/lib/services/cash-movement");
     (computeSoldeCaisseParMode as ReturnType<typeof vi.fn>).mockResolvedValue([]);
@@ -333,7 +335,7 @@ describe("POST /api/comptoir/sessions", () => {
     mockSession("CAISSIER");
     mockTransactionPassthrough();
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", nom: "Caisse principale", active: true });
+    (prisma.caisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: "caisse-1", nom: "Caisse principale", active: true }]);
 
     const { computeSoldeCaisseParMode } = await import("@/lib/services/cash-movement");
     (computeSoldeCaisseParMode as ReturnType<typeof vi.fn>).mockResolvedValue([
@@ -354,7 +356,7 @@ describe("POST /api/comptoir/sessions", () => {
 
   it("returns 409 with requiresConfirmation when declared < solde (deficit)", async () => {
     mockSession("CAISSIER");
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
+    (prisma.caisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: "caisse-1", active: true }]);
 
     const { computeSoldeCaisseParMode } = await import("@/lib/services/cash-movement");
     (computeSoldeCaisseParMode as ReturnType<typeof vi.fn>).mockResolvedValue([
@@ -377,7 +379,7 @@ describe("POST /api/comptoir/sessions", () => {
 
   it("returns 409 with requiresConfirmation when declared > solde (surplus)", async () => {
     mockSession("CAISSIER");
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
+    (prisma.caisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: "caisse-1", active: true }]);
 
     const { computeSoldeCaisseParMode } = await import("@/lib/services/cash-movement");
     (computeSoldeCaisseParMode as ReturnType<typeof vi.fn>).mockResolvedValue([
@@ -400,7 +402,7 @@ describe("POST /api/comptoir/sessions", () => {
     mockSession("CAISSIER");
     mockTransactionPassthrough();
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
+    (prisma.caisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: "caisse-1", active: true }]);
 
     const { computeSoldeCaisseParMode } = await import("@/lib/services/cash-movement");
     (computeSoldeCaisseParMode as ReturnType<typeof vi.fn>).mockResolvedValue([
@@ -429,7 +431,7 @@ describe("POST /api/comptoir/sessions", () => {
     mockSession("CAISSIER");
     mockTransactionPassthrough();
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
+    (prisma.caisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: "caisse-1", active: true }]);
 
     const { computeSoldeCaisseParMode } = await import("@/lib/services/cash-movement");
     (computeSoldeCaisseParMode as ReturnType<typeof vi.fn>).mockResolvedValue([
@@ -635,7 +637,7 @@ describe("Comptoir error handling", () => {
 
   it("POST /api/comptoir/sessions returns 500 on DB error", async () => {
     mockSession("CAISSIER");
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
+    (prisma.caisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: "caisse-1", active: true }]);
 
     const { computeSoldeCaisseParMode } = await import("@/lib/services/cash-movement");
     (computeSoldeCaisseParMode as ReturnType<typeof vi.fn>).mockResolvedValue([{ mode: "ESPECES", solde: 50000 }]);

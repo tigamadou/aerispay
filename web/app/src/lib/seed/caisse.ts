@@ -23,7 +23,15 @@ export async function seedDefaultCaisse(prisma: PrismaClient): Promise<void> {
     update: { nom: "Caisse principale", active: true },
   });
   console.log(`  > Caisse: ${caisse.nom} (${caisse.id})`);
-  console.log(`\nSeed OK — Caisse par defaut creee`);
+
+  // F1.1 — 2ème caisse pour le multi-poste
+  const caisse2 = await prisma.caisse.upsert({
+    where: { id: "caisse-2" },
+    create: { id: "caisse-2", nom: "Caisse 2", active: true },
+    update: { nom: "Caisse 2", active: true },
+  });
+  console.log(`  > Caisse: ${caisse2.nom} (${caisse2.id})`);
+  console.log(`\nSeed OK — Caisses par defaut creees`);
 
   for (const seuil of DEFAULT_SEUILS) {
     await prisma.seuilCaisse.upsert({

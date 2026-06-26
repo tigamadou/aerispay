@@ -9,6 +9,7 @@ export const openSessionSchema = z.object({
     "Au moins un mode de paiement doit être déclaré",
   ),
   confirmeEcart: z.boolean().optional(),
+  caisseId: z.string().optional(),
 });
 
 // Conservé pour rétrocompatibilité — la nouvelle clôture utilise

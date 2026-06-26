@@ -117,6 +117,7 @@ model Caisse {
   createdAt DateTime @default(now())
 
   mouvements MouvementCaisse[]
+  sessions   ComptoirSession[]
 
   @@map("caisses")
 }
@@ -176,6 +177,8 @@ model ComptoirSession {
   user       User    @relation(fields: [userId], references: [id])
   valideurId String?
   valideur   User?   @relation("SessionValideur", fields: [valideurId], references: [id])
+  caisseId   String
+  caisse     Caisse  @relation(fields: [caisseId], references: [id])
 
   ventes           Vente[]
   mouvementsCaisse MouvementCaisse[]
@@ -185,6 +188,7 @@ model ComptoirSession {
   sessionCorrigee   ComptoirSession? @relation("SessionCorrective", fields: [sessionCorrigeeId], references: [id])
   sessionCorrective ComptoirSession? @relation("SessionCorrective")
 
+  @@index([caisseId, statut])
   @@map("comptoir_sessions")
 }
 

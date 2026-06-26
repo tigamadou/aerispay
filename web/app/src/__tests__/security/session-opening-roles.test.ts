@@ -9,7 +9,7 @@ vi.mock("@/lib/db", () => ({
       findFirst: vi.fn(),
       create: vi.fn(),
     },
-    caisse: { findFirst: vi.fn() },
+    caisse: { findFirst: vi.fn(), findMany: vi.fn(), findUnique: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -77,8 +77,8 @@ describe("POST /api/comptoir/sessions — all roles can open (P1-008)", () => {
     );
     // No existing open session
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-    // Active caisse
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
+    // Active caisse (fallback : 1 seule caisse active)
+    (prisma.caisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: "caisse-1", active: true }]);
     // Session creation
     (prisma.comptoirSession.create as ReturnType<typeof vi.fn>).mockResolvedValue(mockCreatedSession);
   });

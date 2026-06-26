@@ -12,7 +12,7 @@ vi.mock("@/lib/db", () => ({
     mouvementStock: { findMany: vi.fn(), count: vi.fn() },
     vente: { findUnique: vi.fn(), create: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), count: vi.fn(), aggregate: vi.fn() },
     comptoirSession: { findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
-    caisse: { findFirst: vi.fn() },
+    caisse: { findFirst: vi.fn(), findMany: vi.fn(), findUnique: vi.fn() },
     paiement: { aggregate: vi.fn() },
     activityLog: { create: vi.fn() },
     $transaction: vi.fn(),
@@ -171,7 +171,7 @@ describe("Sale activity logging", () => {
     (prisma.vente.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockVente);
     // P0-003: session must be OUVERTE for cancellation
     (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: "s-1", statut: "OUVERTE", userId: "user-1",
+      id: "s-1", statut: "OUVERTE", userId: "user-1", caisseId: "caisse-1",
     });
     (prisma.$transaction as ReturnType<typeof vi.fn>).mockResolvedValue({
       ...mockVente, statut: "ANNULEE", paiements: [], caissier: { id: "u-1", nom: "Test" },
@@ -198,7 +198,7 @@ describe("Cash session activity logging", () => {
   it("logs COMPTOIR_SESSION_OPENED on POST /api/comptoir/sessions", async () => {
     mockSession("CAISSIER");
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
+    (prisma.caisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: "caisse-1", active: true }]);
     const mockCreatedSession = {
       id: "s-1", montantOuvertureCash: new Decimal(50000), montantOuvertureMobileMoney: new Decimal(0), userId: "user-1",
       ouvertureAt: new Date("2026-04-23T08:00:00Z"),

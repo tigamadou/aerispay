@@ -85,21 +85,18 @@ export async function POST(req: Request) {
 
     const { sessionId, lignes, paiements, remise, nomClient, notesCaissier } = parsed.data;
 
-    // Verify session is open
-    const session = await prisma.comptoirSession.findUnique({ where: { id: sessionId } });
+    // Verify session is open and get caisseId from session (F1.1)
+    const session = await prisma.comptoirSession.findUnique({
+      where: { id: sessionId },
+      select: { id: true, statut: true, caisseId: true },
+    });
     if (!session || session.statut !== "OUVERTE") {
       return Response.json(
         { error: "Aucune session de comptoir ouverte pour cette ID" },
         { status: 422 }
       );
     }
-
-    // Resolve caisse (first active caisse)
-    const caisse = await prisma.caisse.findFirst({ where: { active: true }, select: { id: true } });
-    if (!caisse) {
-      return Response.json({ error: "Aucune caisse active configuree" }, { status: 422 });
-    }
-    const caisseId = caisse.id;
+    const caisseId = session.caisseId;
 
     // Fetch active taxes from config
     const activeTaxes = await prisma.taxe.findMany({

@@ -29,17 +29,10 @@ export async function POST(
       );
     }
 
-    // P0-005: Resolve caisse with early return if none active
-    const caisse = await prisma.caisse.findFirst({ where: { active: true }, select: { id: true } });
-    if (!caisse) {
-      return Response.json({ error: "Aucune caisse active configuree" }, { status: 422 });
-    }
-    const caisseId = caisse.id;
-
-    // P0-003: Verify session is still open
+    // F1.1: charge la session avec caisseId (source de vérité)
     const session = await prisma.comptoirSession.findUnique({
       where: { id: vente.sessionId },
-      select: { id: true, statut: true },
+      select: { id: true, statut: true, caisseId: true },
     });
 
     if (!session || session.statut !== "OUVERTE") {
@@ -48,6 +41,7 @@ export async function POST(
         { status: 422 }
       );
     }
+    const caisseId = session.caisseId;
 
     const updated = await prisma.$transaction(async (tx) => {
       // Cancel the sale

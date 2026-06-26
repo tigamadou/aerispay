@@ -10,7 +10,7 @@ vi.mock("@/lib/db", () => ({
       findMany: vi.fn(),
       create: vi.fn(),
     },
-    caisse: { findFirst: vi.fn() },
+    caisse: { findFirst: vi.fn(), findMany: vi.fn(), findUnique: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -68,7 +68,7 @@ describe("POST /api/comptoir/sessions — race condition protection", () => {
 
   it("uses $transaction to atomically check+create session", async () => {
     mockUser("CAISSIER", "user-1");
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
+    (prisma.caisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: "caisse-1", active: true }]);
 
     const createdSession = {
       id: "new-session",
@@ -101,7 +101,7 @@ describe("POST /api/comptoir/sessions — race condition protection", () => {
 
   it("returns 409 when concurrent request creates session first (within transaction)", async () => {
     mockUser("CAISSIER", "user-1");
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
+    (prisma.caisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: "caisse-1", active: true }]);
 
     // Mock the $transaction so that findFirst inside returns an existing session
     (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
@@ -124,7 +124,7 @@ describe("POST /api/comptoir/sessions — race condition protection", () => {
 
   it("two sequential calls: second one gets 409 thanks to transaction check", async () => {
     mockUser("CAISSIER", "user-1");
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
+    (prisma.caisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: "caisse-1", active: true }]);
 
     const createdSession = {
       id: "new-session",

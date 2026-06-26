@@ -60,6 +60,7 @@ function mockUser(role: Role, id = "manager-1") {
 const pendingSession = {
   id: "s-1", statut: "EN_ATTENTE_VALIDATION", userId: "caissier-1",
   declarationsCaissier: { ESPECES: 78000 }, tentativesRecomptage: 0,
+  caisseId: "caisse-1",
 };
 const ctx = { params: Promise.resolve({ id: "s-1" }) };
 

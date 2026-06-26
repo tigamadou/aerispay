@@ -85,13 +85,12 @@ export async function GET(
     const fondCash = Number(session.montantOuvertureCash);
     const fondAutres = Number(session.montantOuvertureMobileMoney);
 
-    // Montant attendu: from grand livre (source of truth)
-    const caisse = await prisma.caisse.findFirst({ where: { active: true }, select: { id: true } });
+    // Montant attendu: from grand livre via caisseId de la session (F1.1)
     let montantAttenduCash = 0;
     let montantAttenduAutres = 0;
 
-    if (caisse && (session.statut === "OUVERTE" || session.statut === "EN_ATTENTE_CLOTURE" || session.statut === "EN_ATTENTE_VALIDATION")) {
-      const soldeCaisse = await computeSoldeCaisseParMode(caisse.id);
+    if (session.statut === "OUVERTE" || session.statut === "EN_ATTENTE_CLOTURE" || session.statut === "EN_ATTENTE_VALIDATION") {
+      const soldeCaisse = await computeSoldeCaisseParMode(session.caisseId);
       for (const s of soldeCaisse) {
         if (s.mode === "ESPECES") {
           montantAttenduCash = s.solde;
@@ -160,24 +159,14 @@ export async function PUT(
       );
     }
 
-    // Montant attendu = grand livre (source de verite)
-    const caisse = await prisma.caisse.findFirst({ where: { active: true }, select: { id: true } });
+    // F1.1 — Montant attendu = grand livre via caisseId de la session
     let attenduCash = 0;
     let attenduMM = 0;
 
-    if (caisse) {
-      const soldeCaisse = await computeSoldeCaisseParMode(caisse.id);
-      for (const s of soldeCaisse) {
-        if (s.mode === "ESPECES") attenduCash = s.solde;
-        else attenduMM += s.solde;
-      }
-    } else {
-      // Fallback: use legacy computation if no caisse found
-      const solde = await computeSoldeTheoriqueLegacy(id);
-      const fondCash = Number(session.montantOuvertureCash);
-      const fondMM = Number(session.montantOuvertureMobileMoney);
-      attenduCash = fondCash + solde.cash;
-      attenduMM = fondMM + solde.mobileMoney;
+    const soldeCaisse = await computeSoldeCaisseParMode(session.caisseId);
+    for (const s of soldeCaisse) {
+      if (s.mode === "ESPECES") attenduCash = s.solde;
+      else attenduMM += s.solde;
     }
 
     const ecartCash = parsed.data.montantFermetureCash - attenduCash;

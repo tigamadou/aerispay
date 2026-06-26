@@ -80,7 +80,7 @@ describe("P1-002: Hash integrity inside transaction", () => {
     mockUser("ADMIN");
 
     (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: "s-1", statut: "VALIDEE", userId: "user-1", sessionCorrective: null,
+      id: "s-1", statut: "VALIDEE", userId: "user-1", sessionCorrective: null, caisseId: "caisse-1",
     });
 
     let transactionUpdateCalled = false;
@@ -115,7 +115,7 @@ describe("P1-002: Hash integrity inside transaction", () => {
   });
 });
 
-describe("P0-005 (bis): caisseId validation in correct route", () => {
+describe("F1.1: caisseId hérité de la session originale dans correct route", () => {
   let POST: (req: Request, ctx: { params: Promise<{ id: string }> }) => Promise<Response>;
 
   beforeEach(async () => {
@@ -124,17 +124,29 @@ describe("P0-005 (bis): caisseId validation in correct route", () => {
     (prisma.user.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ motDePasse: "hashed" });
   });
 
-  it("returns 422 when no active caisse exists", async () => {
+  it("crée la session corrective avec le caisseId de la session originale", async () => {
     mockUser("ADMIN");
 
     (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: "s-1", statut: "VALIDEE", userId: "user-1", sessionCorrective: null,
+      id: "s-1", statut: "VALIDEE", userId: "user-1", sessionCorrective: null, caisseId: "caisse-7",
     });
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+    let createData: Record<string, unknown> | undefined;
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn: Function) => {
+      const tx = {
+        comptoirSession: {
+          create: vi.fn().mockImplementation(async ({ data }: { data: Record<string, unknown> }) => {
+            createData = data;
+            return { id: "s-corrective", statut: "VALIDEE", ...data };
+          }),
+          update: vi.fn(),
+        },
+      };
+      return fn(tx);
+    });
 
     const res = await POST(jsonReq(validBody), ctx);
-    expect(res.status).toBe(422);
-    const body = await res.json();
-    expect(body.error).toMatch(/caisse/i);
+    expect(res.status).toBe(201);
+    expect(createData?.caisseId).toBe("caisse-7");
   });
 });

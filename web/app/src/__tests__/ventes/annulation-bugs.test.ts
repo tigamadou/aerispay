@@ -232,27 +232,47 @@ describe("P0-005: caisseId validation on annulation", () => {
     POST = (await import("@/app/api/ventes/[id]/annuler/route")).POST;
   });
 
-  it("returns 422 when no active caisse exists", async () => {
+  it("utilise le caisseId de la session pour le mouvement de remboursement (F1.1)", async () => {
     mockSession("ADMIN");
 
     const vente = {
       id: "vente-1",
       numero: "VTE-2026-00001",
       dateVente: new Date(),
+      sousTotal: 5000,
+      remise: 0,
+      tva: 0,
       total: 5000,
       statut: "VALIDEE",
       sessionId: "session-1",
       userId: "user-1",
       lignes: [],
-      paiements: [],
+      paiements: [{ id: "pay-1", mode: "ESPECES", montant: 5000, reference: null, venteId: "vente-1" }],
     };
 
     (prisma.vente.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(vente);
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "session-1", statut: "OUVERTE", userId: "user-1", caisseId: "caisse-9",
+    });
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn: Function) => {
+      const tx = {
+        vente: {
+          update: vi.fn().mockResolvedValue({
+            ...vente, statut: "ANNULEE", lignes: [], paiements: vente.paiements,
+            caissier: { id: "user-1", nom: "T" },
+          }),
+        },
+        produit: { update: vi.fn() },
+        mouvementStock: { create: vi.fn() },
+      };
+      return fn(tx);
+    });
 
     const res = await POST(makeReq(), ctx);
-    expect(res.status).toBe(422);
-    const body = await res.json();
-    expect(body.error).toMatch(/caisse/i);
+    expect(res.status).toBe(200);
+    expect(createMovementInTx).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ caisseId: "caisse-9", type: "REMBOURSEMENT" }),
+    );
   });
 });

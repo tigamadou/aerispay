@@ -47,7 +47,7 @@ export async function POST(
 
     const originalSession = await prisma.comptoirSession.findUnique({
       where: { id },
-      select: { id: true, statut: true, userId: true, sessionCorrective: true },
+      select: { id: true, statut: true, userId: true, sessionCorrective: true, caisseId: true },
     });
 
     if (!originalSession) {
@@ -69,12 +69,8 @@ export async function POST(
       );
     }
 
-    // P0-005: Resolve caisse with early return if none active
-    const caisse = await prisma.caisse.findFirst({ where: { active: true }, select: { id: true } });
-    if (!caisse) {
-      return Response.json({ error: "Aucune caisse active configuree" }, { status: 422 });
-    }
-    const caisseId = caisse.id;
+    // F1.1 — caisseId hérité de la session originale
+    const caisseId = originalSession.caisseId;
 
     // Create corrective session + movements in a transaction
     const correctiveResult = await prisma.$transaction(async (tx) => {
@@ -87,6 +83,7 @@ export async function POST(
           fermetureAt: new Date(),
           notes: `Session corrective: ${parsed.data.motif}`,
           sessionCorrigeeId: id,
+          caisseId,
         },
       });
 
