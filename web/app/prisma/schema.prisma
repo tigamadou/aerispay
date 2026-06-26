@@ -112,6 +112,8 @@ enum TypeMouvement {
 
 model Caisse {
   id        String   @id @default(cuid())
+  // F1.2 — code poste court (ex. "P1") : préfixe de numérotation des ventes par poste.
+  code      String   @unique
   nom       String
   active    Boolean  @default(true)
   createdAt DateTime @default(now())

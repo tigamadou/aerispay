@@ -76,7 +76,7 @@ describe("Lot E — numérotation via compteur Sequence", () => {
     vi.clearAllMocks();
     POST = (await import("@/app/api/ventes/route")).POST;
     (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
-    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE" });
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE", caisseId: "caisse-1", caisse: { code: "P1" } });
   });
 
   function post() {
@@ -106,7 +106,7 @@ describe("Lot E — numérotation via compteur Sequence", () => {
     expect(res.status).toBe(201);
     expect(upsertArgs).toBeDefined();
     expect((upsertArgs as { update: { valeur: { increment: number } } }).update).toEqual({ valeur: { increment: 1 } });
-    expect(cap.numero).toBe("VTE-2026-00007");
+    expect(cap.numero).toBe("VTE-P1-2026-00007");
   });
 
   it("ne plafonne pas à 99 999 (au-delà, plus de 5 chiffres)", async () => {
@@ -115,6 +115,6 @@ describe("Lot E — numérotation via compteur Sequence", () => {
     setupTx(100000, cap);
     const res = await post();
     expect(res.status).toBe(201);
-    expect(cap.numero).toBe("VTE-2026-100000");
+    expect(cap.numero).toBe("VTE-P1-2026-100000");
   });
 });

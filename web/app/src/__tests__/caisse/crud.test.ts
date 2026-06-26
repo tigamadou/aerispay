@@ -35,7 +35,7 @@ function mockUser(role: Role, id = "admin-1") {
   });
 }
 
-const fakeCaisse = { id: "caisse-1", nom: "Caisse principale", active: true, createdAt: new Date() };
+const fakeCaisse = { id: "caisse-1", code: "P1", nom: "Caisse principale", active: true, createdAt: new Date() };
 
 describe("POST /api/caisse — création", () => {
   let POST: (req: Request) => Promise<Response>;
@@ -52,26 +52,32 @@ describe("POST /api/caisse — création", () => {
   it("ADMIN crée une caisse → 201", async () => {
     mockUser("ADMIN");
     (prisma.caisse.create as ReturnType<typeof vi.fn>).mockResolvedValue(fakeCaisse);
-    const res = await POST(req({ nom: "Caisse principale" }));
+    const res = await POST(req({ code: "P3", nom: "Caisse principale" }));
     expect(res.status).toBe(201);
     expect((await res.json()).data.nom).toBe("Caisse principale");
   });
 
   it("CAISSIER → 403", async () => {
     mockUser("CAISSIER");
-    const res = await POST(req({ nom: "Test" }));
+    const res = await POST(req({ code: "P3", nom: "Test" }));
     expect(res.status).toBe(403);
   });
 
   it("MANAGER → 403", async () => {
     mockUser("MANAGER");
-    const res = await POST(req({ nom: "Test" }));
+    const res = await POST(req({ code: "P3", nom: "Test" }));
     expect(res.status).toBe(403);
   });
 
   it("nom vide → 400", async () => {
     mockUser("ADMIN");
-    const res = await POST(req({ nom: "" }));
+    const res = await POST(req({ code: "P3", nom: "" }));
+    expect(res.status).toBe(400);
+  });
+
+  it("code absent → 400", async () => {
+    mockUser("ADMIN");
+    const res = await POST(req({ nom: "Sans code" }));
     expect(res.status).toBe(400);
   });
 });

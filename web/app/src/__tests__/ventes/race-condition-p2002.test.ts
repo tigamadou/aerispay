@@ -57,7 +57,7 @@ describe("P0-001: P2002 race condition on sale number", () => {
     vi.clearAllMocks();
     POST = (await import("@/app/api/ventes/route")).POST;
     (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
-    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE" });
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE", caisseId: "caisse-1", caisse: { code: "P1" } });
   });
 
   it("retries on P2002 unique constraint violation and succeeds on second attempt", async () => {

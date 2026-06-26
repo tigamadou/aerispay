@@ -79,7 +79,7 @@ describe("POST /api/ventes (sale creation)", () => {
 
   it("creates sale successfully via transaction", async () => {
     mockSession("CAISSIER");
-    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE" });
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE", caisseId: "caisse-1", caisse: { code: "P1" } });
 
     const newVente = {
       id: "v-new", numero: "VTE-2026-00001", total: new Decimal(2000),
@@ -116,7 +116,7 @@ describe("POST /api/ventes (sale creation)", () => {
 
   it("decrements stock via conditional updateMany inside transaction", async () => {
     mockSession("CAISSIER");
-    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE" });
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE", caisseId: "caisse-1", caisse: { code: "P1" } });
 
     const newVente = {
       id: "v-new", numero: "VTE-2026-00001", total: new Decimal(2000),
@@ -163,7 +163,7 @@ describe("POST /api/ventes (sale creation)", () => {
 
   it("creates SORTIE mouvementStock with correct quantiteAvant/quantiteApres", async () => {
     mockSession("CAISSIER");
-    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE" });
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE", caisseId: "caisse-1", caisse: { code: "P1" } });
 
     const newVente = {
       id: "v-new", numero: "VTE-2026-00001", total: new Decimal(2000),
@@ -216,7 +216,7 @@ describe("POST /api/ventes (sale creation)", () => {
   it("calls createMovementInTx with sale total (not overpayment)", async () => {
     const { createMovementInTx } = await import("@/lib/services/cash-movement");
     mockSession("CAISSIER");
-    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE" });
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE", caisseId: "caisse-1", caisse: { code: "P1" } });
 
     // Payment of 3000 for a 2000 sale (overpayment of 1000)
     const newVente = {
@@ -266,7 +266,7 @@ describe("POST /api/ventes (sale creation)", () => {
 
   it("returns 422 on stock insuffisant", async () => {
     mockSession("CAISSIER");
-    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE" });
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE", caisseId: "caisse-1", caisse: { code: "P1" } });
     (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn: Function) => {
       const tx = {
         produit: {
@@ -289,7 +289,7 @@ describe("POST /api/ventes (sale creation)", () => {
 
   it("returns 422 on produit inactif", async () => {
     mockSession("CAISSIER");
-    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE" });
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE", caisseId: "caisse-1", caisse: { code: "P1" } });
     (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn: Function) => {
       const tx = {
         produit: {
@@ -312,7 +312,7 @@ describe("POST /api/ventes (sale creation)", () => {
 
   it("returns 422 on paiement insuffisant", async () => {
     mockSession("CAISSIER");
-    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE" });
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE", caisseId: "caisse-1", caisse: { code: "P1" } });
     (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn: Function) => {
       const tx = {
         produit: { findUnique: vi.fn().mockResolvedValue(mockProduct), update: vi.fn() },
@@ -336,7 +336,7 @@ describe("POST /api/ventes (sale creation)", () => {
 
   it("computes taxes from active config and stores taxesDetail", async () => {
     mockSession("CAISSIER");
-    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE" });
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE", caisseId: "caisse-1", caisse: { code: "P1" } });
 
     // Mock active taxes
     (prisma.taxe.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
@@ -403,7 +403,7 @@ describe("POST /api/ventes (sale creation)", () => {
 
   it("creates sale without taxesDetail when no active taxes", async () => {
     mockSession("CAISSIER");
-    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE" });
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE", caisseId: "caisse-1", caisse: { code: "P1" } });
     (prisma.taxe.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 
     let createData: Record<string, unknown> | null = null;
@@ -456,7 +456,7 @@ describe("POST /api/ventes (sale creation)", () => {
 
   it("applies taxes on base after discount", async () => {
     mockSession("CAISSIER");
-    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE" });
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE", caisseId: "caisse-1", caisse: { code: "P1" } });
 
     (prisma.taxe.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
       { nom: "TVA", taux: new Decimal(10), active: true, ordre: 0 },
@@ -514,7 +514,7 @@ describe("POST /api/ventes (sale creation)", () => {
 
   it("returns 500 on unexpected error", async () => {
     mockSession("CAISSIER");
-    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE" });
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE", caisseId: "caisse-1", caisse: { code: "P1" } });
     (prisma.$transaction as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("unexpected"));
 
     const res = await POST(new Request("http://localhost/api/ventes", {

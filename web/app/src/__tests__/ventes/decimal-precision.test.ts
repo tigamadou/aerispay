@@ -46,7 +46,7 @@ describe("Lot F — précision décimale du sous-total de ligne", () => {
     vi.clearAllMocks();
     POST = (await import("@/app/api/ventes/route")).POST;
     (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
-    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE" });
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE", caisseId: "caisse-1", caisse: { code: "P1" } });
   });
 
   it("calcule un sous-total de ligne exact (pas d'artefact de flottant)", async () => {

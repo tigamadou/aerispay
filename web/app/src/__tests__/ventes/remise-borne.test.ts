@@ -49,7 +49,7 @@ describe("P1-001: Sale total must be positive", () => {
     vi.clearAllMocks();
     POST = (await import("@/app/api/ventes/route")).POST;
     (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
-    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE" });
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE", caisseId: "caisse-1", caisse: { code: "P1" } });
   });
 
   it("returns 422 when remise exceeds sous-total (total negative)", async () => {

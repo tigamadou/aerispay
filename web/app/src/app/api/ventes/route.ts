@@ -7,10 +7,11 @@ import { createMovementInTx } from "@/lib/services/cash-movement";
 
 const MAX_P2002_RETRIES = 3;
 
-// M3 (RULE-NUM-001) : format documenté VTE-YYYY-NNNNN.
+// F1.2 (RULE-NUM-001) : format VTE-<codePoste>-YYYY-NNNNN — préfixe poste pour garantir
+// l'unicité à l'échelle de l'organisation lors de l'agrégation cloud.
 // padStart(5) = minimum 5 chiffres ; au-delà de 99 999 le numéro s'étend (aucun plafond).
-function genererNumeroVente(annee: number, sequence: number): string {
-  return `VTE-${annee}-${String(sequence).padStart(5, "0")}`;
+function genererNumeroVente(codePoste: string, annee: number, sequence: number): string {
+  return `VTE-${codePoste}-${annee}-${String(sequence).padStart(5, "0")}`;
 }
 
 export async function GET(req: Request) {
@@ -85,10 +86,10 @@ export async function POST(req: Request) {
 
     const { sessionId, lignes, paiements, remise, nomClient, notesCaissier } = parsed.data;
 
-    // Verify session is open and get caisseId from session (F1.1)
+    // Verify session is open and get caisseId + code poste from session (F1.1/F1.2)
     const session = await prisma.comptoirSession.findUnique({
       where: { id: sessionId },
-      select: { id: true, statut: true, caisseId: true },
+      select: { id: true, statut: true, caisseId: true, caisse: { select: { code: true } } },
     });
     if (!session || session.statut !== "OUVERTE") {
       return Response.json(
@@ -97,6 +98,7 @@ export async function POST(req: Request) {
       );
     }
     const caisseId = session.caisseId;
+    const codePoste = session.caisse.code;
 
     // Fetch active taxes from config
     const activeTaxes = await prisma.taxe.findMany({
@@ -180,15 +182,16 @@ export async function POST(req: Request) {
             );
           }
 
-          // M3 (RULE-NUM-001) : numéro via compteur transactionnel dédié, incrémenté
-          // atomiquement (UPDATE ... valeur = valeur + 1). Unique, monotone, sans plafond.
+          // F1.2 (RULE-NUM-001) : numéro via compteur transactionnel dédié PAR POSTE,
+          // incrémenté atomiquement. Unique, monotone, sans plafond. Clé = VTE-<code>-<annee>.
           const annee = new Date().getFullYear();
+          const seqKey = `VTE-${codePoste}-${annee}`;
           const seq = await tx.sequence.upsert({
-            where: { id: `VTE-${annee}` },
-            create: { id: `VTE-${annee}`, valeur: 1 },
+            where: { id: seqKey },
+            create: { id: seqKey, valeur: 1 },
             update: { valeur: { increment: 1 } },
           });
-          const numero = genererNumeroVente(annee, seq.valeur);
+          const numero = genererNumeroVente(codePoste, annee, seq.valeur);
 
           // Create sale
           const newVente = await tx.vente.create({

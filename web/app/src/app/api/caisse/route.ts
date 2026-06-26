@@ -4,6 +4,7 @@ import { requireAuth, hasPermission, requireRole } from "@/lib/permissions";
 import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
 
 const caisseSchema = z.object({
+  code: z.string().min(1).max(20),
   nom: z.string().min(1).max(100),
   active: z.boolean().optional(),
 });
@@ -43,7 +44,7 @@ export async function POST(req: Request) {
     }
 
     const caisse = await prisma.caisse.create({
-      data: { nom: parsed.data.nom, active: parsed.data.active ?? true },
+      data: { code: parsed.data.code, nom: parsed.data.nom, active: parsed.data.active ?? true },
     });
 
     await logActivity({
