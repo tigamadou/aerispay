@@ -4,7 +4,11 @@
  */
 import { contextBridge, ipcRenderer } from "electron";
 
-import { ENROLL_CHANNELS } from "./channels";
+// Preload SANDBOXÉ (sandbox:true) : require() d'un module LOCAL est interdit — seuls
+// 'electron' et les built-ins Node sont requérables. On INLINE donc le canal (miroir de
+// src/channels.ts → ENROLL_CHANNELS.submit). Importer "./channels" ici ferait planter le
+// preload et `window.aerisEnroll` ne serait jamais exposé.
+const ENROLL_SUBMIT = "aeris:enroll-submit";
 
 export interface EnrollInput {
   nodeUrl: string;
@@ -13,5 +17,5 @@ export interface EnrollInput {
 }
 
 contextBridge.exposeInMainWorld("aerisEnroll", {
-  submit: (input: EnrollInput) => ipcRenderer.invoke(ENROLL_CHANNELS.submit, input),
+  submit: (input: EnrollInput) => ipcRenderer.invoke(ENROLL_SUBMIT, input),
 });

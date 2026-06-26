@@ -1,10 +1,10 @@
 /**
- * C2.1 — Canaux IPC du pont périphériques (liste blanche partagée).
+ * C2.1 — Canaux IPC (source de vérité pour le MAIN process).
  *
- * Module NEUTRE volontairement sans import `electron` : il est consommé à la fois par le
- * main (enregistrement des handlers `ipcMain`) et par le preload (`contextBridge`). Garder
- * cette constante hors de preload.ts évite que le main, en l'important, déclenche l'effet
- * de bord `contextBridge.exposeInMainWorld` (indisponible dans le main process).
+ * ⚠ Les **preloads** (sandbox:true) NE doivent PAS importer ce module : un preload sandboxé
+ * ne peut `require()` que 'electron' et les built-ins Node — pas un module local. Les canaux
+ * y sont donc **inlinés** (voir `preload.ts` / `enroll-preload.ts`). Garder les valeurs en phase.
+ * Ici, pas d'import `electron` : ce module est neutre, importé par le main pour `ipcMain.handle`.
  */
 export const DEVICE_CHANNELS = {
   printTicket: "aeris:print-ticket",

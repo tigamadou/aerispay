@@ -5,10 +5,14 @@
  */
 import { contextBridge, ipcRenderer } from "electron";
 
-import { DEVICE_CHANNELS } from "./channels";
+// Preload SANDBOXÉ : pas de require() local (cf. enroll-preload). Canaux inlinés —
+// miroir de src/channels.ts → DEVICE_CHANNELS. Garder les deux en phase.
+const PRINT_TICKET = "aeris:print-ticket";
+const OPEN_DRAWER = "aeris:open-drawer";
+const PRINTER_STATUS = "aeris:printer-status";
 
 contextBridge.exposeInMainWorld("aerisDevices", {
-  printTicket: (lines: string[]) => ipcRenderer.invoke(DEVICE_CHANNELS.printTicket, lines),
-  openDrawer: () => ipcRenderer.invoke(DEVICE_CHANNELS.openDrawer),
-  printerStatus: () => ipcRenderer.invoke(DEVICE_CHANNELS.printerStatus),
+  printTicket: (lines: string[]) => ipcRenderer.invoke(PRINT_TICKET, lines),
+  openDrawer: () => ipcRenderer.invoke(OPEN_DRAWER),
+  printerStatus: () => ipcRenderer.invoke(PRINTER_STATUS),
 });

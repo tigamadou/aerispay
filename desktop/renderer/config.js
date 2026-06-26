@@ -14,7 +14,22 @@ form.addEventListener("submit", async (e) => {
     nom: document.getElementById("nom").value,
   };
 
-  const res = await window.aerisEnroll.submit(input);
+  if (!window.aerisEnroll || typeof window.aerisEnroll.submit !== "function") {
+    status.className = "error";
+    status.textContent = "Pont d'enrôlement indisponible (preload non chargé).";
+    btn.disabled = false;
+    return;
+  }
+
+  let res;
+  try {
+    res = await window.aerisEnroll.submit(input);
+  } catch (err) {
+    status.className = "error";
+    status.textContent = "Erreur d'enrôlement : " + (err && err.message ? err.message : String(err));
+    btn.disabled = false;
+    return;
+  }
 
   if (res && res.ok) {
     status.className = "ok";
