@@ -121,6 +121,7 @@ model Caisse {
   mouvements MouvementCaisse[]
   sessions   ComptoirSession[]
   storeTokens StoreToken[]
+  enrollmentTokens EnrollmentToken[]
 
   @@map("caisses")
 }
@@ -142,6 +143,24 @@ model StoreToken {
 
   @@index([caisseId])
   @@map("store_tokens")
+}
+
+// ─── ADR-007 — TOKENS D'ENRÔLEMENT (à usage unique) ──────────────────
+// Remis par l'admin, échangé une seule fois par le poste contre un StoreToken.
+// Seul le hash SHA-256 est persisté. expiresAt = TTL court ; consumedAt = consommé.
+model EnrollmentToken {
+  id         String    @id @default(cuid())
+  tokenHash  String    @unique @db.VarChar(64)
+  label      String?
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  caisseId String
+  caisse   Caisse @relation(fields: [caisseId], references: [id])
+
+  @@index([caisseId])
+  @@map("enrollment_tokens")
 }
 
 // ─── MODULE COMPTOIR / SESSIONS ──────────────────────
