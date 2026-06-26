@@ -25,8 +25,38 @@ MAX_TURNS="${MAX_TURNS:-200}"        # tours max par invocation
 COOLDOWN="${COOLDOWN:-10}"           # pause normale entre deux relances (s)
 LIMIT_SLEEP="${LIMIT_SLEEP:-1800}"   # pause si limite d'usage atteinte (s = 30 min)
 LOGDIR="${LOGDIR:-$REPO_ROOT/.roadmap-logs}"
+STREAM="${STREAM:-1}"                # 1 = tout voir en direct (outils, raisonnement) ; 0 = sortie finale seule
+
+# Affiche le flux stream-json de façon lisible (texte, appels d'outils, résultats).
+# Le JSON brut reste sauvegardé dans le log ; ici on ne formate que l'écran.
+format_stream() {
+  if command -v jq >/dev/null 2>&1; then
+    jq -r '
+      if .type == "assistant" then
+        ( .message.content[]? |
+          if .type == "text" then .text
+          elif .type == "tool_use" then "🔧 " + .name + "  " + ((.input | tostring)[0:160])
+          else empty end )
+      elif .type == "user" then
+        ( .message.content[]? |
+          if .type == "tool_result" then
+            "← " + ( ( (.content // "") |
+              if type == "array" then (map(.text? // "") | join(" ")) else tostring end )[0:200] )
+          else empty end )
+      elif .type == "result" then "──── fin de tour ────"
+      else empty end
+    ' 2>/dev/null
+  else
+    cat   # jq absent : on affiche le JSON brut
+  fi
+}
 
 SENTINEL="ROADMAP_COMPLETE"
+
+# Consigne de concision injectée dans le system prompt pour économiser les tokens.
+TERSE="Sois extrêmement bref dans ton texte. Pas de préambule, pas de récap, pas \
+d'explication de ce que tu vas faire. Agis directement via les outils. Une ligne \
+maximum entre deux actions. N'écris des phrases que si c'est strictement nécessaire."
 
 # Condition de complétion évaluée par /goal — formulée comme un fait que la
 # SORTIE de Claude doit démontrer (pas une commande à lancer).
@@ -66,12 +96,25 @@ for ((i = 1; i <= MAX_ITER; i++)); do
 
   # --continue : reprend la session précédente (contexte conservé, auto-compacté).
   # bypassPermissions : autonomie totale (édition/commande sans confirmation).
-  claude "$PROMPT" \
-    --continue \
-    --model "$MODEL" \
-    --max-turns "$MAX_TURNS" \
-    --permission-mode bypassPermissions \
-    --output-format text 2>&1 | tee "$LOG"
+  if [[ "$STREAM" == "1" ]]; then
+    # Tout voir en direct : flux d'événements (outils + raisonnement) formaté à
+    # l'écran ; JSON brut conservé dans $LOG pour la détection sentinelle/limites.
+    claude -p "$PROMPT" \
+      --continue \
+      --model "$MODEL" \
+      --max-turns "$MAX_TURNS" \
+      --permission-mode bypassPermissions \
+      --append-system-prompt "$TERSE" \
+      --verbose --output-format stream-json 2>&1 | tee "$LOG" | format_stream
+  else
+    claude -p "$PROMPT" \
+      --continue \
+      --model "$MODEL" \
+      --max-turns "$MAX_TURNS" \
+      --permission-mode bypassPermissions \
+      --append-system-prompt "$TERSE" \
+      --output-format text 2>&1 | tee "$LOG"
+  fi
 
   # Succès : sentinelle présente dans la sortie -> on s'arrête.
   if grep -q "$SENTINEL" "$LOG"; then
