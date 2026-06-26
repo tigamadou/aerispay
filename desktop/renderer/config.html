@@ -14,23 +14,25 @@
               background: #1e293b; color: #f8fafc; }
       button { margin-top: 1.5rem; width: 100%; padding: .6rem; border: 0; border-radius: .375rem;
                background: #2563eb; color: white; font-weight: 600; cursor: pointer; }
+      button[disabled] { opacity: .5; cursor: default; }
       .hint { color: #94a3b8; font-size: .85rem; margin-top: .5rem; }
+      .error { color: #fca5a5; font-size: .9rem; margin-top: 1rem; }
+      .ok { color: #86efac; font-size: .9rem; margin-top: 1rem; }
     </style>
   </head>
   <body>
-    <!-- E3.3 — premier lancement : association poste ↔ nœud magasin.
-         Le token est émis par POST /api/enrollment (ADMIN) côté nœud (E3.1) puis stocké
-         dans le trousseau OS (E3.2). Cet écran capture l'URL du nœud, le token et le caisseId. -->
-    <form>
+    <form id="enroll-form">
       <h1>Enrôlement du poste</h1>
       <label for="nodeUrl">URL du nœud magasin (LAN)</label>
       <input id="nodeUrl" placeholder="https://magasin.local:3000" />
-      <label for="caisseId">Identité de la caisse (caisseId)</label>
-      <input id="caisseId" placeholder="caisse-1" />
-      <label for="storeToken">Token de magasin</label>
-      <input id="storeToken" type="password" placeholder="token fourni par l'administrateur" />
-      <button type="submit">Enrôler ce poste</button>
-      <p class="hint">Le token est stocké dans le trousseau de l'OS, jamais en clair.</p>
+      <label for="token">Code d'enrôlement</label>
+      <input id="token" type="password" placeholder="code fourni par l'administrateur" />
+      <label for="nom">Nom de la caisse (optionnel)</label>
+      <input id="nom" placeholder="ex. Caisse Entrée" />
+      <button type="submit" id="submit-btn">Enrôler ce poste</button>
+      <p class="hint">Le secret est stocké dans le trousseau de l'OS, jamais en clair.</p>
+      <p id="status"></p>
     </form>
+    <script src="config.js"></script>
   </body>
 </html>
