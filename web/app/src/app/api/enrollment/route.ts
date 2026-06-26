@@ -1,19 +1,19 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireRole } from "@/lib/permissions";
-import { issueStoreToken } from "@/lib/services/store-token";
+import { issueEnrollmentToken } from "@/lib/services/enrollment-token";
 import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
 
 const enrollSchema = z.object({
   caisseId: z.string().min(1),
   label: z.string().max(100).optional(),
+  ttlMinutes: z.number().int().positive().max(1440).optional(),
 });
 
 /**
- * E3.1 — Enrôlement d'un poste (mode « client », ADR-001 : pas d'autonome).
- * Un ADMIN associe une caisse à un poste : le nœud émet un token de magasin scoppé à
- * cette caisse (caisseId = identité du poste, fixée à l'enrôlement). Le token en clair
- * n'est renvoyé qu'une fois — à stocker dans le trousseau OS du poste (E3.2).
+ * Émission d'un code d'enrôlement (ADR-007, single-use) par un ADMIN, pour une caisse
+ * pré-créée. Le poste l'échange ensuite (POST /api/enrollment/exchange) contre un token
+ * de magasin. Le code en clair n'est renvoyé qu'une fois.
  */
 export async function POST(req: Request): Promise<Response> {
   const result = await requireRole("ADMIN");
@@ -22,10 +22,7 @@ export async function POST(req: Request): Promise<Response> {
   try {
     const parsed = enrollSchema.safeParse(await req.json());
     if (!parsed.success) {
-      return Response.json(
-        { error: "Données invalides", details: parsed.error.flatten() },
-        { status: 400 },
-      );
+      return Response.json({ error: "Données invalides", details: parsed.error.flatten() }, { status: 400 });
     }
 
     const caisse = await prisma.caisse.findUnique({
@@ -36,9 +33,10 @@ export async function POST(req: Request): Promise<Response> {
       return Response.json({ error: "Caisse introuvable ou inactive" }, { status: 422 });
     }
 
-    const { token, id } = await issueStoreToken({
+    const { token, id, expiresAt } = await issueEnrollmentToken({
       caisseId: caisse.id,
       label: parsed.data.label,
+      ttlMinutes: parsed.data.ttlMinutes,
     });
 
     await logActivity({
@@ -46,13 +44,13 @@ export async function POST(req: Request): Promise<Response> {
       actorId: result.user.id,
       entityType: "Caisse",
       entityId: caisse.id,
-      metadata: { tokenId: id, codePoste: caisse.code, label: parsed.data.label },
+      metadata: { enrollmentTokenId: id, codePoste: caisse.code, label: parsed.data.label },
       ipAddress: getClientIp(req),
       userAgent: getClientUserAgent(req),
     });
 
     return Response.json(
-      { data: { token, tokenId: id, caisseId: caisse.id, codePoste: caisse.code } },
+      { data: { enrollmentToken: token, caisseId: caisse.id, codePoste: caisse.code, expiresAt } },
       { status: 201 },
     );
   } catch (error) {

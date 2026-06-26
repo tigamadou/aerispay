@@ -1,8 +1,7 @@
 /**
- * E3.1 — Enrôlement d'un poste (côté nœud).
- * Un ADMIN enrôle une caisse : le nœud émet un token de magasin scoppé à cette caisse
- * (caisseId = identité du poste, fixée à l'enrôlement, ADR-001/E3.2). Le token (clair)
- * n'est renvoyé qu'une fois, à stocker dans le trousseau OS du poste.
+ * Enrôlement d'un poste (côté nœud) — ADR-007.
+ * Un ADMIN génère un CODE D'ENRÔLEMENT à usage unique pour une caisse pré-créée.
+ * Le poste l'échange ensuite (POST /api/enrollment/exchange) contre un token de magasin.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Role } from "@prisma/client";
@@ -17,9 +16,9 @@ vi.mock("@/lib/activity-log", () => ({
   getClientIp: vi.fn(),
   getClientUserAgent: vi.fn(),
 }));
-const issueStoreToken = vi.fn();
-vi.mock("@/lib/services/store-token", () => ({
-  issueStoreToken: (...a: unknown[]) => issueStoreToken(...a),
+const issueEnrollmentToken = vi.fn();
+vi.mock("@/lib/services/enrollment-token", () => ({
+  issueEnrollmentToken: (...a: unknown[]) => issueEnrollmentToken(...a),
 }));
 
 import { prisma } from "@/lib/db";
@@ -43,24 +42,26 @@ describe("POST /api/enrollment", () => {
     POST = (await import("@/app/api/enrollment/route")).POST;
   });
 
-  it("ADMIN enrôle une caisse active → 201 + token scoppé", async () => {
+  it("ADMIN génère un code d'enrôlement pour une caisse active → 201", async () => {
     mockUser("ADMIN");
     (prisma.caisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true, code: "P1" });
-    issueStoreToken.mockResolvedValue({ token: "a".repeat(64), id: "tok-1" });
+    const expiresAt = new Date(Date.now() + 3_600_000);
+    issueEnrollmentToken.mockResolvedValue({ token: "a".repeat(64), id: "et-1", expiresAt });
 
     const res = await POST(req({ caisseId: "caisse-1", label: "Poste 1" }));
     expect(res.status).toBe(201);
     const body = await res.json();
-    expect(body.data.token).toBe("a".repeat(64));
+    expect(body.data.enrollmentToken).toBe("a".repeat(64));
     expect(body.data.caisseId).toBe("caisse-1");
-    expect(issueStoreToken).toHaveBeenCalledWith({ caisseId: "caisse-1", label: "Poste 1" });
+    expect(body.data.codePoste).toBe("P1");
+    expect(issueEnrollmentToken).toHaveBeenCalledWith({ caisseId: "caisse-1", label: "Poste 1", ttlMinutes: undefined });
   });
 
   it("CAISSIER → 403", async () => {
     mockUser("CAISSIER");
     const res = await POST(req({ caisseId: "caisse-1" }));
     expect(res.status).toBe(403);
-    expect(issueStoreToken).not.toHaveBeenCalled();
+    expect(issueEnrollmentToken).not.toHaveBeenCalled();
   });
 
   it("caisse introuvable ou inactive → 422", async () => {
@@ -68,6 +69,7 @@ describe("POST /api/enrollment", () => {
     (prisma.caisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     const res = await POST(req({ caisseId: "x" }));
     expect(res.status).toBe(422);
+    expect(issueEnrollmentToken).not.toHaveBeenCalled();
   });
 
   it("caisseId manquant → 400", async () => {
