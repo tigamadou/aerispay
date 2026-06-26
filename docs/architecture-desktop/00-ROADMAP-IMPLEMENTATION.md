@@ -159,7 +159,7 @@ blocage propre si nœud coupé. *(Combiné à D0.2 = PoC desktop validé.)*
 | **P5.1** | electron-builder : installeurs 3 OS + CI multi-plateforme (`electron-rebuild`) | C2.*, D0.2 | ☐ |
 | **P5.2** | Auto-update : electron-updater + S3 + signature de code | P5.1 | ☐ |
 | ~~P5.3~~ | ~~Mode autonome packagé~~ — **supprimé (ADR-001 : pas de mode autonome)** | — | ✖ |
-| **P5.4** | Runbook : supervision, sauvegardes/restauration testée (pas de HA, ADR-005), procédures incident | toutes | ☐ |
+| **P5.4** | Runbook : supervision, sauvegardes/restauration testée (pas de HA, ADR-005), procédures incident | toutes | ☑ **2026-06-26** *(`RUNBOOK.md`)* |
 
 **Jalon J5 :** distribution packagée + exploitation → **release**.
 
@@ -220,6 +220,7 @@ Doc produit : `docs/product/`. Ne pas modifier `components/ui/` (shadcn).
 |---|---|---|
 | 2026-06-26 | — | Cadrage validé. Roadmap rédigée. Décisions Lot C actées. |
 | 2026-06-26 | **D0.1** | ☑ **Terminée.** 6 décisions actées → `09-adr.md`. ADR-001 (pas de mode autonome) répercutée : D0.2 allégé, P5.3 supprimé, enrôlement = 2 modes. **Prochaine étape : D0.2 (PoC packaging) + F1.1 (Lot C) en parallèle.** |
+| 2026-06-26 | **P5.4** | ☑ **Runbook livré** → `RUNBOOK.md` : supervision (sonde `/api/health`), sauvegardes (`mysqldump` planifié + filet sync cloud), **restauration testée** (procédure sur base jetable + contrôle chaîne de hash), procédures d'incident (caisse bloquée, base injoignable, sync en retard, perte/vol de poste → révocation token, compromission), mises à jour. Pas de HA (ADR-005). |
 | 2026-06-26 | **C2.3 / E3.1** | ☑ **Endpoints nœud livrés + testés.** C2.3 : `GET /api/health` (statut + connectivité DB, 200/503) consommé par l'écran de blocage Electron. E3.1 : `POST /api/enrollment` (ADMIN) émet un token de magasin scoppé à une caisse (caisseId = identité poste fixée à l'enrôlement) via E3.2, action `POSTE_ENROLLED`. **Écran de blocage + GUI d'installation Electron restent hors dépôt.** Tests `health-api` + `enrollment-api`. **899 tests verts, tsc OK.** |
 | 2026-06-26 | **E3.2** | ☑ **Logique nœud livrée + testée.** Tokens de magasin scopés par poste : modèle `StoreToken` (migration `e3_2_store_token`, hash SHA-256 seul persisté, jamais le clair), service `lib/services/store-token.ts` (`issueStoreToken` scoppé caisse, `verifyStoreToken` actif+scope, `revokeStoreToken` perte/vol, `hashToken`). ADR-003 « Simple V1 » (longue durée + révocation). **Stockage trousseau OS + transport HTTPS/mTLS restent côté Electron.** Tests `store-token` (6 cas). **893 tests verts, tsc OK.** |
 | 2026-06-26 | **C2.1** | ☑ **Reçu réel livré + testé.** STUB `printReceipt` résolu : `lib/receipt/receipt-content.ts` (`buildReceiptContent`) construit le contenu ESC/POS texte (en-tête commerce, méta vente, lignes produits, totaux/remise/taxes, paiements, largeur 32/48 bornée), fonction pure testée (`receipt-content.test.ts`). `printReceipt` imprime ces lignes ; route `tickets/[id]/print` alimente le contenu depuis la vente + paramètres. **Le déplacement vers le main Electron + IPC `window.aerisDevices.*` reste hors de ce dépôt backend.** **887 tests verts, tsc OK.** |
