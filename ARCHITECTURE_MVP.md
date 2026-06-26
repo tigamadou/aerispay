@@ -128,6 +128,12 @@ Principe directeur : **référence descendante** (le cloud fait foi, diffusion v
 
 **Conséquences.** Aucun conflit bidirectionnel sur la référence ; sync de référence = pull simple avec curseur. L'administration de la référence se fait via l'**app web du cloud**. Si un besoin d'édition locale émerge, il fera l'objet d'un nouvel ADR.
 
+### ADR-007 — Enrôlement par token à usage unique (révise ADR-003)
+
+**Décision.** L'admin n'émet plus directement le token de magasin : il émet un **token d'enrôlement à usage unique** (courte durée). Le poste l'**échange** une seule fois contre un **token de magasin** longue durée (ADR-003), stocké au trousseau OS.
+
+**Conséquences.** Un code pasté ne peut servir qu'une fois (consommé à l'échange) ; le credential longue durée n'est jamais saisi à la main. Nouveau modèle `EnrollmentToken` (single-use) ; `POST /api/enrollment` émet le code ; `POST /api/enrollment/exchange` le consomme, (re)nomme la caisse et émet le token de magasin.
+
 ---
 
 ## 4. Client desktop & périphériques
@@ -275,9 +281,10 @@ Conformément à l'ADR-001, **deux** modes (pas de mode autonome embarqué) :
 ### 6.5 Flux d'enrôlement (client de magasin)
 
 1. Installation de l'application Electron sur le poste.
-2. Écran d'enrôlement : saisie de l'**endpoint du nœud magasin** + **token de magasin** (pré-émis par un ADMIN via `POST /api/enrollment` côté nœud), et identité de poste.
-3. Le client **vérifie** l'endpoint et le token auprès du nœud, **stocke le token dans le trousseau OS**, mémorise l'endpoint et le `caisseId`.
-4. Health-check du nœud → l'application est prête (ou affiche le blocage si indisponible).
+2. Écran d'enrôlement : saisie de l'**endpoint du nœud magasin** + **code d'enrôlement** (à usage unique, émis par un ADMIN via `POST /api/enrollment`) + **nom de la caisse** (optionnel).
+3. Le client **échange** le code (`POST /api/enrollment/exchange`) : le nœud le consomme, (re)nomme la caisse, et renvoie un **token de magasin** longue durée + le `caisseId`/`codePoste`.
+4. Le client **stocke le token dans le trousseau OS** (safeStorage) et mémorise l'endpoint + le `caisseId`.
+5. Health-check du nœud → l'application est prête (ou affiche le blocage si indisponible).
 
 ### 6.6 Ré-enrôlement & révocation
 
@@ -472,6 +479,7 @@ aerispay/                              # Racine du dépôt
 | `Taxe` | Taxes configurables | Modèle de **taxe globale** (taux appliqué à la base, M2) |
 | `ActivityLog` | Journal d'audit | Append-only ; index sur action/acteur/entité/date |
 | `StoreToken` | Tokens de magasin (enrôlement poste) | Scopé `caisseId` ; `revoked` ; vérifié par `verifyStoreToken` |
+| `EnrollmentToken` | Code d'enrôlement (single-use) | Scopé `caisseId` ; `expiresAt`, `consumedAt` ; échangé contre un `StoreToken` (ADR-007) |
 
 ### 12.2 Évolutions de schéma (migration desktop — livrées)
 

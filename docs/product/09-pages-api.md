@@ -198,6 +198,15 @@ Fichiers : `comptoir/movements/route.ts`, `comptoir/discrepancies/route.ts`, `co
 
 Fichiers : `caisse/route.ts`, `caisse/[id]/mouvements/route.ts`, `caisse/[id]/soldes/route.ts`
 
+### 2.8 bis Enrôlement des postes (ADR-007)
+
+| Méthode | Chemin | Permission | Description |
+|---|---|---|---|
+| POST | `/api/enrollment` | `requireRole(ADMIN)` | Émet un **code d'enrôlement à usage unique** pour une caisse pré-créée (`{ caisseId, label?, ttlMinutes? }` → `{ enrollmentToken, caisseId, codePoste, expiresAt }`). Code en clair renvoyé une seule fois. |
+| POST | `/api/enrollment/exchange` | Public (auth = le code) | Le poste **échange** le code (`{ token, nom? }`) : consomme le code, (re)nomme la caisse, émet un **token de magasin** (`{ storeToken, caisseId, codePoste, nom }`). `401` code invalide/expiré/consommé ; `422` caisse inactive. |
+
+Fichiers : `enrollment/route.ts`, `enrollment/exchange/route.ts` ; services `lib/services/enrollment-token.ts`, `lib/services/store-token.ts`.
+
 ### 2.9 Périphériques
 
 | Méthode | Chemin | Permission | Description |
