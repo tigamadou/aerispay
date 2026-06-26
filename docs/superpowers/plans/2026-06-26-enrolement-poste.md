@@ -1436,8 +1436,9 @@ git commit -m "feat(desktop): orchestration enrôlement→kiosque + menu réinit
 ## Task 12: Mettre à jour la doc pérenne
 
 **Files:**
-- Modify: `ARCHITECTURE_MVP.md` (§3 ADR, §6 enrôlement, §12 modèle de données)
+- Modify: `ARCHITECTURE_MVP.md` (§3 ADR, §6 enrôlement, §9.2 stack, §12 modèle de données)
 - Modify: `docs/product/09-pages-api.md` (endpoints enrollment)
+- Modify: `desktop/README.md` (tableau « Périmètre des fichiers »)
 
 **Interfaces:** documentation seulement.
 
@@ -1474,11 +1475,28 @@ Dans le tableau §12.1, ajouter une ligne après `StoreToken` :
 
 Ajouter/mettre à jour la famille enrollment : `POST /api/enrollment` (ADMIN — émet un code d'enrôlement) et `POST /api/enrollment/exchange` (public/token — échange contre un token de magasin, renomme la caisse).
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: `desktop/README.md` — refléter les nouveaux fichiers**
+
+Dans le tableau « Périmètre des fichiers » de `desktop/README.md`, ajouter/mettre à jour les lignes :
+
+```markdown
+| `src/config.ts` | Validation de la saisie d'enrôlement (URL + code + nom) ; en-têtes d'auth |
+| `src/config-store.ts` | Persistance config + token de magasin (safeStorage / trousseau OS) |
+| `src/enrollment-client.ts` | Échange du code contre un token de magasin (POST /api/enrollment/exchange) |
+| `src/enroll-preload.ts` | Bridge `window.aerisEnroll` (fenêtre d'enrôlement, isolé du kiosque) |
+| `renderer/config.html` + `renderer/config.js` | Formulaire d'enrôlement (URL + code + nom) + handler |
+| `src/main.ts` | Orchestration : 1er lancement → enrôlement, sinon kiosque ; menu « Réinitialiser l'enrôlement » |
+```
+
+- [ ] **Step 6: §9.2 — mentionner safeStorage dans la stack client**
+
+Dans `ARCHITECTURE_MVP.md` §9.2 (Client caisse), ajouter une ligne au tableau : `| Secrets | safeStorage (trousseau OS) | Token de magasin chiffré au repos (jamais en clair) |`.
+
+- [ ] **Step 7: Commit**
 
 ```bash
-git add ARCHITECTURE_MVP.md docs/product/09-pages-api.md
-git commit -m "docs: ADR-007 + flux d'enrôlement (token à usage unique) dans la doc pérenne"
+git add ARCHITECTURE_MVP.md docs/product/09-pages-api.md desktop/README.md
+git commit -m "docs: ADR-007 + flux d'enrôlement + fichiers desktop (doc pérenne)"
 ```
 
 ---
