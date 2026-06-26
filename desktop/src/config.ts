@@ -1,27 +1,32 @@
 /**
- * E3.3 — Configuration d'enrôlement du poste (logique pure, testable).
- * Le premier lancement capture l'URL du nœud magasin et le token de magasin (émis par
- * `POST /api/enrollment`, E3.1). Le token est destiné au trousseau OS (E3.2) — jamais
- * en clair dans un fichier. Ce module valide/normalise la configuration.
+ * Configuration d'enrôlement du poste (logique pure, testable).
+ * Le premier lancement capture l'URL du nœud et un code d'enrôlement (échangé contre un
+ * token de magasin). Le token de magasin va au trousseau OS (jamais ici).
  */
 
 export interface PosteConfig {
   /** URL du nœud magasin sur le LAN (HTTPS recommandé). */
   nodeUrl: string;
-  /** Token de magasin scoppé à la caisse (stocké dans le trousseau OS). */
-  storeToken: string;
-  /** Identité de la caisse (poste), fixée à l'enrôlement. */
+  /** Identité de la caisse (poste), résolue à l'échange. */
   caisseId: string;
+  /** Code poste (numérotation), retourné par l'échange. */
+  codePoste?: string;
+  /** Nom lisible de la caisse, retourné par l'échange. */
+  nom?: string;
 }
 
-export interface ValidationResult {
+export interface EnrollInputResult {
   ok: boolean;
   errors: string[];
-  config?: PosteConfig;
+  value?: { nodeUrl: string; token: string; nom?: string };
 }
 
-/** Valide et normalise une configuration de poste saisie au premier lancement. */
-export function validatePosteConfig(input: Partial<PosteConfig>): ValidationResult {
+/** Valide/normalise la saisie du formulaire d'enrôlement (URL + code + nom). */
+export function validateEnrollInput(input: {
+  nodeUrl?: string;
+  token?: string;
+  nom?: string;
+}): EnrollInputResult {
   const errors: string[] = [];
 
   const nodeUrl = (input.nodeUrl ?? "").trim();
@@ -38,25 +43,24 @@ export function validatePosteConfig(input: Partial<PosteConfig>): ValidationResu
     }
   }
 
-  const storeToken = (input.storeToken ?? "").trim();
-  if (!storeToken) errors.push("Token de magasin requis");
-
-  const caisseId = (input.caisseId ?? "").trim();
-  if (!caisseId) errors.push("caisseId (identité du poste) requis");
+  const token = (input.token ?? "").trim();
+  if (!token) errors.push("Code d'enrôlement requis");
 
   if (errors.length > 0) return { ok: false, errors };
 
+  const nom = (input.nom ?? "").trim();
   return {
     ok: true,
     errors: [],
-    config: { nodeUrl: nodeUrl.replace(/\/+$/, ""), storeToken, caisseId },
+    value: { nodeUrl: nodeUrl.replace(/\/+$/, ""), token, ...(nom ? { nom } : {}) },
   };
 }
 
-/** En-têtes d'authentification présentés au nœud magasin (token scoppé poste). */
-export function authHeaders(config: PosteConfig): Record<string, string> {
+/** En-têtes d'authentification présentés au nœud magasin (token scopé poste). */
+export function authHeaders(nodeUrl: string, storeToken: string, caisseId: string): Record<string, string> {
+  void nodeUrl;
   return {
-    Authorization: `Bearer ${config.storeToken}`,
-    "X-Aeris-Caisse": config.caisseId,
+    Authorization: `Bearer ${storeToken}`,
+    "X-Aeris-Caisse": caisseId,
   };
 }
