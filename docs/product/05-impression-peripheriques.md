@@ -203,7 +203,7 @@ Lacunes constatées (état actuel du dépôt) :
 
 ## 9. Architecture desktop — impression locale au poste (C2.1, livré)
 
-Côté **nœud magasin**, les routes `tickets/[id]/print` et `cash-drawer/open` chargent encore `node-thermal-printer` dans le process Next.js (utile en mono-poste co-localisé). En **desktop**, les périphériques sont **locaux au poste** : la logique d'impression et d'ouverture tiroir vit dans le **main Electron** de chaque caisse (`desktop/src/devices.ts`) ; le **nœud magasin** ne fournit que la **charge utile** du ticket. Voir `docs/architecture-desktop/02-client-desktop.md`.
+Côté **nœud magasin**, les routes `tickets/[id]/print` et `cash-drawer/open` chargent encore `node-thermal-printer` dans le process Next.js (utile en mono-poste co-localisé). En **desktop**, les périphériques sont **locaux au poste** : la logique d'impression et d'ouverture tiroir vit dans le **main Electron** de chaque caisse (`desktop/src/devices.ts`) ; le **nœud magasin** ne fournit que la **charge utile** du ticket. Voir `../../ARCHITECTURE_MVP.md` §4.
 
 Implémentation livrée (`desktop/`) :
 

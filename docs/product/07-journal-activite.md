@@ -302,8 +302,8 @@ Dans la cible **desktop / multi-magasins**, le journal d'activité fait partie d
 **transactionnelles répliquées du nœud magasin vers le cloud** pour un audit centralisé. La
 réplication est **append-only** (le cloud ingère, ne modifie jamais), via le pattern outbox
 (`EventCaisse`) et l'idempotence par identifiant ; la cohérence est forte au sein du magasin et
-**à terme** vers le cloud. Détails : `docs/architecture-desktop/05-synchronisation-cloud.md`
-(et `06-securite.md` pour le transport).
+**à terme** vers le cloud. Détails : `../../ARCHITECTURE_MVP.md` §7
+(et §8 pour le transport).
 
 ---
 

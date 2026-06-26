@@ -257,7 +257,7 @@ L'application des taxes aux ventes est par ailleurs vérifiée dans les tests de
 
 ## 7. Note architecture Desktop (cloud-first)
 
-D'après **ADR-006** (`docs/architecture-desktop/09-adr.md:86`), le **catalogue, les prix, les
+D'après **ADR-006** (`../../ARCHITECTURE_MVP.md` §3), le **catalogue, les prix, les
 catégories, les utilisateurs/rôles, les paramètres, les taxes et les seuils** sont des **données de
 référence strictement descendantes depuis le cloud** (autorité unique, *last-writer-wins*).
 

@@ -1,7 +1,6 @@
-# Runbook d'exploitation — Nœud magasin AerisPay (P5.4)
+# Runbook d'exploitation — Nœud magasin AerisPay
 
-[← Index](README.md) · complète [07 — Déploiement & exploitation](07-deploiement-exploitation.md) §6.
-
+> Complète `ARCHITECTURE_MVP.md` §16 (Déploiement & packaging).
 > Périmètre : exploitation du **nœud magasin** (backend Next + Prisma + MySQL).
 > **Pas de HA** en V1 (ADR-005) : SPOF assumé, mitigé par les sauvegardes et une restauration testée.
 
@@ -56,7 +55,7 @@ docker compose exec -T db mysql -u root -p"$MYSQL_ROOT_PASSWORD" aerispay_restor
 docker compose exec -T db mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e "DROP DATABASE aerispay_restore_test;"
 ```
 
-Vérifier en plus la **chaîne de hash par caisse** (F1.3) : les sessions validées restaurées doivent conserver un `hashIntegrite` recalculable (`GET /api/comptoir/sessions/[id]/verify`).
+Vérifier en plus la **chaîne de hash par caisse** : les sessions validées restaurées doivent conserver un `hashIntegrite` recalculable (`GET /api/comptoir/sessions/[id]/verify`).
 
 ---
 
@@ -76,10 +75,10 @@ Diagnostiquer **dans cet ordre** (du poste vers la base) :
 
 ### « Sync cloud en retard »
 - **Sans impact caisse** (le magasin fonctionne en autonomie locale).
-- Vérifier la connectivité WAN et le worker de sync ; les `EventCaisse` non consommés seront rejoués automatiquement (idempotent, S4.2/S4.4) au retour du réseau.
+- Vérifier la connectivité WAN et le worker de sync ; les `EventCaisse` non consommés seront rejoués automatiquement (idempotent) au retour du réseau.
 
 ### « Perte / vol d'un poste »
-- Révoquer le **token de magasin** du poste (E3.2, `revokeStoreToken`) → le poste ne joint plus l'API. Exposition minimale (aucune donnée ni secret cloud sur le poste).
+- Révoquer le **token de magasin** du poste (`revokeStoreToken`) → le poste ne joint plus l'API. Exposition minimale (aucune donnée ni secret cloud sur le poste).
 
 ### « Compromission du magasin »
 - Révoquer le device token cloud (arrêt de la sync), investiguer via le **journal d'activité** et les **hash d'intégrité** (revérification des chaînes par caisse).

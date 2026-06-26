@@ -2,7 +2,7 @@
 
 Client caisse **sans base de données** : coquille kiosque qui affiche l'UI servie par le
 **nœud magasin** (LAN) + **pont périphériques** (ESC/POS, tiroir). Voir
-[`docs/architecture-desktop/02-client-desktop.md`](../docs/architecture-desktop/02-client-desktop.md).
+[`ARCHITECTURE_MVP.md` §4 (Client desktop & périphériques)](../ARCHITECTURE_MVP.md).
 
 ## Périmètre des fichiers
 

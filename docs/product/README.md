@@ -5,7 +5,8 @@
 > source de vérité — et non d'anciennes specs.
 >
 > Pour le ***COMMENT* c'est déployé** (architecture desktop 3 niveaux, synchronisation,
-> décisions/ADR, exploitation), voir [`../architecture-desktop/`](../architecture-desktop/).
+> décisions/ADR), voir [`../../ARCHITECTURE_MVP.md`](../../ARCHITECTURE_MVP.md) ; pour l'exploitation,
+> [`../../RUNBOOK.md`](../../RUNBOOK.md).
 
 ## Contexte
 
@@ -18,7 +19,7 @@ Client Electron (caisse) → Nœud magasin (ce backend) → Cloud organisation
 ```
 
 Les règles métier ci-dessous **ne changent pas** avec ce pivot : c'est la topologie de déploiement
-qui évolue (voir `../architecture-desktop/`).
+qui évolue (voir `../../ARCHITECTURE_MVP.md`).
 
 ## Index
 
@@ -49,7 +50,7 @@ qui évolue (voir `../architecture-desktop/`).
 
 ## Backlog fonctionnel résiduel (hors migration desktop)
 
-La migration desktop 3 niveaux est **livrée** (voir [`../architecture-desktop/`](../architecture-desktop/)).
+La migration desktop 3 niveaux est **livrée** (voir [`../../ARCHITECTURE_MVP.md`](../../ARCHITECTURE_MVP.md)).
 Manques fonctionnels connus restants, non couverts par le code actuel. À arbitrer séparément :
 
 - **QR code sur ticket** — non implémenté.

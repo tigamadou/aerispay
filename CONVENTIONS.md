@@ -439,7 +439,7 @@ const errorMessage = 'Le stock est insuffisant pour effectuer cette vente.'
 
 ### 11.1 Multi-magasin (cible)
 
-Lorsque le modèle `organisation` / `magasin` sera en base, **toute requête** Prisma sur du métier (produits, ventes, sessions) devra appliquer un **filtrage explicite** sur le contexte (éviter les fuites inter-sites). Les noms d’`id` de contexte pourront reposer sur des variables d’environnement par déploiement (cf. `docs/architecture-desktop/01-modele-trois-niveaux.md`).
+Lorsque le modèle `organisation` / `magasin` sera en base, **toute requête** Prisma sur du métier (produits, ventes, sessions) devra appliquer un **filtrage explicite** sur le contexte (éviter les fuites inter-sites). Les noms d’`id` de contexte pourront reposer sur des variables d’environnement par déploiement (cf. `ARCHITECTURE_MVP.md` §1).
 
 ---
 

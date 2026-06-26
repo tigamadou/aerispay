@@ -203,7 +203,7 @@ Objectif : **aucun stock négatif**, y compris sous accès concurrent (plusieurs
 
 ## 7. Cohérence multi-caisses (déploiement desktop)
 
-Dans le déploiement cible « desktop / nœud magasin », **une seule base de données** est hébergée au nœud du point de vente ; toutes les caisses du magasin écrivent sur cette base unique. Le stock est donc **cohérent par magasin** : le décrément conditionnel atomique (§6) et la contrainte CHECK s'appliquent sur la ligne `produits` partagée, ce qui **empêche toute survente entre caisses** d'un même magasin (deux caissiers ne peuvent pas vendre le même dernier exemplaire). La synchronisation **inter-magasins** relève d'un autre périmètre (cf. `docs/architecture-desktop/01-modele-trois-niveaux.md`) et n'est pas couverte par ce module.
+Dans le déploiement cible « desktop / nœud magasin », **une seule base de données** est hébergée au nœud du point de vente ; toutes les caisses du magasin écrivent sur cette base unique. Le stock est donc **cohérent par magasin** : le décrément conditionnel atomique (§6) et la contrainte CHECK s'appliquent sur la ligne `produits` partagée, ce qui **empêche toute survente entre caisses** d'un même magasin (deux caissiers ne peuvent pas vendre le même dernier exemplaire). La synchronisation **inter-magasins** relève d'un autre périmètre (cf. `../../ARCHITECTURE_MVP.md` §1) et n'est pas couverte par ce module.
 
 ---
 

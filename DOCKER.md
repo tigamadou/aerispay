@@ -7,17 +7,17 @@
 > **Le client caisse (Electron) n'est PAS dockerisé.** C'est une application desktop
 > **séparée** qui parle à l'**API du nœud magasin** sur le LAN. Son empaquetage
 > (electron-builder, installeurs, modules natifs ESC/POS, auto-update) est décrit dans
-> **`docs/architecture-desktop/`** — pas ici.
+> **`ARCHITECTURE_MVP.md` §16** — pas ici.
 
 ---
 
 ## 0. Où Docker s'inscrit dans l'architecture (3 niveaux)
 
-AerisPay vise une architecture à trois niveaux (voir `docs/architecture-desktop/`) :
+AerisPay vise une architecture à trois niveaux (voir `ARCHITECTURE_MVP.md`) :
 
 | Niveau | Quoi | Dockerisé ? |
 |--------|------|-------------|
-| **Client caisse** | App **Electron** (coquille UI + pont périphériques) | **Non** — desktop natif, voir `docs/architecture-desktop/` |
+| **Client caisse** | App **Electron** (coquille UI + pont périphériques) | **Non** — desktop natif, voir `ARCHITECTURE_MVP.md` §4 |
 | **Nœud magasin** | Backend **Next.js + Prisma + MySQL** local au magasin (source de vérité) | **Oui** — ce document |
 | **Cloud / organisation** | API parente, agrégation multi-magasins, sauvegardes | Hors périmètre de ce document |
 
@@ -35,8 +35,7 @@ Le nœud magasin est **toujours** un **service serveur distinct**. Il n'existe *
 - Le déploiement du nœud magasin est donc **inchangé** par rapport à aujourd'hui : Next + Prisma
   + MySQL, par exemple via les fichiers Compose décrits ci-dessous.
 
-> Réf. : `docs/architecture-desktop/09-adr.md` (ADR-001) et
-> `docs/architecture-desktop/07-deploiement-exploitation.md`.
+> Réf. : `ARCHITECTURE_MVP.md` §3 (ADR-001) et §16 (déploiement).
 
 ---
 
@@ -74,12 +73,11 @@ d'environnement restent sous **`web/`**, et le projet Next.js vit sous **`web/ap
 - **Douchette code-barres** : les lecteurs USB/HID en mode clavier fonctionnent côté navigateur/desktop sans accès spécial au conteneur. Le POS doit traiter le scan comme une saisie clavier rapide terminée par `Enter`.
 - **Tiroir-caisse** : mode recommandé via l'imprimante ticket (port RJ11/RJ12) avec impulsion ESC/POS. Un tiroir USB/série direct nécessite d'exposer le device et n'est pas portable sur Docker Desktop macOS — il est de toute façon piloté côté client Electron.
 - **USB / série dans Docker** : éviter en développement macOS si possible ; utiliser une imprimante réseau ou lancer l'intégration matérielle sur l'hôte / le client Electron lorsque l'accès device est requis.
-- Détails d'ordre d'appel API, mocks TDD et alignement des routes : **`docs/product/05-impression-peripheriques.md`** ; packaging desktop : **`docs/architecture-desktop/`**.
+- Détails d'ordre d'appel API, mocks TDD et alignement des routes : **`docs/product/05-impression-peripheriques.md`** ; packaging desktop : **`ARCHITECTURE_MVP.md` §16**.
 
 En **déploiement multi-magasins** (même groupe, plusieurs sites), l'objectif usuel est **un nœud
 magasin par site** (une stack Compose ou une machine dédiée), chacun avec sa **propre** base MySQL
-locale sur le LAN — sauvegarde en ligne et accès distants : **`docs/architecture-desktop/01-modele-trois-niveaux.md`** et
-`docs/architecture-desktop/07-deploiement-exploitation.md`.
+locale sur le LAN — sauvegarde en ligne et accès distants : **`ARCHITECTURE_MVP.md`** §1 et §16.
 
 ## Développement local
 
@@ -156,8 +154,7 @@ locale sur le LAN — sauvegarde en ligne et accès distants : **`docs/architect
 
 ## Exploitation du nœud magasin
 
-> Réf. : `docs/architecture-desktop/07-deploiement-exploitation.md` (runbook) et
-> `docs/architecture-desktop/09-adr.md` (ADR-005).
+> Réf. : `RUNBOOK.md` (runbook) et `ARCHITECTURE_MVP.md` §3 (ADR-005).
 
 - **Sauvegardes** : **dump planifié** de la base MySQL du magasin **+ réplication cloud comme
   filet**. Tester régulièrement la **restauration** (une sauvegarde non restaurée ne vaut rien).
@@ -210,5 +207,5 @@ En **prod** l'image est buildée par `web/Dockerfile` avec le contexte `web/app`
 
 - `web/Dockerfile` : construit l'image applicative (nœud magasin) depuis le contexte `web/app`.
 - `web/app/.gitignore` : exclut les dépendances, builds, fichiers d'environnement et artefacts locaux du projet Next.js.
-- `docs/architecture-desktop/` : architecture 3 niveaux, packaging du **client Electron**, runbook d'exploitation et ADR (001 : pas de mode autonome ; 005 : pas de HA).
+- `ARCHITECTURE_MVP.md` : architecture 3 niveaux, packaging du **client Electron**, ADR (001 : pas de mode autonome ; 005 : pas de HA) ; `RUNBOOK.md` : runbook d'exploitation.
 - Noms de volumes : `aerispay_mysql_data_dev` / `aerispay_mysql_data_prod` pour ne pas mélanger les jeux de données.

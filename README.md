@@ -4,7 +4,7 @@ Application web de caisse enregistreuse et de gestion commerciale pour petits et
 
 ## Déploiement cible (structure, magasins, caisses)
 
-AerisPay vise un usage par **structures** (groupes) pouvant exploiter **plusieurs supermarchés ou points de vente** : chaque site peut disposer d’**une base de données locale** (performances et résilience en caisse), de **plusieurs postes de caisse** (multi-caisses) et de **plusieurs caissiers**, complété par des **sauvegardes en ligne** et des **accès distants** sécurisés (direction, suivi). Le détail métier, technique et d’infrastructure est décrit dans **`docs/architecture-desktop/01-modele-trois-niveaux.md`**. Les comptes se rangent en **deux niveaux** (structure / point de vente) ; au **magasin** l’usage principal est le **rôle caissier**, encadré par gérant et admin local — **`docs/product/01-auth-roles.md`**.
+AerisPay vise un usage par **structures** (groupes) pouvant exploiter **plusieurs supermarchés ou points de vente** : chaque site peut disposer d’**une base de données locale** (performances et résilience en caisse), de **plusieurs postes de caisse** (multi-caisses) et de **plusieurs caissiers**, complété par des **sauvegardes en ligne** et des **accès distants** sécurisés (direction, suivi). Le détail métier, technique et d’infrastructure est décrit dans **`ARCHITECTURE_MVP.md`** (§1 — topologie 3 niveaux). Les comptes se rangent en **deux niveaux** (structure / point de vente) ; au **magasin** l’usage principal est le **rôle caissier**, encadré par gérant et admin local — **`docs/product/01-auth-roles.md`**.
 
 ## Matériel Cible
 

@@ -41,9 +41,8 @@ Dashboard.
 | Besoin | Où |
 |---|---|
 | **Le *QUOI*** — comportement produit dérivé du code (règles, modèles, endpoints) | **`docs/product/`** (index dans `docs/product/README.md`) |
-| **Le *COMMENT*** — architecture desktop, synchronisation, sécurité | `docs/architecture-desktop/01..08` |
-| **Décisions d'architecture actées** | `docs/architecture-desktop/09-adr.md` |
-| **Exploitation du nœud** (supervision, sauvegardes/restauration, incidents) | `docs/architecture-desktop/RUNBOOK.md` |
+| **Le *COMMENT*** — architecture desktop, synchronisation, sécurité, **ADR** | `ARCHITECTURE_MVP.md` |
+| **Exploitation du nœud** (supervision, sauvegardes/restauration, incidents) | `RUNBOOK.md` |
 | **Backlog fonctionnel résiduel** (hors migration desktop) | `docs/product/README.md` |
 | **Architecture & schéma de données** | `ARCHITECTURE_MVP.md` |
 | **Déploiement (nœud magasin)** | `DOCKER.md` |
@@ -83,10 +82,10 @@ Qualité        : ESLint + Prettier
 ```
 aerispay/
 ├── docker-compose.yml · docker-compose.prod.yml · DOCKER.md
-├── CLAUDE.md · ARCHITECTURE_MVP.md · CONVENTIONS.md · README.md
+├── CLAUDE.md · ARCHITECTURE_MVP.md · RUNBOOK.md · CONVENTIONS.md · README.md
+│      └ ARCHITECTURE_MVP.md = le COMMENT (topologie, ADR, sync, sécurité) · RUNBOOK.md = exploitation
 ├── docs/
-│   ├── product/                  ← doc produit (le QUOI), dérivée du code — 01..09 + README
-│   └── architecture-desktop/     ← archi 3 niveaux (le COMMENT) : 01..09 + RUNBOOK + 09-adr
+│   └── product/                  ← doc produit (le QUOI), dérivée du code — 01..09 + README
 ├── desktop/                       ← client Electron (niveau 1) : main périphériques + renderer kiosque
 ├── cloud/                         ← schéma cloud (niveau 3) : prisma/schema.prisma (agrégation)
 └── web/
@@ -160,7 +159,7 @@ export async function POST(req: Request) {
 - **Pas d'inscription publique** : création d'utilisateurs par **ADMIN** uniquement (`/api/users`).
 - Actions sensibles (annuler vente, modifier stock, force-close) : vérifier le rôle (`hasPermission`/`requireRole`).
 - Ne jamais logger de données sensibles (mots de passe, tokens). Secrets en `.env.local` (non commité) ;
-  en desktop, tokens dans le trousseau OS (voir `docs/architecture-desktop/06-securite.md`).
+  en desktop, tokens dans le trousseau OS (voir `ARCHITECTURE_MVP.md` §8 — Sécurité).
 
 ### 5.8 Tests
 - **TDD obligatoire** : Vitest (API/métier), RTL (composants critiques : Cart, PaymentModal, ProductForm),

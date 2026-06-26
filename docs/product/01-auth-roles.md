@@ -221,8 +221,7 @@ Sous `web/app/src/__tests__/` :
 
 ## 8. Note — architecture desktop (cible)
 
-Voir `docs/architecture-desktop/` (notamment `06-securite.md`,
-`01-modele-trois-niveaux.md`, `05-synchronisation-cloud.md`).
+Voir `../../ARCHITECTURE_MVP.md` (§8 Sécurité, §1 topologie 3 niveaux, §7 synchronisation cloud).
 
 - **`NEXTAUTH_SECRET` et clés serveur vivent uniquement sur le nœud magasin**, jamais
   sur les caisses (postes Electron). Le **login est servi par le nœud magasin** ; les
