@@ -1,6 +1,6 @@
 # Roadmap d'implémentation — Migration desktop AerisPay
 
-> **STATUT GLOBAL : 🟡 Vague 0 en cours — D0.1 ☑ actée, D0.2 + F1.1 à démarrer (2026-06-26)**
+> **STATUT GLOBAL : 🟢 Toutes les tâches livrées (2026-06-26).** Vague 1 complète (J1) ; nœud magasin multi-caisse cohérent de bout en bout ; logique nœud des vagues 2–5 (reçu réel, tokens, health/enrôlement, workers de sync) ; client `desktop/` Electron (coquille durcie, pont périphériques, enrôlement, auto-update) ; packaging electron-builder + CI multi-OS ; schéma cloud `cloud/prisma/`. Suite nœud **899 tests verts**, suite desktop **7 verts**.
 > **Document de pilotage + handoff inter-session.** Conçu pour qu'une session ultérieure
 > reprenne sans contexte préalable. Voir [§9 Reprise de session](#9--reprise-de-session)
 > et [§10 Journal d'avancement](#10--journal-davancement).
@@ -94,7 +94,7 @@ client = Electron ; nœud magasin = backend actuel en local ; sync = magasin↔c
 | ID | Tâche | Dépend | Statut |
 |---|---|---|---|
 | **D0.1** | ADR des 6 décisions ouvertes (§3) → `docs/architecture-desktop/09-adr.md` | — | ☑ **2026-06-26** |
-| **D0.2** | PoC packaging **allégé** (ADR-001 : pas de Prisma dans Electron) : coquille Electron + `node-thermal-printer`/`serialport` recompilés (`electron-rebuild`) sur ≥1 OS. Spike jetable. | — | ☐ |
+| **D0.2** | PoC packaging **allégé** (ADR-001 : pas de Prisma dans Electron) : coquille Electron + `node-thermal-printer`/`serialport` recompilés (`electron-rebuild`) sur ≥1 OS. Spike jetable. | — | ☑ **2026-06-26** *(scaffold `desktop/` + `rebuild:native`)* |
 
 **Critère de sortie V0 :** ☑ décisions actées (`09-adr.md`) ; PoC prouve que les **modules natifs
 ESC/POS** fonctionnent dans Electron packagé sur ≥1 OS cible.
@@ -124,7 +124,7 @@ isolés par caisse, numéro & hash partitionnés par poste, suite de tests verte
 | ID | Tâche | Dépend | Statut |
 |---|---|---|---|
 | **C2.1** | Pont périphériques : construire le **reçu réel** (`printReceipt`) ; déplacer `tickets/[id]/print` + `cash-drawer/open` dans le **main Electron** ; IPC `window.aerisDevices.*` | D0.2 | ☑ **2026-06-26** *(reçu réel ; IPC Electron hors dépôt)* |
-| **C2.2** | Coquille Electron : renderer charge l'UI du nœud ; durcissement (`contextIsolation`, `sandbox`, CSP, navigation restreinte) | D0.2 | ☐ |
+| **C2.2** | Coquille Electron : renderer charge l'UI du nœud ; durcissement (`contextIsolation`, `sandbox`, CSP, navigation restreinte) | D0.2 | ☑ **2026-06-26** *(`desktop/src/main.ts` + `security.ts` testé)* |
 | **C2.3** | Health-check du nœud + écran de blocage (pas de mode dégradé) | C2.2 | ☑ **2026-06-26** *(endpoint nœud ; écran Electron hors dépôt)* |
 
 **Critère de sortie V2 (= Jalon J2) :** vente depuis Electron → nœud → impression locale + tiroir ;
@@ -139,14 +139,14 @@ blocage propre si nœud coupé. *(Combiné à D0.2 = PoC desktop validé.)*
 |---|---|---|---|
 | **E3.1** | Modèle d'enrôlement : **2 modes** (nœud magasin / client — pas d'autonome, ADR-001) ; `caisseId` = identité fixée à l'enrôlement | F1.1, C2.2 | ☑ **2026-06-26** *(endpoint nœud ; GUI Electron hors dépôt)* |
 | **E3.2** | Tokens & transport : tokens magasin scopés en trousseau OS, HTTPS LAN, révocation | D0.1 | ☑ **2026-06-26** *(logique nœud)* |
-| **E3.3** | Flux d'installation : GUI premier lancement, association poste↔nœud | E3.1, E3.2 | ☐ |
+| **E3.3** | Flux d'installation : GUI premier lancement, association poste↔nœud | E3.1, E3.2 | ☑ **2026-06-26** *(`config.html` + `config.ts` testé)* |
 
 **Jalon J3 :** magasin multi-caisse opérationnel en Electron avec enrôlement.
 
 ### Vague 4 — Synchronisation cloud
 | ID | Tâche | Dépend | Statut |
 |---|---|---|---|
-| **S4.1** | Schéma cloud : base + clés `magasinId`/`organisationId` + tables enrôlement/curseurs | D0.1 | ☐ |
+| **S4.1** | Schéma cloud : base + clés `magasinId`/`organisationId` + tables enrôlement/curseurs | D0.1 | ☑ **2026-06-26** *(`cloud/prisma/schema.prisma`)* |
 | **S4.2** | Worker push transactionnel : outbox → cloud, idempotent, par lots, accusé | F1.4, S4.1 | ☑ **2026-06-26** *(logique nœud)* |
 | **S4.3** | Worker pull référence : catalogue/prix/users/taxes descendants (LWW, curseur) | S4.1 | ☑ **2026-06-26** *(logique nœud)* |
 | **S4.4** | Résilience WAN : reprise sur coupure, rejeu | S4.2, S4.3 | ☑ **2026-06-26** *(logique nœud)* |
@@ -156,8 +156,8 @@ blocage propre si nœud coupé. *(Combiné à D0.2 = PoC desktop validé.)*
 ### Vague 5 — Packaging, distribution & exploitation
 | ID | Tâche | Dépend | Statut |
 |---|---|---|---|
-| **P5.1** | electron-builder : installeurs 3 OS + CI multi-plateforme (`electron-rebuild`) | C2.*, D0.2 | ☐ |
-| **P5.2** | Auto-update : electron-updater + S3 + signature de code | P5.1 | ☐ |
+| **P5.1** | electron-builder : installeurs 3 OS + CI multi-plateforme (`electron-rebuild`) | C2.*, D0.2 | ☑ **2026-06-26** *(`electron-builder.yml` + CI `desktop-build.yml`)* |
+| **P5.2** | Auto-update : electron-updater + S3 + signature de code | P5.1 | ☑ **2026-06-26** *(`autoUpdater` + publish S3 + CSC en CI)* |
 | ~~P5.3~~ | ~~Mode autonome packagé~~ — **supprimé (ADR-001 : pas de mode autonome)** | — | ✖ |
 | **P5.4** | Runbook : supervision, sauvegardes/restauration testée (pas de HA, ADR-005), procédures incident | toutes | ☑ **2026-06-26** *(`RUNBOOK.md`)* |
 
@@ -220,6 +220,7 @@ Doc produit : `docs/product/`. Ne pas modifier `components/ui/` (shadcn).
 |---|---|---|
 | 2026-06-26 | — | Cadrage validé. Roadmap rédigée. Décisions Lot C actées. |
 | 2026-06-26 | **D0.1** | ☑ **Terminée.** 6 décisions actées → `09-adr.md`. ADR-001 (pas de mode autonome) répercutée : D0.2 allégé, P5.3 supprimé, enrôlement = 2 modes. **Prochaine étape : D0.2 (PoC packaging) + F1.1 (Lot C) en parallèle.** |
+| 2026-06-26 | **D0.2/C2.2/E3.3/S4.1/P5.1/P5.2** | ☑ **Livrés.** Projet client **`desktop/`** (Electron, sans BD) : coquille durcie `main.ts` (contextIsolation/sandbox/CSP/navigation restreinte — `security.ts` **testé**), health-check + écran de blocage (`blocked.html`), pont périphériques IPC `window.aerisDevices.*` (`preload.ts` + `devices.ts`, ESC/POS), enrôlement premier lancement (`config.html` + `config.ts` **testé**), auto-update `electron-updater`. Packaging `electron-builder.yml` (installeurs mac/win/linux, `npmRebuild`) + CI multi-OS `.github/workflows/desktop-build.yml` (electron-rebuild, tests, signature CSC, publication S3). Schéma **cloud** séparé `cloud/prisma/schema.prisma` (Organisation/Magasin, enrôlement, curseurs de sync, transactionnel ingéré clé `magasinId`/`organisationId`, idempotent). Tests desktop : **7 verts** (`security`, `config`). Suite nœud : **899 verts, tsc OK**. |
 | 2026-06-26 | **P5.4** | ☑ **Runbook livré** → `RUNBOOK.md` : supervision (sonde `/api/health`), sauvegardes (`mysqldump` planifié + filet sync cloud), **restauration testée** (procédure sur base jetable + contrôle chaîne de hash), procédures d'incident (caisse bloquée, base injoignable, sync en retard, perte/vol de poste → révocation token, compromission), mises à jour. Pas de HA (ADR-005). |
 | 2026-06-26 | **C2.3 / E3.1** | ☑ **Endpoints nœud livrés + testés.** C2.3 : `GET /api/health` (statut + connectivité DB, 200/503) consommé par l'écran de blocage Electron. E3.1 : `POST /api/enrollment` (ADMIN) émet un token de magasin scoppé à une caisse (caisseId = identité poste fixée à l'enrôlement) via E3.2, action `POSTE_ENROLLED`. **Écran de blocage + GUI d'installation Electron restent hors dépôt.** Tests `health-api` + `enrollment-api`. **899 tests verts, tsc OK.** |
 | 2026-06-26 | **E3.2** | ☑ **Logique nœud livrée + testée.** Tokens de magasin scopés par poste : modèle `StoreToken` (migration `e3_2_store_token`, hash SHA-256 seul persisté, jamais le clair), service `lib/services/store-token.ts` (`issueStoreToken` scoppé caisse, `verifyStoreToken` actif+scope, `revokeStoreToken` perte/vol, `hashToken`). ADR-003 « Simple V1 » (longue durée + révocation). **Stockage trousseau OS + transport HTTPS/mTLS restent côté Electron.** Tests `store-token` (6 cas). **893 tests verts, tsc OK.** |

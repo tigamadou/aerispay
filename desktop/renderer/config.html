@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'" />
+    <title>Enrôlement du poste</title>
+    <style>
+      body { font-family: system-ui, sans-serif; background: #0f172a; color: #f8fafc;
+             display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+      form { width: 26rem; padding: 2rem; }
+      h1 { font-size: 1.25rem; }
+      label { display: block; margin: 1rem 0 .25rem; color: #cbd5e1; }
+      input { width: 100%; padding: .5rem; border-radius: .375rem; border: 1px solid #334155;
+              background: #1e293b; color: #f8fafc; }
+      button { margin-top: 1.5rem; width: 100%; padding: .6rem; border: 0; border-radius: .375rem;
+               background: #2563eb; color: white; font-weight: 600; cursor: pointer; }
+      .hint { color: #94a3b8; font-size: .85rem; margin-top: .5rem; }
+    </style>
+  </head>
+  <body>
+    <!-- E3.3 — premier lancement : association poste ↔ nœud magasin.
+         Le token est émis par POST /api/enrollment (ADMIN) côté nœud (E3.1) puis stocké
+         dans le trousseau OS (E3.2). Cet écran capture l'URL du nœud, le token et le caisseId. -->
+    <form>
+      <h1>Enrôlement du poste</h1>
+      <label for="nodeUrl">URL du nœud magasin (LAN)</label>
+      <input id="nodeUrl" placeholder="https://magasin.local:3000" />
+      <label for="caisseId">Identité de la caisse (caisseId)</label>
+      <input id="caisseId" placeholder="caisse-1" />
+      <label for="storeToken">Token de magasin</label>
+      <input id="storeToken" type="password" placeholder="token fourni par l'administrateur" />
+      <button type="submit">Enrôler ce poste</button>
+      <p class="hint">Le token est stocké dans le trousseau de l'OS, jamais en clair.</p>
+    </form>
+  </body>
+</html>
