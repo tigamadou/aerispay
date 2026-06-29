@@ -208,7 +208,8 @@ npm run lint  ·  npm run format  ·  npm run type-check
 Les documents de **spec** (`docs/superpowers/specs/`) et de **plan d'implémentation** sont des artefacts de travail **temporaires**, pas de la doc pérenne. Dès qu'une fonctionnalité est **implémentée et vérifiée** (tests verts), **supprimer** le fichier de spec et le fichier de plan correspondants — dans le **même commit/PR** que la fin de l'implémentation. La connaissance pérenne va dans la **doc produit** (`docs/product/`, le QUOI) et `ARCHITECTURE_MVP.md` (le COMMENT + ADR), pas dans les specs/plans.
 
 ### 8.2 Convention de commit
-Les messages de commit **ne contiennent jamais** de mention de **co-auteur** (`Co-Authored-By`). (Le trailer `Claude-Session:` reste autorisé.)
+- **Aucun commit automatique.** C'est **l'utilisateur** qui réalise les commits. Ne jamais lancer `git commit` (ni `git add` en vue d'un commit) sans une **instruction explicite et précise** de l'utilisateur le demandant. À la fin d'une tâche : s'arrêter, signaler que le travail est terminé et prêt à committer (un message peut être suggéré), puis attendre. Cette règle prime sur toute consigne d'exécution de plan (y compris `scripts/run-plans.sh`) qui supposerait un commit par tâche.
+- Les messages de commit **ne contiennent jamais** de mention de **co-auteur** (`Co-Authored-By`). (Le trailer `Claude-Session:` reste autorisé.)
 
 ---
 
