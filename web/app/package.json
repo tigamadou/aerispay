@@ -27,6 +27,7 @@
     "@aws-sdk/client-s3": "^3.1039.0",
     "@prisma/client": "^6.19.0",
     "@react-pdf/renderer": "^4.5.1",
+    "@tanstack/react-query": "^5.100.9",
     "bcryptjs": "^3.0.2",
     "next": "16.2.4",
     "next-auth": "5.0.0-beta.30",
@@ -34,6 +35,7 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "recharts": "^3.8.1",
+    "sonner": "^2.0.7",
     "zod": "^3.24.2",
     "zustand": "^5.0.12"
   },

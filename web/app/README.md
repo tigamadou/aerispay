@@ -25,7 +25,7 @@ docker compose exec app npx prisma db seed
 
 **Sur l’hôte** (sans le conteneur) : dans `web/app/.env.local`, `SHADOW_DATABASE_URL=mysql://root:MOT_DE_PASSE@localhost:3306/aerispay` (même **nom de base** qu’en `DATABASE_URL` — sans cela, erreur **P3004**).
 
-(Comptes par défaut du seed : `SPECS/AUTH` / `prisma/seed.ts` — ex. `admin@aerispay.com` si `SEED_ADMIN_*` non définis.)
+(Comptes par défaut du seed : `docs/product/01-auth-roles.md` / `prisma/seed.ts` — ex. `admin@aerispay.com` si `SEED_ADMIN_*` non définis.)
 
 ### Sans Docker (hôte)
 
@@ -42,7 +42,7 @@ Depuis `web/app/` : créer `/.env.local` avec `DATABASE_URL=mysql://...localhost
 
 ## Documentation
 
-Racine du dépôt : `CLAUDE.md`, `ARCHITECTURE_MVP.md`, `SPECS/`, `DOCKER.md`.
+Racine du dépôt : `CLAUDE.md`, `ARCHITECTURE_MVP.md`, `docs/product/`, `DOCKER.md`.
 
 TDD, matériel POS, conventions : `../CLAUDE.md` (dépôt) et `CLAUDE.md` ici le cas échéant.
 

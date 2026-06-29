@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 interface CancelButtonProps {
   venteId: string;
@@ -23,10 +24,10 @@ export function CancelButtonClient({ venteId }: CancelButtonProps) {
         router.refresh();
       } else {
         const data = await res.json();
-        alert(data.error ?? "Erreur lors de l'annulation");
+        toast.error(data.error ?? "Erreur lors de l'annulation");
       }
     } catch {
-      alert("Erreur de connexion au serveur");
+      toast.error("Erreur de connexion au serveur");
     } finally {
       setPending(false);
     }

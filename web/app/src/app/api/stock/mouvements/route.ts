@@ -4,7 +4,16 @@ import { createMouvementSchema } from "@/lib/validations/mouvement";
 import type { TypeMouvement } from "@prisma/client";
 import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
 
-export async function GET(req: Request) {
+class TxError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "TxError";
+    this.status = status;
+  }
+}
+
+export async function GET(req: Request): Promise<Response> {
   const result = await requireRole("ADMIN", "MANAGER");
   if (!result.authenticated) return result.response;
 
@@ -49,7 +58,7 @@ export async function GET(req: Request) {
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: Request): Promise<Response> {
   const result = await requireRole("ADMIN", "MANAGER");
   if (!result.authenticated) return result.response;
 
@@ -71,7 +80,7 @@ export async function POST(req: Request) {
       });
 
       if (!produit) {
-        throw { status: 404, message: "Produit introuvable" };
+        throw new TxError("Produit introuvable", 404);
       }
 
       const stockAvant = produit.stockActuel;
@@ -80,29 +89,58 @@ export async function POST(req: Request) {
       switch (type) {
         case "ENTREE":
           stockApres = stockAvant + quantite;
+          await tx.produit.update({
+            where: { id: produitId },
+            data: { stockActuel: { increment: quantite } },
+          });
           break;
         case "SORTIE":
-        case "PERTE":
-          if (quantite > stockAvant) {
-            throw {
-              status: 422,
-              message: `Stock insuffisant (disponible : ${stockAvant}, demandé : ${quantite})`,
-            };
+        case "PERTE": {
+          // Lot B (C3) : décrément conditionnel atomique — pas de stock négatif sous concurrence.
+          const { count } = await tx.produit.updateMany({
+            where: { id: produitId, stockActuel: { gte: quantite } },
+            data: { stockActuel: { decrement: quantite } },
+          });
+          if (count === 0) {
+            throw new TxError(
+              `Stock insuffisant (disponible : ${stockAvant}, demandé : ${quantite})`,
+              422,
+            );
           }
           stockApres = stockAvant - quantite;
           break;
-        case "AJUSTEMENT":
-          // Ajustement: quantity is the new absolute stock level
+        }
+        case "AJUSTEMENT": {
+          // Lot B (C3) : valeur absolue → verrou de ligne (FOR UPDATE) avant lecture/écriture
+          // pour éviter le lost update entre deux ajustements concurrents.
+          const locked = await tx.$queryRaw<{ stockActuel: number }[]>`
+            SELECT stockActuel FROM produits WHERE id = ${produitId} FOR UPDATE
+          `;
+          const stockVerrouille = locked[0]?.stockActuel ?? stockAvant;
           stockApres = quantite;
-          break;
+          await tx.produit.update({
+            where: { id: produitId },
+            data: { stockActuel: stockApres },
+          });
+          // quantiteAvant reflète la valeur verrouillée au moment de l'écriture
+          return tx.mouvementStock.create({
+            data: {
+              type,
+              quantite,
+              quantiteAvant: stockVerrouille,
+              quantiteApres: stockApres,
+              motif: motif ?? null,
+              reference: reference ?? null,
+              produitId,
+            },
+            include: {
+              produit: { select: { id: true, nom: true, reference: true } },
+            },
+          });
+        }
         default:
-          throw { status: 400, message: "Type de mouvement invalide" };
+          throw new TxError("Type de mouvement invalide", 400);
       }
-
-      await tx.produit.update({
-        where: { id: produitId },
-        data: { stockActuel: stockApres },
-      });
 
       return tx.mouvementStock.create({
         data: {
@@ -139,14 +177,8 @@ export async function POST(req: Request) {
 
     return Response.json({ data: mouvement }, { status: 201 });
   } catch (error) {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "status" in error &&
-      "message" in error
-    ) {
-      const e = error as { status: number; message: string };
-      return Response.json({ error: e.message }, { status: e.status });
+    if (error instanceof TxError) {
+      return Response.json({ error: error.message }, { status: error.status });
     }
     console.error("[POST /api/stock/mouvements]", error);
     return Response.json({ error: "Erreur serveur" }, { status: 500 });

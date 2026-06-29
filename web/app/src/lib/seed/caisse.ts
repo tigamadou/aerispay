@@ -10,17 +10,31 @@ const DEFAULT_SEUILS = [
   { id: "THRESHOLD_EXPENSE_AUTH", valeur: 5000, description: "Depense sans autorisation manager (FCFA)" },
   { id: "THRESHOLD_MAX_RECOUNT_ATTEMPTS", valeur: 3, description: "Nombre max de recomptages avant contestation" },
   { id: "THRESHOLD_OFFLINE_READONLY_HOURS", valeur: 4, description: "Duree avant passage en lecture seule hors ligne (heures)" },
+  // Lot G (Modele 2) — float laisse dans le tiroir apres la levee de cloture, par mode.
+  // 0 = remise a zero / refloat complet. Configurable par PDV (ex. FLOAT_ESPECES = 20000).
+  { id: "FLOAT_ESPECES", valeur: 0, description: "Fond de caisse (float) laisse en especes apres la levee (FCFA)" },
+  // F1.5 (RULE-FOND-005) — caissier solo : 0 = desactive. Si > 0, le caissier peut
+  // auto-valider sa propre session tant que l'ecart final reste <= ce seuil (FCFA).
+  { id: "THRESHOLD_SOLO_AUTO_VALIDATION", valeur: 0, description: "Plafond d'ecart pour l'auto-validation en mode caissier solo (FCFA, 0 = desactive)" },
 ];
 
 /** Seed la caisse par defaut et les seuils (prod + dev). */
 export async function seedDefaultCaisse(prisma: PrismaClient): Promise<void> {
   const caisse = await prisma.caisse.upsert({
     where: { id: "caisse-principale" },
-    create: { id: "caisse-principale", nom: "Caisse principale", active: true },
-    update: { nom: "Caisse principale", active: true },
+    create: { id: "caisse-principale", code: "P1", nom: "Caisse principale", active: true },
+    update: { code: "P1", nom: "Caisse principale", active: true },
   });
   console.log(`  > Caisse: ${caisse.nom} (${caisse.id})`);
-  console.log(`\nSeed OK — Caisse par defaut creee`);
+
+  // F1.1 — 2ème caisse pour le multi-poste
+  const caisse2 = await prisma.caisse.upsert({
+    where: { id: "caisse-2" },
+    create: { id: "caisse-2", code: "P2", nom: "Caisse 2", active: true },
+    update: { code: "P2", nom: "Caisse 2", active: true },
+  });
+  console.log(`  > Caisse: ${caisse2.nom} (${caisse2.id})`);
+  console.log(`\nSeed OK — Caisses par defaut creees`);
 
   for (const seuil of DEFAULT_SEUILS) {
     await prisma.seuilCaisse.upsert({

@@ -68,16 +68,14 @@ export function SessionManager({ initialSession }: SessionManagerProps) {
   const [session, setSession] = useState<SerializedComptoirSession | null>(initialSession);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [warning, setWarning] = useState<{
-    message: string;
-    soldeCaisseCash: number;
-    soldeCaisseAutres: number;
-    ecartCash: number;
-    ecartAutres: number;
-  } | null>(null);
   const [showCloseForm, setShowCloseForm] = useState(false);
   const [showDiscrepancyModal, setShowDiscrepancyModal] = useState(false);
   const [pendingEcarts, setPendingEcarts] = useState<Array<{ mode: string; ecart: number }>>([]);
+  const [showOpeningDiscrepancyModal, setShowOpeningDiscrepancyModal] = useState(false);
+  const [openingEcartDetails, setOpeningEcartDetails] = useState<{
+    message: string;
+    ecarts: Record<string, { theorique: number; declare: number; ecart: number; categorie: string }>;
+  } | null>(null);
 
   // Dynamic payment modes
   const [modesPaiement, setModesPaiement] = useState<ModePaiementOption[]>([]);
@@ -145,6 +143,57 @@ export function SessionManager({ initialSession }: SessionManagerProps) {
 
   // ── Open session ──
 
+  const submitOpen = useCallback(
+    async (confirmeEcart = false) => {
+      // Build declarations from mode inputs
+      const declarations: Record<string, number> = {};
+      for (const mode of modesPaiement) {
+        const val = parseFloat(montantsOuverture[mode.code] || "0");
+        if (val > 0 || mode.code === "ESPECES") {
+          declarations[mode.code] = val;
+        }
+      }
+
+      setLoading(true);
+      try {
+        const res = await fetch("/api/comptoir/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            declarations,
+            ...(confirmeEcart ? { confirmeEcart: true } : {}),
+          }),
+        });
+
+        const json = await res.json();
+
+        if (!res.ok) {
+          // API requests confirmation before opening
+          if (res.status === 409 && json.requiresConfirmation) {
+            setOpeningEcartDetails({
+              message: json.message,
+              ecarts: json.ecarts,
+            });
+            setShowOpeningDiscrepancyModal(true);
+            return;
+          }
+          setError(json.error ?? "Erreur lors de l'ouverture de la session.");
+          return;
+        }
+
+        setSession(json.data);
+        setMontantsOuverture({});
+        setShowOpeningDiscrepancyModal(false);
+        setOpeningEcartDetails(null);
+      } catch {
+        setError("Erreur reseau. Veuillez reessayer.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [montantsOuverture, modesPaiement],
+  );
+
   const handleOpen = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
@@ -159,42 +208,9 @@ export function SessionManager({ initialSession }: SessionManagerProps) {
         }
       }
 
-      const cashAmount = parseFloat(montantsOuverture.ESPECES || "0");
-      const mobileMoneyAmount = modesPaiement
-        .filter((m) => m.code !== "ESPECES")
-        .reduce((sum, m) => sum + parseFloat(montantsOuverture[m.code] || "0"), 0);
-
-      setLoading(true);
-      try {
-        const res = await fetch("/api/comptoir/sessions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            montantOuvertureCash: cashAmount,
-            montantOuvertureMobileMoney: mobileMoneyAmount,
-          }),
-        });
-
-        const json = await res.json();
-
-        if (!res.ok) {
-          setError(json.error ?? "Erreur lors de l'ouverture de la session.");
-          return;
-        }
-
-        setSession(json.data);
-        setMontantsOuverture({});
-
-        if (json.warning) {
-          setWarning(json.warning);
-        }
-      } catch {
-        setError("Erreur reseau. Veuillez reessayer.");
-      } finally {
-        setLoading(false);
-      }
+      await submitOpen(false);
     },
-    [montantsOuverture, modesPaiement],
+    [montantsOuverture, modesPaiement, submitOpen],
   );
 
   // ── Close session ──
@@ -206,21 +222,21 @@ export function SessionManager({ initialSession }: SessionManagerProps) {
       setShowDiscrepancyModal(false);
       setError(null);
 
-      const cashAmount = parseFloat(montantsFermeture.ESPECES || "0");
-      const mobileMoneyAmount = modesPaiement
-        .filter((m) => m.code !== "ESPECES")
-        .reduce((sum, m) => sum + parseFloat(montantsFermeture[m.code] || "0"), 0);
+      // Build declarations per mode for the new closure endpoint
+      const declarations: Record<string, number> = {};
+      for (const mode of modesPaiement) {
+        const val = parseFloat(montantsFermeture[mode.code] || "0");
+        if (val > 0 || mode.code === "ESPECES") {
+          declarations[mode.code] = val;
+        }
+      }
 
       setLoading(true);
       try {
-        const res = await fetch(`/api/comptoir/sessions/${session.id}`, {
-          method: "PUT",
+        const res = await fetch(`/api/comptoir/sessions/${session.id}/closure`, {
+          method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            montantFermetureCash: cashAmount,
-            montantFermetureMobileMoney: mobileMoneyAmount,
-            ...(notesFermeture.trim() ? { notes: notesFermeture.trim() } : {}),
-          }),
+          body: JSON.stringify({ declarations }),
         });
 
         const json = await res.json();
@@ -230,6 +246,7 @@ export function SessionManager({ initialSession }: SessionManagerProps) {
           return;
         }
 
+        // Session is now EN_ATTENTE_VALIDATION — clear local state
         setSession(null);
         setMontantsFermeture({});
         setNotesFermeture("");
@@ -240,7 +257,7 @@ export function SessionManager({ initialSession }: SessionManagerProps) {
         setLoading(false);
       }
     },
-    [session, montantsFermeture, modesPaiement, notesFermeture],
+    [session, montantsFermeture, modesPaiement],
   );
 
   // Check for discrepancies, show modal if any, otherwise submit directly
@@ -350,6 +367,103 @@ export function SessionManager({ initialSession }: SessionManagerProps) {
             </button>
           </form>
         </div>
+
+        {/* Modal de confirmation d'ecart a l'ouverture */}
+        {showOpeningDiscrepancyModal && openingEcartDetails && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div
+              data-testid="opening-discrepancy-modal"
+              className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-700 dark:bg-zinc-800"
+            >
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
+                  <svg className="h-5 w-5 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                    Ecart detecte a l&apos;ouverture
+                  </h3>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                    {openingEcartDetails.message}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mb-4 space-y-2">
+                {Object.entries(openingEcartDetails.ecarts).map(([mode, detail]) => (
+                  <div
+                    key={mode}
+                    className={`flex items-center justify-between rounded-lg border px-4 py-3 ${
+                      detail.ecart > 0
+                        ? "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20"
+                        : "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20"
+                    }`}
+                  >
+                    <div>
+                      <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{mode}</span>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        Solde caisse: {formatFCFA(detail.theorique)}
+                      </p>
+                    </div>
+                    <span className={`text-sm font-bold ${
+                      detail.ecart > 0
+                        ? "text-blue-700 dark:text-blue-400"
+                        : "text-red-700 dark:text-red-400"
+                    }`}>
+                      {detail.ecart > 0 ? "+" : ""}{formatFCFA(detail.ecart)}
+                      <span className="ml-1 text-xs font-normal">
+                        ({detail.ecart > 0 ? "excedent" : "manquant"})
+                      </span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {Object.values(openingEcartDetails.ecarts).some((d) => d.ecart < -0.01) && (
+                <div data-testid="opening-deficit-warning" className="mb-5 rounded-lg border border-red-300 bg-red-50 px-4 py-3 dark:border-red-700 dark:bg-red-900/20">
+                  <p className="text-sm font-semibold text-red-800 dark:text-red-300">Attention — Deficit a l&apos;ouverture</p>
+                  <p className="mt-1 text-xs text-red-700 dark:text-red-400">
+                    Vous declarez un montant inferieur au solde enregistre dans la caisse. En confirmant l&apos;ouverture, cet ecart vous sera impute. Si vous pensez qu&apos;il y a une erreur, annulez et demandez une reconciliation a votre responsable.
+                  </p>
+                </div>
+              )}
+
+              {Object.values(openingEcartDetails.ecarts).some((d) => d.ecart > 0.01) && (
+                <div data-testid="opening-surplus-warning" className="mb-5 rounded-lg border border-blue-300 bg-blue-50 px-4 py-3 dark:border-blue-700 dark:bg-blue-900/20">
+                  <p className="text-sm font-semibold text-blue-800 dark:text-blue-300">Attention — Excedent a l&apos;ouverture</p>
+                  <p className="mt-1 text-xs text-blue-700 dark:text-blue-400">
+                    Vous declarez un montant superieur au solde enregistre dans la caisse. En confirmant l&apos;ouverture, cet ecart sera enregistre sous votre responsabilite. Si vous pensez qu&apos;il y a une erreur, annulez et demandez une reconciliation a votre responsable.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  data-testid="opening-discrepancy-modal-cancel"
+                  onClick={() => {
+                    setShowOpeningDiscrepancyModal(false);
+                    setOpeningEcartDetails(null);
+                  }}
+                  className="flex-1 rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-600"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  data-testid="opening-discrepancy-modal-confirm"
+                  disabled={loading}
+                  onClick={() => void submitOpen(true)}
+                  className="flex-1 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {loading ? "Ouverture..." : "Confirmer et ouvrir"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -361,44 +475,6 @@ export function SessionManager({ initialSession }: SessionManagerProps) {
 
   return (
     <div data-testid="session-active" className="mx-auto max-w-lg space-y-6">
-      {/* Warning: discrepancy at opening */}
-      {warning && (
-        <div
-          data-testid="session-opening-warning"
-          className="rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-700 dark:bg-amber-900/20"
-        >
-          <div className="flex items-start gap-3">
-            <svg className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-            </svg>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-                {warning.message}
-              </p>
-              <div className="mt-2 space-y-1 text-xs text-amber-700 dark:text-amber-400">
-                {Math.abs(warning.ecartCash) > 0.01 && (
-                  <p>
-                    Especes — Solde caisse: {formatFCFA(warning.soldeCaisseCash)} / Declare: {formatFCFA(warning.soldeCaisseCash + warning.ecartCash)} → Ecart: {warning.ecartCash > 0 ? "+" : ""}{formatFCFA(warning.ecartCash)}
-                  </p>
-                )}
-                {Math.abs(warning.ecartAutres) > 0.01 && (
-                  <p>
-                    Autres — Solde caisse: {formatFCFA(warning.soldeCaisseAutres)} / Declare: {formatFCFA(warning.soldeCaisseAutres + warning.ecartAutres)} → Ecart: {warning.ecartAutres > 0 ? "+" : ""}{formatFCFA(warning.ecartAutres)}
-                  </p>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => setWarning(null)}
-                className="mt-2 text-xs font-medium text-amber-600 underline hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300"
-              >
-                Fermer
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Session details */}
       <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-800">
         <div className="mb-4 flex items-center justify-between">
@@ -747,9 +823,23 @@ export function SessionManager({ initialSession }: SessionManagerProps) {
               ))}
             </div>
 
-            <p className="mb-5 text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">
               Verifiez que vous avez bien compte tous les fonds avant de valider. Une fois confirme, l&apos;ecart sera enregistre.
             </p>
+
+            {pendingEcarts.some((e) => e.ecart < 0) && (
+              <div
+                data-testid="discrepancy-deficit-warning"
+                className="mb-5 rounded-lg border border-red-300 bg-red-50 px-4 py-3 dark:border-red-700 dark:bg-red-900/20"
+              >
+                <p className="text-sm font-semibold text-red-800 dark:text-red-300">
+                  Attention — Deficit de caisse
+                </p>
+                <p className="mt-1 text-xs text-red-700 dark:text-red-400">
+                  En validant cet ecart sans demander une reconciliation au manager, le montant manquant vous sera impute. Si vous pensez qu&apos;il y a une erreur, annulez et demandez une verification a votre responsable.
+                </p>
+              </div>
+            )}
 
             <div className="flex gap-3">
               <button

@@ -1,0 +1,118 @@
+// S4.1 — Schéma de la BASE CLOUD (niveau 3 — agrégation multi-magasins).
+//
+// DISTINCT du schéma du nœud magasin (`web/app/prisma/schema.prisma`), qui reste
+// inchangé (principe roadmap §38). Le cloud INGÈRE le transactionnel (append-only) et
+// DIFFUSE la référence (descendante, LWW). ADR-002 : MySQL managé.
+//
+// Clés d'agrégation : organisationId / magasinId portées par toutes les entités ingérées.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/cloud-client"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("CLOUD_DATABASE_URL")
+}
+
+// ─── Organisation & magasins (référence descendante) ────────────────
+
+model Organisation {
+  id        String   @id @default(cuid())
+  nom       String
+  createdAt DateTime @default(now())
+
+  magasins  Magasin[]
+
+  @@map("organisations")
+}
+
+model Magasin {
+  id             String   @id @default(cuid())
+  nom            String
+  actif          Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id])
+
+  enrolements    EnrolementMagasin[]
+  curseurs       SyncCurseur[]
+  ventes         VenteCloud[]
+  sessions       SessionCloud[]
+
+  @@index([organisationId])
+  @@map("magasins")
+}
+
+// ─── Enrôlement (device token cloud du nœud magasin) ────────────────
+
+model EnrolementMagasin {
+  id            String   @id @default(cuid())
+  deviceTokenHash String @unique @db.VarChar(64) // hash du token cloud (jamais le clair)
+  label         String?
+  revoked       Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  lastSeenAt    DateTime?
+
+  magasinId     String
+  magasin       Magasin  @relation(fields: [magasinId], references: [id])
+
+  @@index([magasinId])
+  @@map("enrolements_magasin")
+}
+
+// ─── Curseurs de synchronisation (par magasin × flux) ───────────────
+
+model SyncCurseur {
+  id        String   @id @default(cuid())
+  // Flux : "PUSH_TRANSACTIONNEL" | "PULL_REFERENCE"
+  flux      String
+  // Position : dernier event consommé / dernière version de référence diffusée.
+  position  String
+  updatedAt DateTime @updatedAt
+
+  magasinId String
+  magasin   Magasin  @relation(fields: [magasinId], references: [id])
+
+  @@unique([magasinId, flux])
+  @@map("sync_curseurs")
+}
+
+// ─── Transactionnel ingéré (append-only, idempotent par id d'origine) ──
+
+model VenteCloud {
+  id             String   @id // cuid d'origine (magasin) → idempotence d'ingestion
+  organisationId String
+  magasinId      String
+  caisseId       String
+  numero         String   // VTE-<codePoste>-YYYY-NNNNN (unique à l'échelle organisation)
+  total          Decimal  @db.Decimal(10, 2)
+  dateVente      DateTime
+  ingestedAt     DateTime @default(now())
+
+  magasin        Magasin  @relation(fields: [magasinId], references: [id])
+
+  @@unique([magasinId, numero])
+  @@index([organisationId])
+  @@index([magasinId, caisseId])
+  @@map("ventes_cloud")
+}
+
+model SessionCloud {
+  id             String   @id // cuid d'origine
+  organisationId String
+  magasinId      String
+  caisseId       String
+  statut         String
+  hashIntegrite  String?  @db.VarChar(64) // chaîne par caisse, revérifiable côté cloud
+  fermetureAt    DateTime?
+  ingestedAt     DateTime @default(now())
+
+  magasin        Magasin  @relation(fields: [magasinId], references: [id])
+
+  @@index([organisationId])
+  @@index([magasinId, caisseId])
+  @@map("sessions_cloud")
+}

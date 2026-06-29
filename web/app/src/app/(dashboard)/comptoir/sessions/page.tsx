@@ -149,6 +149,43 @@ export default async function SessionsPage() {
         <SessionManager initialSession={serialized} />
       )}
 
+      {/* MANAGER/ADMIN: sessions en attente de validation */}
+      {canViewAll && allSessions.filter((s) => s.statut === "EN_ATTENTE_VALIDATION").length > 0 && (
+        <div className="rounded-lg border-2 border-orange-300 bg-orange-50 p-4 dark:border-orange-700 dark:bg-orange-950">
+          <div className="mb-3 flex items-center gap-2">
+            <svg className="h-5 w-5 text-orange-600 dark:text-orange-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            </svg>
+            <h2 className="text-base font-semibold text-orange-900 dark:text-orange-100">
+              Sessions en attente de validation ({allSessions.filter((s) => s.statut === "EN_ATTENTE_VALIDATION").length})
+            </h2>
+          </div>
+          <div className="space-y-2">
+            {allSessions
+              .filter((s) => s.statut === "EN_ATTENTE_VALIDATION")
+              .map((s) => (
+                <div
+                  key={s.id}
+                  className="flex items-center justify-between rounded-lg border border-orange-200 bg-white px-4 py-3 dark:border-orange-800 dark:bg-zinc-900"
+                >
+                  <div>
+                    <span className="font-medium text-zinc-900 dark:text-zinc-100">{s.user.nom}</span>
+                    <span className="ml-2 text-xs text-zinc-500">
+                      Ouverture : {new Date(s.ouvertureAt).toLocaleString("fr-FR")}
+                    </span>
+                  </div>
+                  <Link
+                    href={`/comptoir/sessions/${s.id}`}
+                    className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 transition"
+                  >
+                    Valider
+                  </Link>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
       {/* MANAGER/ADMIN: all sessions table */}
       {canViewAll && allSessions.length > 0 && (
         <div className="space-y-3">
@@ -168,7 +205,7 @@ export default async function SessionsPage() {
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
                 {allSessions.map((s) => (
-                  <tr key={s.id}>
+                  <tr key={s.id} className={s.statut === "EN_ATTENTE_VALIDATION" ? "bg-orange-50/50 dark:bg-orange-950/20" : ""}>
                     <td className="px-4 py-2 text-zinc-900 dark:text-zinc-100">{s.user.nom}</td>
                     <td className="px-4 py-2">
                       <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${statutColor[s.statut] ?? "bg-zinc-100 text-zinc-600"}`}>

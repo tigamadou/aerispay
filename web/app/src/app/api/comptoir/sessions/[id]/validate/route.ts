@@ -3,9 +3,11 @@ import { prisma } from "@/lib/db";
 import { requireAuth, hasPermission } from "@/lib/permissions";
 import { validationAveugSchema } from "@/lib/validations/mouvement-caisse";
 import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
-import { computeSoldeTheoriqueParMode } from "@/lib/services/cash-movement";
+import { computeSoldeSession, leverRecettesInTx } from "@/lib/services/cash-movement";
 import { reconcile } from "@/lib/services/reconciliation";
 import { computeHashForSession } from "@/lib/services/integrity";
+import { getSeuilOrZero } from "@/lib/services/seuils";
+import { emitEvent, EVENTS } from "@/lib/services/event-emitter";
 
 /**
  * POST — ACT-BLIND-VALIDATE + ACT-RECONCILE
@@ -19,10 +21,6 @@ export async function POST(
   const result = await requireAuth();
   if (!result.authenticated) return result.response;
 
-  if (!hasPermission(result.user.role, "comptoir:valider_session") && result.user.role !== "CAISSIER") {
-    return Response.json({ error: "Accès refusé" }, { status: 403 });
-  }
-
   const { id } = await params;
 
   try {
@@ -34,11 +32,27 @@ export async function POST(
         userId: true,
         declarationsCaissier: true,
         tentativesRecomptage: true,
+        caisseId: true,
       },
     });
 
     if (!session) {
       return Response.json({ error: "Session introuvable" }, { status: 404 });
+    }
+
+    // RULE-FOND-005 (F1.5) — caissier solo : si le mode est activé
+    // (THRESHOLD_SOLO_AUTO_VALIDATION > 0) et que le propriétaire valide lui-même,
+    // une auto-validation TRACÉE est autorisée sous seuil (sinon clôture différée vers un tiers).
+    const seuilSolo = await getSeuilOrZero("THRESHOLD_SOLO_AUTO_VALIDATION");
+    const isOwner = session.userId === result.user.id;
+    const isSoloValidation = isOwner && seuilSolo > 0;
+
+    // Permission : tiers validateur (MANAGER/ADMIN) OU auto-validation solo activée
+    if (!hasPermission(result.user.role, "comptoir:valider_session") && !isSoloValidation) {
+      return Response.json(
+        { error: "Seul un MANAGER ou ADMIN peut valider une session" },
+        { status: 403 },
+      );
     }
 
     if (session.statut !== "EN_ATTENTE_VALIDATION") {
@@ -48,8 +62,9 @@ export async function POST(
       );
     }
 
-    // RULE-AUTH-003: validator must be different from session owner
-    if (session.userId === result.user.id) {
+    // RULE-AUTH-003: validator must be different from session owner,
+    // sauf auto-validation solo tracée (RULE-FOND-005).
+    if (isOwner && !isSoloValidation) {
       return Response.json(
         { error: "Un caissier ne peut pas valider sa propre session" },
         { status: 403 },
@@ -68,8 +83,8 @@ export async function POST(
     const declarationsValideur = parsed.data.declarations as Record<string, number>;
     const declarationsCaissier = (session.declarationsCaissier as Record<string, number>) ?? {};
 
-    // Compute theoretical balances
-    const soldesParMode = await computeSoldeTheoriqueParMode(id);
+    // Lot A (RULE-SOLDE-001/003) : même base théorique que `closure` (solde de session)
+    const soldesParMode = await computeSoldeSession(id);
 
     // Run reconciliation
     const reconcResult = await reconcile(
@@ -93,6 +108,23 @@ export async function POST(
     });
 
     if (reconcResult.outcome === "VALIDATED") {
+      // RULE-FOND-005 (F1.5) — en auto-validation solo, l'écart final doit rester sous
+      // le seuil ; au-delà, la validation par un tiers est requise (clôture différée).
+      if (isSoloValidation) {
+        const maxEcart = Math.max(0, ...reconcResult.modes.map((m) => Math.abs(m.ecartFinal)));
+        if (maxEcart > seuilSolo) {
+          return Response.json(
+            {
+              error: "Écart trop élevé pour une auto-validation solo : validation par un tiers (MANAGER/ADMIN) requise.",
+              code: "SOLO_THRESHOLD_EXCEEDED",
+              maxEcart,
+              seuil: seuilSolo,
+            },
+            { status: 422 },
+          );
+        }
+      }
+
       // Build final ecarts par mode
       const ecartsParMode: Record<string, {
         theorique: number; declareCaissier: number; declareValideur: number;
@@ -108,6 +140,22 @@ export async function POST(
           categorie: m.categorie,
         };
       }
+
+      // RULE-FOND-003 (Modèle 2) : levée des recettes vers le coffre à la finalisation.
+      // Créée AVANT le calcul du hash pour que l'intégrité couvre les mouvements LEVEE.
+      // Float par mode configurable via FLOAT_<MODE> (défaut 0 = remise à zéro / refloat).
+      // F1.1 — caisseId vient de la session (source de vérité)
+      const floatParMode: Record<string, number> = {};
+      for (const m of reconcResult.modes) {
+        floatParMode[m.mode] = await getSeuilOrZero(`FLOAT_${m.mode}`);
+      }
+      await leverRecettesInTx(prisma, {
+        sessionId: id,
+        caisseId: session.caisseId,
+        auteurId: result.user.id,
+        floatParMode,
+        justificatif: "Levée automatique à la validation de session",
+      });
 
       const now = new Date();
       const hash = await computeHashForSession(id, now);
@@ -130,9 +178,16 @@ export async function POST(
         actorId: result.user.id,
         entityType: "ComptoirSession",
         entityId: id,
-        metadata: { ecartsParMode, hash },
+        metadata: { ecartsParMode, hash, soloAutoValidation: isSoloValidation },
         ipAddress: getClientIp(req),
         userAgent: getClientUserAgent(req),
+      });
+
+      // F1.4 — Outbox : événement de validation de session
+      await emitEvent({
+        type: EVENTS.SESSION_VALIDATED,
+        sessionId: id,
+        payload: { caisseId: session.caisseId, valideurId: result.user.id, ecartsParMode, hash, soloAutoValidation: isSoloValidation },
       });
 
       // Emit discrepancy alert if any non-zero ecart
@@ -149,6 +204,12 @@ export async function POST(
           },
           ipAddress: getClientIp(req),
           userAgent: getClientUserAgent(req),
+        });
+        // F1.4 — Outbox : événement d'écart détecté
+        await emitEvent({
+          type: EVENTS.DISCREPANCY_DETECTED,
+          sessionId: id,
+          payload: { caisseId: session.caisseId, ecartsParMode },
         });
       }
 
@@ -205,6 +266,13 @@ export async function POST(
       },
       ipAddress: getClientIp(req),
       userAgent: getClientUserAgent(req),
+    });
+
+    // F1.4 — Outbox : événement de contestation de session
+    await emitEvent({
+      type: EVENTS.SESSION_DISPUTED,
+      sessionId: id,
+      payload: { caisseId: session.caisseId, reason: reconcResult.reason },
     });
 
     return Response.json({

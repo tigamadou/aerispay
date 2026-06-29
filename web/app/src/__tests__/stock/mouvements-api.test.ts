@@ -267,6 +267,8 @@ describe("POST /api/stock/mouvements", () => {
         produit: {
           findUnique: vi.fn().mockResolvedValue({ ...mockProduit, stockActuel: 3 }),
           update: vi.fn(),
+          // Garde atomique : aucune ligne affectée → stock insuffisant
+          updateMany: vi.fn().mockResolvedValue({ count: 0 }),
         },
         mouvementStock: { create: vi.fn() },
       };
@@ -372,7 +374,7 @@ describe("Mouvements error handling", () => {
       produit: { id: "prod-1", nom: "Test", reference: "PRD-X" } };
     (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn: Function) => {
       const tx = {
-        produit: { findUnique: vi.fn().mockResolvedValue({ ...mockProduit, stockActuel: 10 }), update: vi.fn() },
+        produit: { findUnique: vi.fn().mockResolvedValue({ ...mockProduit, stockActuel: 10 }), update: vi.fn(), updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
         mouvementStock: { create: vi.fn().mockResolvedValue(mvt) },
       };
       return fn(tx);
@@ -391,8 +393,9 @@ describe("Mouvements error handling", () => {
       produit: { id: "prod-1", nom: "Test", reference: "PRD-X" } };
     (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn: Function) => {
       const tx = {
-        produit: { findUnique: vi.fn().mockResolvedValue(mockProduit), update: vi.fn() },
+        produit: { findUnique: vi.fn().mockResolvedValue(mockProduit), update: vi.fn(), updateMany: vi.fn() },
         mouvementStock: { create: vi.fn().mockResolvedValue(mvt) },
+        $queryRaw: vi.fn().mockResolvedValue([{ stockActuel: 50 }]),
       };
       return fn(tx);
     });

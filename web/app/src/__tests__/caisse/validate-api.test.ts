@@ -5,6 +5,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     comptoirSession: { findUnique: vi.fn(), update: vi.fn(), findFirst: vi.fn() },
     mouvementCaisse: { findMany: vi.fn() },
+    caisse: { findFirst: vi.fn() },
     user: { findUnique: vi.fn() },
     seuilCaisse: { findMany: vi.fn() },
   },
@@ -26,9 +27,13 @@ vi.mock("@/lib/activity-log", () => ({
 }));
 
 vi.mock("@/lib/services/cash-movement", () => ({
-  computeSoldeTheoriqueParMode: vi.fn().mockResolvedValue([
+  // Lot A : validate consomme désormais computeSoldeSession (même base que closure)
+  computeSoldeSession: vi.fn().mockResolvedValue([
     { mode: "ESPECES", solde: 78000 },
   ]),
+  computeSoldeTheoriqueParMode: vi.fn(),
+  // Lot G : levée à la validation
+  leverRecettesInTx: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock("@/lib/services/reconciliation", async () => {
@@ -42,9 +47,11 @@ vi.mock("@/lib/services/seuils", () => ({
       THRESHOLD_DISCREPANCY_MINOR: 500,
       THRESHOLD_DISCREPANCY_MAJOR: 5000,
       THRESHOLD_MAX_RECOUNT_ATTEMPTS: 3,
+      THRESHOLD_CV_TOLERANCE: 500,
     };
     return d[id] ?? 0;
   }),
+  getSeuilOrZero: vi.fn().mockResolvedValue(0),
 }));
 
 vi.mock("@/lib/services/integrity", () => ({
@@ -95,6 +102,7 @@ describe("POST /api/comptoir/sessions/[id]/validate", () => {
     );
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (prisma.mouvementCaisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
   });
 
   it("returns 401 if not authenticated", async () => {
@@ -108,7 +116,7 @@ describe("POST /api/comptoir/sessions/[id]/validate", () => {
     const res = await POST(jsonReq({ declarations: { ESPECES: 78000 } }), ctx);
     expect(res.status).toBe(403);
     const body = await res.json();
-    expect(body.error).toContain("propre session");
+    expect(body.error).toMatch(/MANAGER|ADMIN/i);
   });
 
   it("returns 422 if session is not EN_ATTENTE_VALIDATION", async () => {
@@ -130,12 +138,12 @@ describe("POST /api/comptoir/sessions/[id]/validate", () => {
     expect(body.data.hashIntegrite).toMatch(/^[a]{64}$/);
   });
 
-  it("incoming CAISSIER can validate another's session", async () => {
+  it("CAISSIER cannot validate another's session (P2-007)", async () => {
     mockUser("CAISSIER", "caissier-2"); // different from session owner
     const res = await POST(jsonReq({ declarations: { ESPECES: 78000 } }), ctx);
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(403);
     const body = await res.json();
-    expect(body.data.statut).toBe("VALIDEE");
+    expect(body.error).toMatch(/MANAGER|ADMIN/i);
   });
 
   it("RECOUNT_NEEDED when significant disagreement (RULE-RECONC-004)", async () => {
@@ -193,6 +201,7 @@ describe("POST /api/comptoir/sessions/[id]/force-close", () => {
     );
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (prisma.mouvementCaisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
   });
 
   it("returns 403 if not ADMIN", async () => {

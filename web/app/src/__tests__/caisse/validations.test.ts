@@ -205,4 +205,15 @@ describe("correctiveSessionSchema", () => {
     });
     expect(r.success).toBe(false);
   });
+
+  it("rejects mouvement with montant = 0 (P3-003)", () => {
+    const r = correctiveSessionSchema.safeParse({
+      motif: "Correction nécessaire pour erreur de caisse",
+      motDePasse: "Admin@1234",
+      mouvements: [
+        { mode: "ESPECES", montant: 0, motif: "Correction zéro" },
+      ],
+    });
+    expect(r.success).toBe(false);
+  });
 });

@@ -12,7 +12,8 @@ vi.mock("@/lib/db", () => ({
     mouvementStock: { findMany: vi.fn(), count: vi.fn() },
     vente: { findUnique: vi.fn(), create: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), count: vi.fn(), aggregate: vi.fn() },
     comptoirSession: { findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
-    caisse: { findFirst: vi.fn() },
+    caisse: { findFirst: vi.fn(), findMany: vi.fn(), findUnique: vi.fn() },
+    parametres: { findUnique: vi.fn() },
     paiement: { aggregate: vi.fn() },
     activityLog: { create: vi.fn() },
     $transaction: vi.fn(),
@@ -55,6 +56,7 @@ vi.mock("@/lib/activity-log", () => ({
 vi.mock("@/lib/receipt/thermal-printer", () => ({
   printReceipt: vi.fn().mockResolvedValue({ success: true, message: "OK" }),
   openCashDrawer: vi.fn().mockResolvedValue({ success: true, message: "OK" }),
+  getPrinterConfig: vi.fn().mockReturnValue({ enabled: false, type: "EPSON", interface: "tcp://x", width: 48 }),
 }));
 
 vi.mock("@/lib/services/cash-movement", () => ({
@@ -62,6 +64,13 @@ vi.mock("@/lib/services/cash-movement", () => ({
   computeSoldeTheoriqueLegacy: vi.fn().mockResolvedValue({ cash: 0, mobileMoney: 0 }),
   computeSoldeTheoriqueParMode: vi.fn().mockResolvedValue([]),
   computeSoldeCaisseParMode: vi.fn().mockResolvedValue([{ mode: "ESPECES", solde: 50000 }]),
+  computeSoldeSession: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock("@/lib/services/seuils", () => ({
+  getSeuil: vi.fn().mockImplementation(async (id: string) =>
+    ({ THRESHOLD_DISCREPANCY_MINOR: 500, THRESHOLD_DISCREPANCY_MAJOR: 5000 } as Record<string, number>)[id] ?? 0,
+  ),
 }));
 
 import { prisma } from "@/lib/db";
@@ -162,6 +171,10 @@ describe("Sale activity logging", () => {
       lignes: [{ id: "l1", produitId: "p1", quantite: 2, produit: { id: "p1", nom: "X", stockActuel: 10 } }],
     };
     (prisma.vente.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockVente);
+    // P0-003: session must be OUVERTE for cancellation
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "s-1", statut: "OUVERTE", userId: "user-1", caisseId: "caisse-1",
+    });
     (prisma.$transaction as ReturnType<typeof vi.fn>).mockResolvedValue({
       ...mockVente, statut: "ANNULEE", paiements: [], caissier: { id: "u-1", nom: "Test" },
       lignes: mockVente.lignes.map(l => ({ ...l, produit: { ...l.produit, stockActuel: 12 } })),
@@ -187,7 +200,7 @@ describe("Cash session activity logging", () => {
   it("logs COMPTOIR_SESSION_OPENED on POST /api/comptoir/sessions", async () => {
     mockSession("CAISSIER");
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
+    (prisma.caisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: "caisse-1", active: true }]);
     const mockCreatedSession = {
       id: "s-1", montantOuvertureCash: new Decimal(50000), montantOuvertureMobileMoney: new Decimal(0), userId: "user-1",
       ouvertureAt: new Date("2026-04-23T08:00:00Z"),
@@ -199,7 +212,7 @@ describe("Cash session activity logging", () => {
     );
 
     const { POST } = await import("@/app/api/comptoir/sessions/route");
-    const res = await POST(jsonReq("http://localhost/api/comptoir/sessions", "POST", { montantOuvertureCash: 50000 }));
+    const res = await POST(jsonReq("http://localhost/api/comptoir/sessions", "POST", { declarations: { ESPECES: 50000 } }));
     expect(res.status).toBe(201);
     expect(mockLogActivity).toHaveBeenCalledWith(
       expect.objectContaining({ action: "COMPTOIR_SESSION_OPENED", entityType: "ComptoirSession", entityId: "s-1" })
@@ -246,7 +259,16 @@ describe("Ticket print activity logging", () => {
 
   it("logs TICKET_THERMAL_PRINT_REQUESTED", async () => {
     mockSession("CAISSIER");
-    (prisma.vente.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "v-1" });
+    (prisma.vente.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "v-1", numero: "VTE-P1-2026-00001", dateVente: new Date("2026-06-26T10:00:00Z"),
+      sousTotal: 3000, remise: 0, tva: 0, taxesDetail: null, total: 3000,
+      lignes: [{ quantite: 1, prixUnitaire: 3000, sousTotal: 3000, produit: { nom: "Article" } }],
+      paiements: [{ mode: "ESPECES", montant: 3000 }],
+      caissier: { nom: "T" },
+    });
+    (prisma.parametres.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "default", nomCommerce: "AerisShop", adresse: "", telephone: "", rccm: "", nif: "",
+    });
 
     const { POST } = await import("@/app/api/tickets/[id]/print/route");
     const res = await POST(

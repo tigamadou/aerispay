@@ -415,9 +415,9 @@ const errorMessage = 'Le stock est insuffisant pour effectuer cette vente.'
 
 ## 9. Journal d’activité (audit)
 
-- Toute opération listée ou analogue dans `SPECS/ACTIVITY_LOG.md` doit déclencher un **`logActivity`** côté serveur après succès (ou échec d’authentification pertinent), via `lib/activity-log.ts`.
+- Toute opération listée ou analogue dans `docs/product/07-journal-activite.md` doit déclencher un **`logActivity`** côté serveur après succès (ou échec d’authentification pertinent), via `lib/activity-log.ts`.
 - Ne jamais stocker mots de passe, tokens ni secrets dans `metadata` (JSON).
-- `GET /api/activity-logs` : réservé `ADMIN` et `MANAGER` **(niveau point de vente, MVP)** ; pas d’exposition des logs à un `CAISSIER` — rôles détaillés dans `SPECS/AUTH.md`.
+- `GET /api/activity-logs` : réservé `ADMIN` et `MANAGER` **(niveau point de vente, MVP)** ; pas d’exposition des logs à un `CAISSIER` — rôles détaillés dans `docs/product/01-auth-roles.md`.
 
 ---
 
@@ -439,7 +439,7 @@ const errorMessage = 'Le stock est insuffisant pour effectuer cette vente.'
 
 ### 11.1 Multi-magasin (cible)
 
-Lorsque le modèle `organisation` / `magasin` sera en base, **toute requête** Prisma sur du métier (produits, ventes, sessions) devra appliquer un **filtrage explicite** sur le contexte (éviter les fuites inter-sites). Les noms d’`id` de contexte pourront reposer sur des variables d’environnement par déploiement (cf. `SPECS/MULTI_ORGANISATION.md`).
+Lorsque le modèle `organisation` / `magasin` sera en base, **toute requête** Prisma sur du métier (produits, ventes, sessions) devra appliquer un **filtrage explicite** sur le contexte (éviter les fuites inter-sites). Les noms d’`id` de contexte pourront reposer sur des variables d’environnement par déploiement (cf. `ARCHITECTURE_MVP.md` §1).
 
 ---
 

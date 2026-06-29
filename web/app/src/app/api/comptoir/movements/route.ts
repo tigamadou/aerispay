@@ -5,6 +5,7 @@ import { createMouvementManuelSchema } from "@/lib/validations/mouvement-caisse"
 import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
 import { createMovement } from "@/lib/services/cash-movement";
 import { getSeuil } from "@/lib/services/seuils";
+import { emitEvent, EVENTS } from "@/lib/services/event-emitter";
 
 const VALID_TYPES: TypeMouvementCaisse[] = [
   "FOND_INITIAL", "VENTE", "REMBOURSEMENT", "APPORT", "RETRAIT", "DEPENSE", "CORRECTION",
@@ -107,10 +108,10 @@ export async function POST(req: Request) {
     const type = parsed.data.type as TypeMouvementCaisse;
     const mode = parsed.data.mode as string;
 
-    // Verify session exists and is OPEN
+    // Verify session exists and is OPEN — F1.1 : inclure caisseId
     const session = await prisma.comptoirSession.findUnique({
       where: { id: sessionId },
-      select: { id: true, statut: true, userId: true },
+      select: { id: true, statut: true, userId: true, caisseId: true },
     });
 
     if (!session) {
@@ -151,16 +152,11 @@ export async function POST(req: Request) {
       }
     }
 
-    // Resolve caisse
-    const caisse = await prisma.caisse.findFirst({ where: { active: true }, select: { id: true } });
-    if (!caisse) {
-      return Response.json({ error: "Aucune caisse active configuree" }, { status: 422 });
-    }
-
+    // F1.1 — caisseId vient de la session
     // For RETRAIT/DEPENSE on ESPECES: check sufficient theoretical balance on caisse
     if (isOutflow && mode === "ESPECES") {
       const { computeSoldeCaisseParMode } = await import("@/lib/services/cash-movement");
-      const soldes = await computeSoldeCaisseParMode(caisse.id);
+      const soldes = await computeSoldeCaisseParMode(session.caisseId);
       const soldeCash = soldes.find((s) => s.mode === "ESPECES")?.solde ?? 0;
       if (montant > soldeCash) {
         return Response.json(
@@ -174,7 +170,7 @@ export async function POST(req: Request) {
       type,
       mode,
       montant: signedMontant,
-      caisseId: caisse.id,
+      caisseId: session.caisseId,
       sessionId,
       auteurId: result.user.id,
       motif,
@@ -197,6 +193,13 @@ export async function POST(req: Request) {
       },
       ipAddress: getClientIp(req),
       userAgent: getClientUserAgent(req),
+    });
+
+    // F1.4 — Outbox : événement transactionnel de mouvement de caisse
+    await emitEvent({
+      type: EVENTS.CASH_MOVEMENT_CREATED,
+      sessionId,
+      payload: { mouvementId: mouvement.id, type, mode, montant: signedMontant, caisseId: session.caisseId },
     });
 
     return Response.json({ data: mouvement }, { status: 201 });

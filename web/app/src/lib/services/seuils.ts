@@ -9,6 +9,7 @@ const DEFAULTS: Record<string, number> = {
   THRESHOLD_CASH_WITHDRAWAL_AUTH: 10000,
   THRESHOLD_EXPENSE_AUTH: 5000,
   THRESHOLD_MAX_RECOUNT_ATTEMPTS: 3,
+  THRESHOLD_CV_TOLERANCE: 500,
   THRESHOLD_OFFLINE_READONLY_HOURS: 4,
 };
 
@@ -47,6 +48,15 @@ export async function getSeuil(id: string): Promise<number> {
     throw new Error(`Seuil inconnu: ${id}`);
   }
   return val;
+}
+
+/**
+ * Lot G — lecture d'un seuil optionnel (ex. float par mode `FLOAT_<MODE>`),
+ * sans lever d'erreur : retourne 0 si la clé n'est pas configurée.
+ */
+export async function getSeuilOrZero(id: string): Promise<number> {
+  const seuils = await loadSeuils();
+  return seuils.get(id) ?? 0;
 }
 
 export function invalidateSeuilsCache(): void {

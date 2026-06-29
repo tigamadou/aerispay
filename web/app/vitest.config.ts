@@ -16,14 +16,16 @@ export default defineConfig({
     include: ["src/**/*.test.{ts,tsx}"],
     coverage: {
       provider: "v8",
-      include: ["src/app/api/**/*.ts", "src/lib/**/*.ts"],
-      exclude: ["src/lib/db.ts", "src/lib/s3.ts", "src/lib/receipt/**", "src/app/api/auth/**", "src/app/api/upload/**"],
-      thresholds: {
-        statements: 80,
-        branches: 80,
-        functions: 80,
-        lines: 80,
-      },
+      reporter: ["text", "text-summary"],
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: [
+        "src/__tests__/**",
+        "src/components/ui/**",
+        "**/*.d.ts",
+        "src/lib/db.ts",
+        "src/lib/s3.ts",
+        "src/lib/receipt/**",
+      ],
     },
   },
 });

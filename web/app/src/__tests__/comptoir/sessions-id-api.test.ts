@@ -5,9 +5,10 @@ import { Decimal } from "@prisma/client/runtime/library";
 vi.mock("@/lib/db", () => ({
   prisma: {
     comptoirSession: { findUnique: vi.fn(), update: vi.fn() },
-    paiement: { aggregate: vi.fn() },
+    paiement: { aggregate: vi.fn(), findMany: vi.fn() },
     vente: { aggregate: vi.fn() },
     mouvementCaisse: { findMany: vi.fn() },
+    caisse: { findFirst: vi.fn() },
   },
 }));
 
@@ -23,10 +24,12 @@ vi.mock("@/lib/activity-log", () => ({
 vi.mock("@/lib/services/cash-movement", () => ({
   computeSoldeTheoriqueLegacy: vi.fn().mockResolvedValue({ cash: 78000, mobileMoney: 0 }),
   computeSoldeTheoriqueParMode: vi.fn().mockResolvedValue([{ mode: "ESPECES", solde: 78000 }]),
+  computeSoldeCaisseParMode: vi.fn().mockResolvedValue([{ mode: "ESPECES", solde: 128000 }]),
 }));
 
 import { prisma } from "@/lib/db";
 import { auth } from "@/auth";
+import { computeSoldeCaisseParMode } from "@/lib/services/cash-movement";
 
 function mockSession(role: Role, id = "user-1") {
   (auth as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -41,6 +44,7 @@ const mockOpenSession = {
   fermetureAt: null, ouvertureAt: new Date(), notes: null,
   soldeTheoriqueCash: null, soldeTheoriqueMobileMoney: null,
   ecartCash: null, ecartMobileMoney: null,
+  declarationsOuverture: { ESPECES: 50000 }, ecartsOuverture: null,
   user: { id: "user-1", nom: "Test", email: "t@t.com" },
   ventes: [],
 };
@@ -74,13 +78,35 @@ describe("GET /api/comptoir/sessions/[id]", () => {
   it("returns open session with computed soldeTheoriqueCash", async () => {
     mockSession("CAISSIER");
     (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
+    (prisma.mouvementCaisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prisma.paiement.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
 
     const res = await GET(new Request("http://localhost"), { params: Promise.resolve({ id: "s-1" }) });
     expect(res.status).toBe(200);
     const body = await res.json();
-    // solde comes from mocked computeSoldeTheoriqueLegacy returning { cash: 78000, mobileMoney: 0 }
-    expect(body.data.soldeTheoriqueCash).toBe(78000);
+    // solde = montantOuvertureCash (50000) + computeSoldeTheoriqueLegacy.cash (78000) = 128000
+    expect(body.data.soldeTheoriqueCash).toBe(128000);
     expect(body.data.soldesParMode).toBeDefined();
+  });
+
+  it("returns open session with theorique from grand livre (not from fond ouverture)", async () => {
+    mockSession("CAISSIER");
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
+    (prisma.mouvementCaisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prisma.paiement.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
+
+    // Grand livre dit 128000 pour ESPECES
+    (computeSoldeCaisseParMode as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { mode: "ESPECES", solde: 128000 },
+    ]);
+
+    const res = await GET(new Request("http://localhost"), { params: Promise.resolve({ id: "s-1" }) });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // montantAttendu comes from grand livre, NOT from fond ouverture + movements
+    expect(body.data.montantAttenduCash).toBe(128000);
   });
 
   it("returns closed session with stored soldeTheoriqueCash", async () => {
@@ -91,6 +117,8 @@ describe("GET /api/comptoir/sessions/[id]", () => {
       soldeTheoriqueCash: new Decimal(78000),
       ecartCash: new Decimal(-2000),
     });
+    (prisma.mouvementCaisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prisma.paiement.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 
     const res = await GET(new Request("http://localhost"), { params: Promise.resolve({ id: "s-1" }) });
     expect(res.status).toBe(200);
@@ -157,6 +185,7 @@ describe("PUT /api/comptoir/sessions/[id] (close)", () => {
     mockSession("CAISSIER", "user-1");
     (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
     mockVenteAggregateForClose();
+    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
     (prisma.comptoirSession.update as ReturnType<typeof vi.fn>).mockResolvedValue({
       ...mockOpenSession, statut: "FERMEE",
       montantFermetureCash: new Decimal(76000), montantFermetureMobileMoney: new Decimal(0),
@@ -177,6 +206,7 @@ describe("PUT /api/comptoir/sessions/[id] (close)", () => {
     mockSession("ADMIN", "admin-1");
     (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
     mockVenteAggregateForClose();
+    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
     (prisma.comptoirSession.update as ReturnType<typeof vi.fn>).mockResolvedValue({
       ...mockOpenSession, statut: "FERMEE",
       montantFermetureCash: new Decimal(50000), montantFermetureMobileMoney: new Decimal(0),
@@ -189,6 +219,46 @@ describe("PUT /api/comptoir/sessions/[id] (close)", () => {
       { params: Promise.resolve({ id: "s-1" }) }
     );
     expect(res.status).toBe(200);
+  });
+
+  it("computes ecart from grand livre, not fond ouverture", async () => {
+    mockSession("CAISSIER", "user-1");
+
+    // Session opened with over-declared 100000 but real balance was 80000
+    const overDeclaredSession = {
+      ...mockOpenSession,
+      montantOuvertureCash: new Decimal(100000),
+    };
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(overDeclaredSession);
+    mockVenteAggregateForClose();
+    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
+
+    // Grand livre says 130000 (real: 80000 + 50000 sales)
+    const { computeSoldeCaisseParMode } = await import("@/lib/services/cash-movement");
+    (computeSoldeCaisseParMode as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { mode: "ESPECES", solde: 130000 },
+    ]);
+
+    (prisma.comptoirSession.update as ReturnType<typeof vi.fn>).mockImplementation(
+      async ({ data }: { data: Record<string, unknown> }) => ({
+        ...overDeclaredSession,
+        ...data,
+        user: { id: "user-1", nom: "Test", email: "t@t.com" },
+      }),
+    );
+
+    const res = await PUT(
+      new Request("http://localhost", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ montantFermetureCash: 130000, montantFermetureMobileMoney: 0 }),
+      }),
+      { params: Promise.resolve({ id: "s-1" }) }
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // ecart should be 0 (130000 declared = 130000 grand livre)
+    expect(body.data.ecartCash).toBe(0);
   });
 
   it("returns 500 on DB error", async () => {

@@ -1,3 +1,7 @@
+// TODO: Consider migrating to a service-worker-based approach for offline
+// queue persistence and background sync. IndexedDB direct access from the
+// main thread can block rendering on large queues. See SPECS/MULTI_ORGANISATION.md.
+
 import { create } from "zustand";
 
 // ─── Types ──────────────────────────────────────────

@@ -59,7 +59,7 @@ function jsonReq(body: Record<string, unknown>): Request {
   });
 }
 
-const openSession = { id: "s-1", statut: "OUVERTE", userId: "user-1" };
+const openSession = { id: "s-1", statut: "OUVERTE", userId: "user-1", caisseId: "caisse-1" };
 const fakeCaisse = { id: "caisse-1" };
 
 const validApport = {

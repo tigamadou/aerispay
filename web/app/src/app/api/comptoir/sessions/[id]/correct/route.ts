@@ -4,6 +4,7 @@ import { correctiveSessionSchema } from "@/lib/validations/mouvement-caisse";
 import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
 import { createMovementInTx } from "@/lib/services/cash-movement";
 import { computeHashForSession } from "@/lib/services/integrity";
+import { emitEvent, EVENTS } from "@/lib/services/event-emitter";
 import * as bcrypt from "bcryptjs";
 
 const CORRECTABLE_STATUSES = ["VALIDEE", "FORCEE"];
@@ -47,7 +48,7 @@ export async function POST(
 
     const originalSession = await prisma.comptoirSession.findUnique({
       where: { id },
-      select: { id: true, statut: true, userId: true, sessionCorrective: true },
+      select: { id: true, statut: true, userId: true, sessionCorrective: true, caisseId: true },
     });
 
     if (!originalSession) {
@@ -69,12 +70,11 @@ export async function POST(
       );
     }
 
-    // Resolve caisse
-    const caisse = await prisma.caisse.findFirst({ where: { active: true }, select: { id: true } });
-    const caisseId = caisse?.id ?? "";
+    // F1.1 — caisseId hérité de la session originale
+    const caisseId = originalSession.caisseId;
 
     // Create corrective session + movements in a transaction
-    const correctiveSession = await prisma.$transaction(async (tx) => {
+    const correctiveResult = await prisma.$transaction(async (tx) => {
       const corrective = await tx.comptoirSession.create({
         data: {
           montantOuvertureCash: 0,
@@ -84,6 +84,7 @@ export async function POST(
           fermetureAt: new Date(),
           notes: `Session corrective: ${parsed.data.motif}`,
           sessionCorrigeeId: id,
+          caisseId,
         },
       });
 
@@ -106,15 +107,17 @@ export async function POST(
         data: { statut: "CORRIGEE" },
       });
 
-      return corrective;
+      // P1-002: Compute hash inside the transaction
+      const hash = await computeHashForSession(corrective.id, corrective.fermetureAt!);
+      await tx.comptoirSession.update({
+        where: { id: corrective.id },
+        data: { hashIntegrite: hash },
+      });
+
+      return { corrective, hash };
     });
 
-    // Compute hash for the corrective session
-    const hash = await computeHashForSession(correctiveSession.id, correctiveSession.fermetureAt!);
-    await prisma.comptoirSession.update({
-      where: { id: correctiveSession.id },
-      data: { hashIntegrite: hash },
-    });
+    const { corrective: correctiveSession, hash } = correctiveResult;
 
     await logActivity({
       action: ACTIONS.SESSION_CORRECTED,
@@ -130,6 +133,13 @@ export async function POST(
       },
       ipAddress: getClientIp(req),
       userAgent: getClientUserAgent(req),
+    });
+
+    // F1.4 — Outbox : événement de correction de session
+    await emitEvent({
+      type: EVENTS.SESSION_CORRECTED,
+      sessionId: correctiveSession.id,
+      payload: { originalSessionId: id, caisseId, motif: parsed.data.motif, hash },
     });
 
     return Response.json({

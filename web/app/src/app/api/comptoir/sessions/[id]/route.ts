@@ -5,6 +5,7 @@ import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/act
 import {
   computeSoldeTheoriqueLegacy,
   computeSoldeTheoriqueParMode,
+  computeSoldeCaisseParMode,
 } from "@/lib/services/cash-movement";
 
 export async function GET(
@@ -29,6 +30,11 @@ export async function GET(
 
     if (!session) {
       return Response.json({ error: "Session introuvable" }, { status: 404 });
+    }
+
+    // IDOR protection: CAISSIER can only see their own sessions
+    if (result.user.role === "CAISSIER" && session.userId !== result.user.id) {
+      return Response.json({ error: "Acces refuse" }, { status: 403 });
     }
 
     // Compute theoretical balance from cash movements
@@ -79,20 +85,20 @@ export async function GET(
     const fondCash = Number(session.montantOuvertureCash);
     const fondAutres = Number(session.montantOuvertureMobileMoney);
 
-    // Montant attendu: two buckets matching the close endpoint (ESPECES vs everything else)
-    let mvtsCash = 0;
-    let mvtsAutres = 0;
-    for (const m of mouvements) {
-      const val = Number(m.montant);
-      if (m.mode === "ESPECES") {
-        mvtsCash += val;
-      } else {
-        mvtsAutres += val;
+    // Montant attendu: from grand livre via caisseId de la session (F1.1)
+    let montantAttenduCash = 0;
+    let montantAttenduAutres = 0;
+
+    if (session.statut === "OUVERTE" || session.statut === "EN_ATTENTE_CLOTURE" || session.statut === "EN_ATTENTE_VALIDATION") {
+      const soldeCaisse = await computeSoldeCaisseParMode(session.caisseId);
+      for (const s of soldeCaisse) {
+        if (s.mode === "ESPECES") {
+          montantAttenduCash = s.solde;
+        } else {
+          montantAttenduAutres += s.solde;
+        }
       }
     }
-
-    const montantAttenduCash = fondCash + mvtsCash;
-    const montantAttenduAutres = fondAutres + mvtsAutres;
 
     return Response.json({
       data: {
@@ -153,12 +159,15 @@ export async function PUT(
       );
     }
 
-    // Montant attendu = fond déclaré à l'ouverture + mouvements de la session
-    const solde = await computeSoldeTheoriqueLegacy(id);
-    const fondCash = Number(session.montantOuvertureCash);
-    const fondMM = Number(session.montantOuvertureMobileMoney);
-    const attenduCash = fondCash + solde.cash;
-    const attenduMM = fondMM + solde.mobileMoney;
+    // F1.1 — Montant attendu = grand livre via caisseId de la session
+    let attenduCash = 0;
+    let attenduMM = 0;
+
+    const soldeCaisse = await computeSoldeCaisseParMode(session.caisseId);
+    for (const s of soldeCaisse) {
+      if (s.mode === "ESPECES") attenduCash = s.solde;
+      else attenduMM += s.solde;
+    }
 
     const ecartCash = parsed.data.montantFermetureCash - attenduCash;
     const ecartMobileMoney = parsed.data.montantFermetureMobileMoney - attenduMM;
@@ -193,8 +202,8 @@ export async function PUT(
       metadata: {
         montantFermetureCash: parsed.data.montantFermetureCash,
         montantFermetureMobileMoney: parsed.data.montantFermetureMobileMoney,
-        fondOuvertureCash: fondCash,
-        fondOuvertureMobileMoney: fondMM,
+        fondOuvertureCash: Number(session.montantOuvertureCash),
+        fondOuvertureMobileMoney: Number(session.montantOuvertureMobileMoney),
         montantAttenduCash: attenduCash,
         montantAttenduMobileMoney: attenduMM,
         ecartCash,

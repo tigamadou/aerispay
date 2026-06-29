@@ -208,10 +208,10 @@ describe("POST /api/caisse/[id]/mouvements", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns 403 for CAISSIER", async () => {
+  it("CAISSIER can POST a movement (has comptoir:mouvement_manuel)", async () => {
     mockSession("CAISSIER");
     const res = await POST(jsonReq(validApport), { params });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(201);
   });
 
   it("MANAGER creates APPORT on caisse", async () => {

@@ -3,7 +3,7 @@ import { requireAuth, requireRole } from "@/lib/permissions";
 import { createCategorieSchema } from "@/lib/validations/categorie";
 import { logActivity, ACTIONS, getClientIp, getClientUserAgent } from "@/lib/activity-log";
 
-export async function GET(_req: Request) {
+export async function GET(_req: Request): Promise<Response> {
   const result = await requireAuth();
   if (!result.authenticated) return result.response;
 
@@ -20,7 +20,7 @@ export async function GET(_req: Request) {
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: Request): Promise<Response> {
   const result = await requireRole("ADMIN", "MANAGER");
   if (!result.authenticated) return result.response;
 
