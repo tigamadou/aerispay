@@ -3,7 +3,7 @@ import { computeSessionHash } from "@/lib/services/integrity";
 
 const baseInput = {
   sessionId: "s-1",
-  caisseId: "caisse-1",
+  terminalId: "caisse-1",
   userId: "u-1",
   ouvertureAt: "2026-04-30T08:00:00.000Z",
   validationAt: "2026-04-30T18:00:00.000Z",
@@ -35,9 +35,9 @@ describe("computeSessionHash", () => {
     expect(h1).not.toBe(h2);
   });
 
-  it("changes when caisseId changes (F1.3 — hash lié à la caisse)", () => {
+  it("changes when terminalId changes (F1.3 — hash lié à la caisse)", () => {
     const h1 = computeSessionHash(baseInput);
-    const h2 = computeSessionHash({ ...baseInput, caisseId: "caisse-2" });
+    const h2 = computeSessionHash({ ...baseInput, terminalId: "caisse-2" });
     expect(h1).not.toBe(h2);
   });
 

@@ -3,7 +3,7 @@
  * fetch injectable pour les tests.
  */
 export type ExchangeResult =
-  | { ok: true; storeToken: string; caisseId: string; codePoste: string; nom: string }
+  | { ok: true; storeToken: string; terminalId: string; codePoste: string; nom: string }
   | { ok: false; error: string };
 
 export async function exchangeEnrollment(
@@ -23,7 +23,7 @@ export async function exchangeEnrollment(
     return { ok: false, error: "Serveur injoignable à cette adresse" };
   }
 
-  let body: { data?: { storeToken: string; caisseId: string; codePoste: string; nom: string }; error?: string };
+  let body: { data?: { storeToken: string; terminalId: string; codePoste: string; nom: string }; error?: string };
   try {
     body = await res.json();
   } catch {
@@ -34,5 +34,5 @@ export async function exchangeEnrollment(
     return { ok: false, error: body.error ?? "Échec de l'enrôlement" };
   }
   const d = body.data;
-  return { ok: true, storeToken: d.storeToken, caisseId: d.caisseId, codePoste: d.codePoste, nom: d.nom };
+  return { ok: true, storeToken: d.storeToken, terminalId: d.terminalId, codePoste: d.codePoste, nom: d.nom };
 }

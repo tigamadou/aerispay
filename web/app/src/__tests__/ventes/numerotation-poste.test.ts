@@ -14,7 +14,7 @@ vi.mock("@/lib/db", () => ({
     vente: { findFirst: vi.fn(), create: vi.fn(), findMany: vi.fn(), count: vi.fn() },
     produit: { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     mouvementStock: { create: vi.fn() },
-    caisse: { findFirst: vi.fn() },
+    terminalCaisse: { findFirst: vi.fn() },
     taxe: { findMany: vi.fn().mockResolvedValue([]) },
     sequence: { upsert: vi.fn() },
     $transaction: vi.fn(),
@@ -91,7 +91,7 @@ describe("F1.2 — numérotation préfixée par poste", () => {
   it("préfixe le numéro avec le code du poste P2 → VTE-P2-YYYY-NNNNN", async () => {
     mockUser("CAISSIER");
     (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: "s-1", statut: "OUVERTE", caisseId: "caisse-2", caisse: { code: "P2" },
+      id: "s-1", statut: "OUVERTE", terminalId: "caisse-2", terminal: { code: "P2" },
     });
     const cap: { numero?: string; seqKey?: string } = {};
     setupTx(cap);
@@ -109,7 +109,7 @@ describe("F1.2 — numérotation préfixée par poste", () => {
 
     mockUser("CAISSIER");
     (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: "s-1", statut: "OUVERTE", caisseId: "caisse-1", caisse: { code: "P1" },
+      id: "s-1", statut: "OUVERTE", terminalId: "caisse-1", terminal: { code: "P1" },
     });
     const capP1: { numero?: string; seqKey?: string } = {};
     setupTx(capP1);
@@ -117,7 +117,7 @@ describe("F1.2 — numérotation préfixée par poste", () => {
     expect(capP1.seqKey).toBe(`VTE-P1-${annee}`);
 
     (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: "s-1", statut: "OUVERTE", caisseId: "caisse-2", caisse: { code: "P2" },
+      id: "s-1", statut: "OUVERTE", terminalId: "caisse-2", terminal: { code: "P2" },
     });
     const capP2: { numero?: string; seqKey?: string } = {};
     setupTx(capP2);

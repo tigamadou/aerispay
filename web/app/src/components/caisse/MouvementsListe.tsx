@@ -97,7 +97,7 @@ export function MouvementsListe() {
     if (initialized.current) return;
     initialized.current = true;
 
-    fetch("/api/caisse")
+    fetch("/api/terminaux")
       .then((r) => r.json())
       .then((body) => {
         const list = body.data ?? [];
@@ -119,7 +119,7 @@ export function MouvementsListe() {
     if (!selectedCaisseId) return;
     setSoldesLoading(true);
     try {
-      const res = await fetch(`/api/caisse/${selectedCaisseId}/soldes`);
+      const res = await fetch(`/api/terminaux/${selectedCaisseId}/soldes`);
       if (!res.ok) { setSoldesData(null); return; }
       const body = await res.json();
       setSoldesData(body.data);
@@ -145,7 +145,7 @@ export function MouvementsListe() {
     if (toDate) params.set("to", toDate);
 
     try {
-      const res = await fetch(`/api/caisse/${selectedCaisseId}/mouvements?${params.toString()}`);
+      const res = await fetch(`/api/terminaux/${selectedCaisseId}/mouvements?${params.toString()}`);
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error ?? `Erreur ${res.status}`);
@@ -178,7 +178,7 @@ export function MouvementsListe() {
   if (caisses.length === 0 && !soldesLoading) {
     return (
       <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-6 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
-        Aucune caisse configuree. Contactez un administrateur pour creer une caisse.
+        Aucun terminal configure. Contactez un administrateur pour creer un terminal.
       </div>
     );
   }

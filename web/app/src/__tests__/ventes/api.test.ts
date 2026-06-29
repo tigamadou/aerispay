@@ -29,7 +29,7 @@ vi.mock("@/lib/db", () => ({
       create: vi.fn(),
       deleteMany: vi.fn(),
     },
-    caisse: { findFirst: vi.fn() },
+    terminalCaisse: { findFirst: vi.fn() },
     taxe: { findMany: vi.fn().mockResolvedValue([]) },
     $transaction: vi.fn(),
   },
@@ -72,8 +72,8 @@ const mockOpenSession = {
   statut: "OUVERTE",
   notes: null,
   userId: "user-1",
-  caisseId: "caisse-1",
-  caisse: { code: "P1" },
+  terminalId: "caisse-1",
+  terminal: { code: "P1" },
 };
 
 const mockClosedSession = {
@@ -269,7 +269,7 @@ describe("POST /api/ventes", () => {
     vi.clearAllMocks();
     const mod = await import("@/app/api/ventes/route");
     POST = mod.POST;
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
+    (prisma.terminalCaisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
   });
 
   const validVenteBody = {
@@ -447,10 +447,10 @@ describe("POST /api/ventes/[id]/annuler", () => {
     vi.clearAllMocks();
     const mod = await import("@/app/api/ventes/[id]/annuler/route");
     POST = mod.POST;
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
+    (prisma.terminalCaisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
     // P0-003: session must be OUVERTE for cancellation
     (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: "session-1", statut: "OUVERTE", userId: "user-1", caisseId: "caisse-1",
+      id: "session-1", statut: "OUVERTE", userId: "user-1", terminalId: "caisse-1",
     });
   });
 

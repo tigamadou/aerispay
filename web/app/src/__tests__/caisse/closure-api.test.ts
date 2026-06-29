@@ -7,7 +7,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     comptoirSession: { findUnique: vi.fn(), update: vi.fn() },
     mouvementCaisse: { findMany: vi.fn() },
-    caisse: { findFirst: vi.fn() },
+    terminalCaisse: { findFirst: vi.fn() },
   },
 }));
 
@@ -70,7 +70,7 @@ describe("POST /api/comptoir/sessions/[id]/closure", () => {
         user: { id: "user-1", nom: "Test", email: "t@t.com" },
       }),
     );
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
+    (prisma.terminalCaisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
     (computeSoldeSession as ReturnType<typeof vi.fn>).mockResolvedValue([
       { mode: "ESPECES", solde: 78000 },
       { mode: "MOBILE_MONEY_MTN", solde: 12000 },

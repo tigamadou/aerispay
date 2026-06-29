@@ -14,7 +14,7 @@ vi.mock("@/lib/db", () => ({
     parametres: { findUnique: vi.fn() },
     mouvementCaisse: { findMany: vi.fn() },
     paiement: { findMany: vi.fn() },
-    caisse: { findFirst: vi.fn() },
+    terminalCaisse: { findFirst: vi.fn() },
   },
 }));
 
@@ -163,7 +163,7 @@ describe("IDOR: GET /api/comptoir/sessions/[id]", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     GET = (await import("@/app/api/comptoir/sessions/[id]/route")).GET;
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
+    (prisma.terminalCaisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
   });
 
   it("CAISSIER B cannot access session of CAISSIER A → 403", async () => {

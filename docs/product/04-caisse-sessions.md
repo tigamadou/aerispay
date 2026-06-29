@@ -31,18 +31,26 @@ Tous les montants sont en **FCFA** (entiers manipulés en `Decimal(10,2)` côté
 
 `web/app/prisma/schema.prisma`
 
-### 2.1 `Caisse` (schema.prisma:113)
+### 2.1 `TerminalCaisse` — terminal/poste de caisse (schema.prisma:116)
+
+> **Terminal de caisse ≠ module de caisse.** Le modèle `TerminalCaisse` (table `terminaux_caisse`)
+> représente une **station POS** : le poste physique où un caissier se connecte pour vendre
+> (« Terminal 1/principal », code court `P1`/`P2`). Le **module de caisse** (gestion d'argent :
+> `ComptoirSession` + `MouvementCaisse` + soldes) est, lui, **rattaché à un terminal** via `terminalId` :
+> chaque terminal a sa propre caisse, avec ses sessions (solde d'ouverture/fermeture), ses mouvements
+> et son grand livre.
 
 | Champ | Type | Notes |
 |---|---|---|
 | `id` | `cuid` | PK |
-| `nom` | `String` | |
-| `active` | `Boolean` (def. `true`) | filtre les caisses sélectionnables ; une caisse unique active sert de fallback à l'ouverture |
-| `mouvements` | `MouvementCaisse[]` | grand livre physique de la caisse |
+| `code` | `String` (unique) | code poste court (`P1`, `P2`) — préfixe de numérotation des ventes (F1.2) |
+| `nom` | `String` | nom lisible du terminal (« Terminal principal ») |
+| `active` | `Boolean` (def. `true`) | filtre les terminaux sélectionnables ; un terminal unique actif sert de fallback à l'ouverture |
+| `mouvements` | `MouvementCaisse[]` | grand livre physique du terminal |
 
-> **Multi-caisse (livré, Lot C / F1.1, Option B)** : `ComptoirSession` porte un **`caisseId`**.
-> À l'ouverture, la caisse est passée en paramètre (`caisseId`) ou résolue par fallback si une
-> seule caisse active. Voir §14.
+> **Multi-terminal (livré, Lot C / F1.1, Option B)** : `ComptoirSession` porte un **`terminalId`**.
+> À l'ouverture, le terminal est passé en paramètre (`terminalId`) ou résolu par fallback si un
+> seul terminal actif. Voir §14.
 
 ### 2.2 `ComptoirSession` (schema.prisma:126)
 
@@ -88,9 +96,9 @@ Tous les montants sont en **FCFA** (entiers manipulés en `Decimal(10,2)` côté
 | `motif`, `reference`, `justificatif` | `String?` / `Text?` | traçabilité |
 | `offline` | `Boolean` def. false | mouvement créé hors-ligne |
 | `createdAt` | `DateTime` | ordonne le grand livre et le hash |
-| `caisseId` / `sessionId?` / `venteId?` / `auteurId` | rel. | rattachements |
+| `terminalId` / `sessionId?` / `venteId?` / `auteurId` | rel. | rattachements |
 
-Index sur `caisseId`, `sessionId`, `venteId`, `auteurId`, `createdAt`.
+Index sur `terminalId`, `sessionId`, `venteId`, `auteurId`, `createdAt`.
 
 ### 2.5 `TypeMouvementCaisse` (schema.prisma:232)
 
@@ -177,7 +185,7 @@ Permission requise : `comptoir:vendre` (CAISSIER, MANAGER, ADMIN).
 Déroulé :
 
 1. **Validation Zod** du corps (`openSessionSchema`) : `{ declarations: { mode: montant }, confirmeEcart?: boolean }`.
-2. **Caisse** : `caisseId` fourni en paramètre (validé actif), sinon **fallback** sur l'unique caisse active ; `409` « caisseId requis » si plusieurs caisses actives, `422` si aucune (`route.ts:62-86`).
+2. **Caisse** : `terminalId` fourni en paramètre (validé actif), sinon **fallback** sur l'unique caisse active ; `409` « terminalId requis » si plusieurs caisses actives, `422` si aucune (`route.ts:62-86`).
 3. **Solde caisse > 0** : la somme du grand livre (`computeSoldeCaisseParMode`) doit être
    strictement positive, sinon `422` (« effectuez un apport de fonds d'abord »).
 4. **Écart d'ouverture catégorisé** : pour chaque mode, `ecart = declare − theorique`
@@ -381,15 +389,15 @@ Journal `SESSION_CORRECTED`.
 ### 10.3 Intégrité — hash chaîné (`integrity.ts`)
 
 `computeSessionHash` (integrity.ts:27) produit un **SHA-256** d'une concaténation déterministe
-(séparateur `|`) de : `sessionId`, **`caisseId`** (F1.3 — lie le hash à la caisse), `userId`,
+(séparateur `|`) de : `sessionId`, **`terminalId`** (F1.3 — lie le hash au terminal), `userId`,
 `ouvertureAt`, `validationAt`, les **mouvements**
 triés par `createdAt` puis `id` (`id:type:montant:mode:createdAt`), les **déclarations caissier**
 (`C:mode:montant`, triées), les **déclarations valideur** (`V:…`, omises si force-close), les
 **écarts** (`E:mode:ecart`), et enfin le **hash de la session précédente** (chaînage).
 
 `computeHashForSession` (integrity.ts:72) reconstruit cet input depuis la base et résout la
-**session précédente de la même caisse** (`caisseId`) par `ouvertureAt < session.ouvertureAt`
-parmi les statuts finalisés (`VALIDEE|FORCEE|CORRIGEE|FERMEE`) — chaînage **par caisse** (F1.3),
+**session précédente du même terminal** (`terminalId`) par `ouvertureAt < session.ouvertureAt`
+parmi les statuts finalisés (`VALIDEE|FORCEE|CORRIGEE|FERMEE`) — chaînage **par terminal** (F1.3),
 ordonné par date d'ouverture.
 
 `verifySessionIntegrity` (integrity.ts:136) recalcule le hash et le compare au stocké →
@@ -482,13 +490,13 @@ correction (`integrity`, `correct-hash-integrity`).
 
 ## 14. Multi-caisse (livré — Lot C / F1.1, Option B)
 
-`ComptoirSession` porte un **`caisseId`** (le `caisse.code` sert de **code poste**, fixé à
+`ComptoirSession` porte un **`terminalId`** (le `terminal.code` sert de **code poste**, fixé à
 l'enrôlement en desktop). Comportement livré :
 
-- **ouverture** : `caisseId` en paramètre, avec **fallback** sur l'unique caisse active ;
-- **unicité** de session ouverte **par caisse ET par caissier** (plus de session globale unique) ;
-- résolution de la caisse via `session.caisseId` dans les endpoints de session ;
-- **hash d'intégrité chaîné par caisse** (`integrity.ts`, lien via `caisseId`) ;
+- **ouverture** : `terminalId` en paramètre, avec **fallback** sur l'unique caisse active ;
+- **unicité** de session ouverte **par terminal ET par caissier** (plus de session globale unique) ;
+- résolution du terminal via `session.terminalId` dans les endpoints de session ;
+- **hash d'intégrité chaîné par terminal** (`integrity.ts`, lien via `terminalId`) ;
 - **numérotation des ventes par poste** `VTE-<codePoste>-YYYY-NNNNN` (voir
   [03-comptoir-ventes.md](03-comptoir-ventes.md) §6).
 

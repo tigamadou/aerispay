@@ -3,10 +3,10 @@
 import { useState } from "react";
 
 interface Props {
-  caisseId: string;
+  terminalId: string;
 }
 
-export function EnrollmentCodeButton({ caisseId }: Props) {
+export function EnrollmentCodeButton({ terminalId }: Props) {
   const [code, setCode] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +20,7 @@ export function EnrollmentCodeButton({ caisseId }: Props) {
       const res = await fetch("/api/enrollment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ caisseId }),
+        body: JSON.stringify({ terminalId }),
       });
       const body = await res.json();
       if (!res.ok) {

@@ -26,11 +26,11 @@ describe("E3.2 — store-token", () => {
       return { id: "tok-1", ...data };
     });
 
-    const { token, id } = await issueStoreToken({ caisseId: "caisse-1", label: "Poste 1" });
+    const { token, id } = await issueStoreToken({ terminalId: "caisse-1", label: "Poste 1" });
 
     expect(token).toMatch(/^[a-f0-9]{64}$/); // secret aléatoire en hex
     expect(id).toBe("tok-1");
-    expect(created?.caisseId).toBe("caisse-1");
+    expect(created?.terminalId).toBe("caisse-1");
     // Le clair n'est jamais persisté : seul le hash l'est
     expect(created?.tokenHash).toBe(hashToken(token));
     expect(Object.values(created ?? {})).not.toContain(token);
@@ -39,24 +39,24 @@ describe("E3.2 — store-token", () => {
   it("vérifie un token actif et renvoie le scope caisse", async () => {
     const token = "a".repeat(64);
     (prisma.storeToken.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: "tok-1", tokenHash: hashToken(token), caisseId: "caisse-1", revoked: false,
+      id: "tok-1", tokenHash: hashToken(token), terminalId: "caisse-1", revoked: false,
     });
 
     const result = await verifyStoreToken(token);
     expect(result.valid).toBe(true);
-    expect(result.caisseId).toBe("caisse-1");
+    expect(result.terminalId).toBe("caisse-1");
     expect(prisma.storeToken.findUnique).toHaveBeenCalledWith({ where: { tokenHash: hashToken(token) } });
   });
 
   it("rejette un token révoqué", async () => {
     const token = "b".repeat(64);
     (prisma.storeToken.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: "tok-1", tokenHash: hashToken(token), caisseId: "caisse-1", revoked: true,
+      id: "tok-1", tokenHash: hashToken(token), terminalId: "caisse-1", revoked: true,
     });
 
     const result = await verifyStoreToken(token);
     expect(result.valid).toBe(false);
-    expect(result.caisseId).toBeNull();
+    expect(result.terminalId).toBeNull();
   });
 
   it("rejette un token inconnu", async () => {

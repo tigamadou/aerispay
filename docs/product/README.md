@@ -38,6 +38,9 @@ qui évolue (voir `../../ARCHITECTURE_MVP.md`).
 ## Glossaire rapide
 
 - **Nœud magasin** — le backend Next.js + Prisma + MySQL d'un magasin ; source de vérité locale.
+- **Terminal de caisse** (`TerminalCaisse`) — la station/poste POS où un caissier se connecte pour
+  vendre (« Terminal 1/principal », code `P1`/`P2`). À distinguer du **module de caisse** (gestion
+  d'argent) : chaque terminal a sa propre caisse (sessions, soldes, mouvements) via `terminalId`.
 - **Session de comptoir** — shift de caisse (ouverture → ventes → clôture → validation à l'aveugle).
 - **Solde théorique** — solde dérivé de la somme algébrique des `MouvementCaisse` d'une session
   (`computeSoldeSession`), jamais stocké/muté.

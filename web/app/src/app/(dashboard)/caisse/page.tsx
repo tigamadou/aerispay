@@ -56,7 +56,7 @@ export default async function CaissePage() {
   if (!hasPermission(role, "rapports:consulter")) redirect("/comptoir");
 
   // Fetch active caisse
-  const caisse = await prisma.caisse.findFirst({
+  const caisse = await prisma.terminalCaisse.findFirst({
     where: { active: true },
     select: { id: true, nom: true, createdAt: true },
   });
@@ -68,7 +68,7 @@ export default async function CaissePage() {
   // Derniers mouvements (10)
   const recentMovements = caisse
     ? await prisma.mouvementCaisse.findMany({
-        where: { caisseId: caisse.id },
+        where: { terminalId: caisse.id },
         orderBy: { createdAt: "desc" },
         take: 10,
         select: {
@@ -88,7 +88,7 @@ export default async function CaissePage() {
   todayStart.setHours(0, 0, 0, 0);
   const mouvementsAujourdhui = caisse
     ? await prisma.mouvementCaisse.count({
-        where: { caisseId: caisse.id, createdAt: { gte: todayStart } },
+        where: { terminalId: caisse.id, createdAt: { gte: todayStart } },
       })
     : 0;
 
@@ -105,7 +105,7 @@ export default async function CaissePage() {
       {!caisse ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950">
           <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-            Aucune caisse active configuree.
+            Aucun terminal actif configure.
           </p>
         </div>
       ) : (
@@ -238,7 +238,7 @@ export default async function CaissePage() {
         </Link>
       </div>
 
-      {caisse && role === "ADMIN" && <EnrollmentCodeButton caisseId={caisse.id} />}
+      {caisse && role === "ADMIN" && <EnrollmentCodeButton terminalId={caisse.id} />}
     </div>
   );
 }

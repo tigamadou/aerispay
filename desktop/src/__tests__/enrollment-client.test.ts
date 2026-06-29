@@ -11,9 +11,9 @@ function fakeFetch(status: number, body: unknown) {
 
 describe("exchangeEnrollment", () => {
   it("200 → ok avec storeToken + identité", async () => {
-    const f = fakeFetch(200, { data: { storeToken: "s".repeat(64), caisseId: "c1", codePoste: "P1", nom: "Entrée" } });
+    const f = fakeFetch(200, { data: { storeToken: "s".repeat(64), terminalId: "c1", codePoste: "P1", nom: "Entrée" } });
     const r = await exchangeEnrollment("https://x:3000", "a".repeat(64), "Entrée", f);
-    expect(r).toEqual({ ok: true, storeToken: "s".repeat(64), caisseId: "c1", codePoste: "P1", nom: "Entrée" });
+    expect(r).toEqual({ ok: true, storeToken: "s".repeat(64), terminalId: "c1", codePoste: "P1", nom: "Entrée" });
     expect(f).toHaveBeenCalledWith("https://x:3000/api/enrollment/exchange", expect.objectContaining({ method: "POST" }));
   });
 
@@ -22,8 +22,8 @@ describe("exchangeEnrollment", () => {
     expect(r).toEqual({ ok: false, error: "Code d'enrôlement invalide ou expiré" });
   });
 
-  it("422 → erreur caisse", async () => {
-    const r = await exchangeEnrollment("https://x", "a", undefined, fakeFetch(422, { error: "Caisse inactive — contactez l'administrateur" }));
+  it("422 → erreur terminal", async () => {
+    const r = await exchangeEnrollment("https://x", "a", undefined, fakeFetch(422, { error: "Terminal inactif — contactez l'administrateur" }));
     expect(r.ok).toBe(false);
   });
 

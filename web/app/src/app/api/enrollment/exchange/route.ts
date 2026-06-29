@@ -12,7 +12,7 @@ const exchangeSchema = z.object({
 /**
  * Échange d'un code d'enrôlement (single-use) contre un token de magasin (ADR-007).
  * Appelé par le poste à l'install. Auth = le code lui-même. Consomme le code, (re)nomme
- * la caisse pré-créée, émet le token de magasin longue durée.
+ * le terminal pré-créé, émet le token de magasin longue durée.
  */
 export async function POST(req: Request): Promise<Response> {
   try {
@@ -22,22 +22,22 @@ export async function POST(req: Request): Promise<Response> {
     }
 
     const consumed = await consumeEnrollmentToken(parsed.data.token);
-    if (!consumed.valid || !consumed.caisseId) {
+    if (!consumed.valid || !consumed.terminalId) {
       return Response.json({ error: "Code d'enrôlement invalide ou expiré" }, { status: 401 });
     }
 
-    const caisse = await prisma.caisse.findUnique({
-      where: { id: consumed.caisseId },
+    const caisse = await prisma.terminalCaisse.findUnique({
+      where: { id: consumed.terminalId },
       select: { id: true, active: true, code: true, nom: true },
     });
     if (!caisse || !caisse.active) {
-      return Response.json({ error: "Caisse inactive — contactez l'administrateur" }, { status: 422 });
+      return Response.json({ error: "Terminal inactif — contactez l'administrateur" }, { status: 422 });
     }
 
     let nom = caisse.nom;
     const nouveauNom = parsed.data.nom?.trim();
     if (nouveauNom) {
-      const updated = await prisma.caisse.update({
+      const updated = await prisma.terminalCaisse.update({
         where: { id: caisse.id },
         data: { nom: nouveauNom },
         select: { id: true, code: true, nom: true },
@@ -45,12 +45,12 @@ export async function POST(req: Request): Promise<Response> {
       nom = updated.nom;
     }
 
-    const { token, id } = await issueStoreToken({ caisseId: caisse.id, label: nom });
+    const { token, id } = await issueStoreToken({ terminalId: caisse.id, label: nom });
 
     await logActivity({
       action: ACTIONS.POSTE_ENROLLED,
       actorId: null,
-      entityType: "Caisse",
+      entityType: "TerminalCaisse",
       entityId: caisse.id,
       metadata: { storeTokenId: id, codePoste: caisse.code, enrollmentTokenId: consumed.tokenId },
       ipAddress: getClientIp(req),
@@ -58,7 +58,7 @@ export async function POST(req: Request): Promise<Response> {
     });
 
     return Response.json(
-      { data: { storeToken: token, caisseId: caisse.id, codePoste: caisse.code, nom } },
+      { data: { storeToken: token, terminalId: caisse.id, codePoste: caisse.code, nom } },
       { status: 200 },
     );
   } catch (error) {

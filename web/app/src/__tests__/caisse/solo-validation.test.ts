@@ -11,7 +11,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     comptoirSession: { findUnique: vi.fn(), update: vi.fn(), findFirst: vi.fn() },
     mouvementCaisse: { findMany: vi.fn() },
-    caisse: { findFirst: vi.fn() },
+    terminalCaisse: { findFirst: vi.fn() },
   },
 }));
 
@@ -70,7 +70,7 @@ function jsonReq(body: Record<string, unknown>): Request {
 
 const pendingSession = {
   id: "s-1", statut: "EN_ATTENTE_VALIDATION", userId: "caissier-1",
-  declarationsCaissier: { ESPECES: 78000 }, tentativesRecomptage: 0, caisseId: "caisse-1",
+  declarationsCaissier: { ESPECES: 78000 }, tentativesRecomptage: 0, terminalId: "caisse-1",
 };
 const ctx = { params: Promise.resolve({ id: "s-1" }) };
 
@@ -89,7 +89,7 @@ describe("F1.5 — caissier solo (auto-validation tracée)", () => {
     );
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (prisma.mouvementCaisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
+    (prisma.terminalCaisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
   });
 
   it("mode solo désactivé (seuil 0) : le caissier ne peut pas valider sa propre session → 403", async () => {

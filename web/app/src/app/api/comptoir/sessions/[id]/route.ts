@@ -85,12 +85,12 @@ export async function GET(
     const fondCash = Number(session.montantOuvertureCash);
     const fondAutres = Number(session.montantOuvertureMobileMoney);
 
-    // Montant attendu: from grand livre via caisseId de la session (F1.1)
+    // Montant attendu: from grand livre via terminalId de la session (F1.1)
     let montantAttenduCash = 0;
     let montantAttenduAutres = 0;
 
     if (session.statut === "OUVERTE" || session.statut === "EN_ATTENTE_CLOTURE" || session.statut === "EN_ATTENTE_VALIDATION") {
-      const soldeCaisse = await computeSoldeCaisseParMode(session.caisseId);
+      const soldeCaisse = await computeSoldeCaisseParMode(session.terminalId);
       for (const s of soldeCaisse) {
         if (s.mode === "ESPECES") {
           montantAttenduCash = s.solde;
@@ -159,11 +159,11 @@ export async function PUT(
       );
     }
 
-    // F1.1 — Montant attendu = grand livre via caisseId de la session
+    // F1.1 — Montant attendu = grand livre via terminalId de la session
     let attenduCash = 0;
     let attenduMM = 0;
 
-    const soldeCaisse = await computeSoldeCaisseParMode(session.caisseId);
+    const soldeCaisse = await computeSoldeCaisseParMode(session.terminalId);
     for (const s of soldeCaisse) {
       if (s.mode === "ESPECES") attenduCash = s.solde;
       else attenduMM += s.solde;

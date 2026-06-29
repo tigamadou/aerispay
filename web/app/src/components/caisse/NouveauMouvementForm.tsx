@@ -41,7 +41,7 @@ export function NouveauMouvementForm() {
     initialized.current = true;
 
     Promise.all([
-      fetch("/api/caisse").then((r) => r.json()),
+      fetch("/api/terminaux").then((r) => r.json()),
       fetch("/api/parametres/modes-paiement").then((r) => r.json()),
     ]).then(([caisseBody, modesBody]) => {
       const list = caisseBody.data ?? [];
@@ -63,7 +63,7 @@ export function NouveauMouvementForm() {
     setSuccess(null);
 
     try {
-      const res = await fetch(`/api/caisse/${selectedCaisseId}/mouvements`, {
+      const res = await fetch(`/api/terminaux/${selectedCaisseId}/mouvements`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

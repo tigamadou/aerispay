@@ -32,7 +32,7 @@ export async function POST(
         userId: true,
         declarationsCaissier: true,
         tentativesRecomptage: true,
-        caisseId: true,
+        terminalId: true,
       },
     });
 
@@ -144,14 +144,14 @@ export async function POST(
       // RULE-FOND-003 (Modèle 2) : levée des recettes vers le coffre à la finalisation.
       // Créée AVANT le calcul du hash pour que l'intégrité couvre les mouvements LEVEE.
       // Float par mode configurable via FLOAT_<MODE> (défaut 0 = remise à zéro / refloat).
-      // F1.1 — caisseId vient de la session (source de vérité)
+      // F1.1 — terminalId vient de la session (source de vérité)
       const floatParMode: Record<string, number> = {};
       for (const m of reconcResult.modes) {
         floatParMode[m.mode] = await getSeuilOrZero(`FLOAT_${m.mode}`);
       }
       await leverRecettesInTx(prisma, {
         sessionId: id,
-        caisseId: session.caisseId,
+        terminalId: session.terminalId,
         auteurId: result.user.id,
         floatParMode,
         justificatif: "Levée automatique à la validation de session",
@@ -187,7 +187,7 @@ export async function POST(
       await emitEvent({
         type: EVENTS.SESSION_VALIDATED,
         sessionId: id,
-        payload: { caisseId: session.caisseId, valideurId: result.user.id, ecartsParMode, hash, soloAutoValidation: isSoloValidation },
+        payload: { terminalId: session.terminalId, valideurId: result.user.id, ecartsParMode, hash, soloAutoValidation: isSoloValidation },
       });
 
       // Emit discrepancy alert if any non-zero ecart
@@ -209,7 +209,7 @@ export async function POST(
         await emitEvent({
           type: EVENTS.DISCREPANCY_DETECTED,
           sessionId: id,
-          payload: { caisseId: session.caisseId, ecartsParMode },
+          payload: { terminalId: session.terminalId, ecartsParMode },
         });
       }
 
@@ -272,7 +272,7 @@ export async function POST(
     await emitEvent({
       type: EVENTS.SESSION_DISPUTED,
       sessionId: id,
-      payload: { caisseId: session.caisseId, reason: reconcResult.reason },
+      payload: { terminalId: session.terminalId, reason: reconcResult.reason },
     });
 
     return Response.json({

@@ -7,11 +7,11 @@
 export interface PosteConfig {
   /** URL du nœud magasin sur le LAN (HTTPS recommandé). */
   nodeUrl: string;
-  /** Identité de la caisse (poste), résolue à l'échange. */
-  caisseId: string;
+  /** Identité du terminal de caisse (poste), résolue à l'échange. */
+  terminalId: string;
   /** Code poste (numérotation), retourné par l'échange. */
   codePoste?: string;
-  /** Nom lisible de la caisse, retourné par l'échange. */
+  /** Nom lisible du terminal, retourné par l'échange. */
   nom?: string;
 }
 
@@ -57,10 +57,10 @@ export function validateEnrollInput(input: {
 }
 
 /** En-têtes d'authentification présentés au nœud magasin (token scopé poste). */
-export function authHeaders(nodeUrl: string, storeToken: string, caisseId: string): Record<string, string> {
+export function authHeaders(nodeUrl: string, storeToken: string, terminalId: string): Record<string, string> {
   void nodeUrl;
   return {
     Authorization: `Bearer ${storeToken}`,
-    "X-Aeris-Caisse": caisseId,
+    "X-Aeris-Terminal": terminalId,
   };
 }

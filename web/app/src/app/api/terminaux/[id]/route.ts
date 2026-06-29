@@ -27,20 +27,20 @@ export async function PUT(
       );
     }
 
-    const existing = await prisma.caisse.findUnique({ where: { id } });
+    const existing = await prisma.terminalCaisse.findUnique({ where: { id } });
     if (!existing) {
       return Response.json({ error: "Caisse introuvable" }, { status: 404 });
     }
 
-    const caisse = await prisma.caisse.update({
+    const caisse = await prisma.terminalCaisse.update({
       where: { id },
       data: parsed.data,
     });
 
     await logActivity({
-      action: ACTIONS.CAISSE_UPDATED,
+      action: ACTIONS.TERMINAL_UPDATED,
       actorId: result.user.id,
-      entityType: "Caisse",
+      entityType: "TerminalCaisse",
       entityId: id,
       metadata: parsed.data,
       ipAddress: getClientIp(req),
@@ -49,7 +49,7 @@ export async function PUT(
 
     return Response.json({ data: caisse });
   } catch (error) {
-    console.error(`[PUT /api/caisse/${id}]`, error);
+    console.error(`[PUT /api/terminaux/${id}]`, error);
     return Response.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }
@@ -64,31 +64,31 @@ export async function DELETE(
   const { id } = await params;
 
   try {
-    const existing = await prisma.caisse.findUnique({ where: { id } });
+    const existing = await prisma.terminalCaisse.findUnique({ where: { id } });
     if (!existing) {
       return Response.json({ error: "Caisse introuvable" }, { status: 404 });
     }
 
     const sessionOuverte = await prisma.comptoirSession.findFirst({
-      where: { caisseId: id, statut: "OUVERTE" },
+      where: { terminalId: id, statut: "OUVERTE" },
       select: { id: true },
     });
     if (sessionOuverte) {
       return Response.json(
-        { error: "Impossible de désactiver une caisse avec une session ouverte" },
+        { error: "Impossible de désactiver un terminal avec une session ouverte" },
         { status: 409 }
       );
     }
 
-    const caisse = await prisma.caisse.update({
+    const caisse = await prisma.terminalCaisse.update({
       where: { id },
       data: { active: false },
     });
 
     await logActivity({
-      action: ACTIONS.CAISSE_DEACTIVATED,
+      action: ACTIONS.TERMINAL_DEACTIVATED,
       actorId: result.user.id,
-      entityType: "Caisse",
+      entityType: "TerminalCaisse",
       entityId: id,
       metadata: { nom: existing.nom },
       ipAddress: getClientIp(req),
@@ -97,7 +97,7 @@ export async function DELETE(
 
     return Response.json({ data: caisse });
   } catch (error) {
-    console.error(`[DELETE /api/caisse/${id}]`, error);
+    console.error(`[DELETE /api/terminaux/${id}]`, error);
     return Response.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }

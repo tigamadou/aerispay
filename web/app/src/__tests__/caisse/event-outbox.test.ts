@@ -8,7 +8,7 @@ import type { Role } from "@prisma/client";
 vi.mock("@/lib/db", () => ({
   prisma: {
     comptoirSession: { findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
-    caisse: { findUnique: vi.fn(), findMany: vi.fn() },
+    terminalCaisse: { findUnique: vi.fn(), findMany: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -61,13 +61,13 @@ describe("F1.4 — émission d'événements outbox", () => {
   it("émet EVT-SESSION-OPENED à l'ouverture de session", async () => {
     const { POST } = await import("@/app/api/comptoir/sessions/route");
     mockUser("CAISSIER");
-    (prisma.caisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: "caisse-1", active: true }]);
+    (prisma.terminalCaisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: "caisse-1", active: true }]);
     (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn: Function) => {
       const tx = {
         comptoirSession: {
           findFirst: vi.fn().mockResolvedValue(null),
           create: vi.fn().mockResolvedValue({
-            id: "session-1", caisseId: "caisse-1", userId: "caissier-1", statut: "OUVERTE",
+            id: "session-1", terminalId: "caisse-1", userId: "caissier-1", statut: "OUVERTE",
             ouvertureAt: new Date(), montantOuvertureCash: 20000, montantOuvertureMobileMoney: 0,
           }),
         },
@@ -90,7 +90,7 @@ describe("F1.4 — émission d'événements outbox", () => {
     const { POST } = await import("@/app/api/comptoir/movements/route");
     mockUser("CAISSIER");
     (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: "s-1", statut: "OUVERTE", userId: "caissier-1", caisseId: "caisse-1",
+      id: "s-1", statut: "OUVERTE", userId: "caissier-1", terminalId: "caisse-1",
     });
 
     const res = await POST(new Request("http://localhost/api/comptoir/movements", {

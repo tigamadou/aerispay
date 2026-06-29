@@ -108,9 +108,12 @@ enum TypeMouvement {
   PERTE
 }
 
-// ─── MODULE CAISSE ────────────────────────────────────
+// ─── MODULE TERMINAL DE CAISSE ────────────────────────
+// Un terminal/poste de caisse : la station POS où un caissier se connecte pour
+// vendre. À NE PAS confondre avec le « module de caisse » (gestion d'argent :
+// ComptoirSession + MouvementCaisse + soldes), qui est rattaché à un terminal.
 
-model Caisse {
+model TerminalCaisse {
   id        String   @id @default(cuid())
   // F1.2 — code poste court (ex. "P1") : préfixe de numérotation des ventes par poste.
   code      String   @unique
@@ -118,12 +121,12 @@ model Caisse {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  mouvements MouvementCaisse[]
-  sessions   ComptoirSession[]
-  storeTokens StoreToken[]
+  mouvements       MouvementCaisse[]
+  sessions         ComptoirSession[]
+  storeTokens      StoreToken[]
   enrollmentTokens EnrollmentToken[]
 
-  @@map("caisses")
+  @@map("terminaux_caisse")
 }
 
 // ─── E3.2 — TOKENS DE MAGASIN (scopés par poste, révocables) ─────────
@@ -138,10 +141,10 @@ model StoreToken {
   createdAt DateTime @default(now())
   lastUsedAt DateTime?
 
-  caisseId String
-  caisse   Caisse @relation(fields: [caisseId], references: [id])
+  terminalId String
+  terminal   TerminalCaisse @relation(fields: [terminalId], references: [id])
 
-  @@index([caisseId])
+  @@index([terminalId])
   @@map("store_tokens")
 }
 
@@ -156,10 +159,10 @@ model EnrollmentToken {
   consumedAt DateTime?
   createdAt  DateTime  @default(now())
 
-  caisseId String
-  caisse   Caisse @relation(fields: [caisseId], references: [id])
+  terminalId String
+  terminal   TerminalCaisse @relation(fields: [terminalId], references: [id])
 
-  @@index([caisseId])
+  @@index([terminalId])
   @@map("enrollment_tokens")
 }
 
@@ -218,8 +221,8 @@ model ComptoirSession {
   user       User    @relation(fields: [userId], references: [id])
   valideurId String?
   valideur   User?   @relation("SessionValideur", fields: [valideurId], references: [id])
-  caisseId   String
-  caisse     Caisse  @relation(fields: [caisseId], references: [id])
+  terminalId String
+  terminal   TerminalCaisse @relation(fields: [terminalId], references: [id])
 
   ventes           Vente[]
   mouvementsCaisse MouvementCaisse[]
@@ -229,7 +232,7 @@ model ComptoirSession {
   sessionCorrigee   ComptoirSession? @relation("SessionCorrective", fields: [sessionCorrigeeId], references: [id])
   sessionCorrective ComptoirSession? @relation("SessionCorrective")
 
-  @@index([caisseId, statut])
+  @@index([terminalId, statut])
   @@map("comptoir_sessions")
 }
 
@@ -257,8 +260,8 @@ model MouvementCaisse {
   offline      Boolean             @default(false)
   createdAt    DateTime            @default(now())
 
-  caisseId  String
-  caisse    Caisse          @relation(fields: [caisseId], references: [id])
+  terminalId String
+  terminal   TerminalCaisse @relation(fields: [terminalId], references: [id])
   sessionId String?
   session   ComptoirSession? @relation(fields: [sessionId], references: [id])
   venteId   String?
@@ -266,7 +269,7 @@ model MouvementCaisse {
   auteurId  String
   auteur    User             @relation("MouvementCaisseAuteur", fields: [auteurId], references: [id])
 
-  @@index([caisseId])
+  @@index([terminalId])
   @@index([sessionId])
   @@index([venteId])
   @@index([auteurId])

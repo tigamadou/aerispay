@@ -48,7 +48,7 @@ export async function POST(
 
     const originalSession = await prisma.comptoirSession.findUnique({
       where: { id },
-      select: { id: true, statut: true, userId: true, sessionCorrective: true, caisseId: true },
+      select: { id: true, statut: true, userId: true, sessionCorrective: true, terminalId: true },
     });
 
     if (!originalSession) {
@@ -70,8 +70,8 @@ export async function POST(
       );
     }
 
-    // F1.1 — caisseId hérité de la session originale
-    const caisseId = originalSession.caisseId;
+    // F1.1 — terminalId hérité de la session originale
+    const terminalId = originalSession.terminalId;
 
     // Create corrective session + movements in a transaction
     const correctiveResult = await prisma.$transaction(async (tx) => {
@@ -84,7 +84,7 @@ export async function POST(
           fermetureAt: new Date(),
           notes: `Session corrective: ${parsed.data.motif}`,
           sessionCorrigeeId: id,
-          caisseId,
+          terminalId,
         },
       });
 
@@ -94,7 +94,7 @@ export async function POST(
           type: "CORRECTION",
           mode: mvt.mode as string,
           montant: mvt.montant,
-          caisseId,
+          terminalId,
           sessionId: corrective.id,
           auteurId: result.user.id,
           motif: mvt.motif,
@@ -139,7 +139,7 @@ export async function POST(
     await emitEvent({
       type: EVENTS.SESSION_CORRECTED,
       sessionId: correctiveSession.id,
-      payload: { originalSessionId: id, caisseId, motif: parsed.data.motif, hash },
+      payload: { originalSessionId: id, terminalId, motif: parsed.data.motif, hash },
     });
 
     return Response.json({

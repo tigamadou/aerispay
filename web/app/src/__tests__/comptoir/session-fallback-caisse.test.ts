@@ -2,8 +2,8 @@
  * F1.1 — Multi-caisse : résolution de la caisse à l'ouverture de session.
  * - 1 seule caisse active → fallback automatique (201)
  * - 0 caisse active → 422
- * - ≥ 2 caisses actives + caisseId absent → 400
- * - caisseId fourni et actif → 201 ; introuvable/inactif → 422
+ * - ≥ 2 caisses actives + terminalId absent → 400
+ * - terminalId fourni et actif → 201 ; introuvable/inactif → 422
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Role } from "@prisma/client";
@@ -11,7 +11,7 @@ import type { Role } from "@prisma/client";
 vi.mock("@/lib/db", () => ({
   prisma: {
     comptoirSession: { findFirst: vi.fn(), create: vi.fn() },
-    caisse: { findUnique: vi.fn(), findMany: vi.fn() },
+    terminalCaisse: { findUnique: vi.fn(), findMany: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -40,13 +40,13 @@ function mockUser(role: Role, id = "caissier-1") {
   });
 }
 
-function mockTransactionOk(caisseId: string) {
+function mockTransactionOk(terminalId: string) {
   (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn: Function) => {
     const tx = {
       comptoirSession: {
         findFirst: vi.fn().mockResolvedValue(null),
         create: vi.fn().mockResolvedValue({
-          id: "session-1", caisseId, userId: "caissier-1", statut: "OUVERTE",
+          id: "session-1", terminalId, userId: "caissier-1", statut: "OUVERTE",
           ouvertureAt: new Date(), montantOuvertureCash: 20000, montantOuvertureMobileMoney: 0,
         }),
       },
@@ -71,7 +71,7 @@ describe("F1.1 — Résolution multi-caisse à l'ouverture", () => {
 
   it("fallback : 1 seule caisse active → 201", async () => {
     mockUser("CAISSIER");
-    (prisma.caisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: "caisse-principale", active: true }]);
+    (prisma.terminalCaisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: "caisse-principale", active: true }]);
     mockTransactionOk("caisse-principale");
     const res = await POST(makeReq());
     expect(res.status).toBe(201);
@@ -79,41 +79,41 @@ describe("F1.1 — Résolution multi-caisse à l'ouverture", () => {
 
   it("0 caisse active → 422", async () => {
     mockUser("CAISSIER");
-    (prisma.caisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prisma.terminalCaisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     const res = await POST(makeReq());
     expect(res.status).toBe(422);
-    expect((await res.json()).error).toMatch(/aucune caisse/i);
+    expect((await res.json()).error).toMatch(/aucun terminal/i);
   });
 
-  it("≥ 2 caisses actives + caisseId absent → 400", async () => {
+  it("≥ 2 caisses actives + terminalId absent → 400", async () => {
     mockUser("CAISSIER");
-    (prisma.caisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+    (prisma.terminalCaisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
       { id: "caisse-1", active: true }, { id: "caisse-2", active: true },
     ]);
     const res = await POST(makeReq());
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toMatch(/caisseId requis/i);
+    expect((await res.json()).error).toMatch(/terminalId requis/i);
   });
 
-  it("caisseId fourni et actif → 201", async () => {
+  it("terminalId fourni et actif → 201", async () => {
     mockUser("CAISSIER");
-    (prisma.caisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
+    (prisma.terminalCaisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
     mockTransactionOk("caisse-1");
-    const res = await POST(makeReq(JSON.stringify({ declarations: { ESPECES: 20000 }, caisseId: "caisse-1" })));
+    const res = await POST(makeReq(JSON.stringify({ declarations: { ESPECES: 20000 }, terminalId: "caisse-1" })));
     expect(res.status).toBe(201);
   });
 
-  it("caisseId introuvable → 422", async () => {
+  it("terminalId introuvable → 422", async () => {
     mockUser("CAISSIER");
-    (prisma.caisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-    const res = await POST(makeReq(JSON.stringify({ declarations: { ESPECES: 20000 }, caisseId: "x" })));
+    (prisma.terminalCaisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    const res = await POST(makeReq(JSON.stringify({ declarations: { ESPECES: 20000 }, terminalId: "x" })));
     expect(res.status).toBe(422);
   });
 
-  it("caisseId inactif → 422", async () => {
+  it("terminalId inactif → 422", async () => {
     mockUser("CAISSIER");
-    (prisma.caisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: false });
-    const res = await POST(makeReq(JSON.stringify({ declarations: { ESPECES: 20000 }, caisseId: "caisse-1" })));
+    (prisma.terminalCaisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: false });
+    const res = await POST(makeReq(JSON.stringify({ declarations: { ESPECES: 20000 }, terminalId: "caisse-1" })));
     expect(res.status).toBe(422);
   });
 });

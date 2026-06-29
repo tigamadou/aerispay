@@ -191,10 +191,10 @@ Fichiers : `comptoir/movements/route.ts`, `comptoir/discrepancies/route.ts`, `co
 
 | Méthode | Chemin | Permission | Description |
 |---|---|---|---|
-| GET | `/api/caisse` | `requireAuth` + `hasPermission(rapports:consulter)` | Liste des caisses. |
-| GET | `/api/caisse/[id]/mouvements` | `requireAuth` + `hasPermission(rapports:consulter)` | Mouvements d'une caisse. |
-| POST | `/api/caisse/[id]/mouvements` | `requireAuth` + `hasPermission(comptoir:mouvement_manuel)` | Saisie d'un mouvement de caisse. |
-| GET | `/api/caisse/[id]/soldes` | `requireAuth` + `hasPermission(rapports:consulter)` | Soldes (théorique/réel) d'une caisse. |
+| GET | `/api/terminaux` | `requireAuth` + `hasPermission(rapports:consulter)` | Liste des terminaux. |
+| GET | `/api/terminaux/[id]/mouvements` | `requireAuth` + `hasPermission(rapports:consulter)` | Mouvements d'un terminal. |
+| POST | `/api/terminaux/[id]/mouvements` | `requireAuth` + `hasPermission(comptoir:mouvement_manuel)` | Saisie d'un mouvement de caisse. |
+| GET | `/api/terminaux/[id]/soldes` | `requireAuth` + `hasPermission(rapports:consulter)` | Soldes (théorique/réel) d'un terminal. |
 
 Fichiers : `caisse/route.ts`, `caisse/[id]/mouvements/route.ts`, `caisse/[id]/soldes/route.ts`
 
@@ -202,8 +202,8 @@ Fichiers : `caisse/route.ts`, `caisse/[id]/mouvements/route.ts`, `caisse/[id]/so
 
 | Méthode | Chemin | Permission | Description |
 |---|---|---|---|
-| POST | `/api/enrollment` | `requireRole(ADMIN)` | Émet un **code d'enrôlement à usage unique** pour une caisse pré-créée (`{ caisseId, label?, ttlMinutes? }` → `{ enrollmentToken, caisseId, codePoste, expiresAt }`). Code en clair renvoyé une seule fois. |
-| POST | `/api/enrollment/exchange` | Public (auth = le code) | Le poste **échange** le code (`{ token, nom? }`) : consomme le code, (re)nomme la caisse, émet un **token de magasin** (`{ storeToken, caisseId, codePoste, nom }`). `401` code invalide/expiré/consommé ; `422` caisse inactive. |
+| POST | `/api/enrollment` | `requireRole(ADMIN)` | Émet un **code d'enrôlement à usage unique** pour un terminal pré-créé (`{ terminalId, label?, ttlMinutes? }` → `{ enrollmentToken, terminalId, codePoste, expiresAt }`). Code en clair renvoyé une seule fois. |
+| POST | `/api/enrollment/exchange` | Public (auth = le code) | Le poste **échange** le code (`{ token, nom? }`) : consomme le code, (re)nomme la caisse, émet un **token de magasin** (`{ storeToken, terminalId, codePoste, nom }`). `401` code invalide/expiré/consommé ; `422` caisse inactive. |
 
 Fichiers : `enrollment/route.ts`, `enrollment/exchange/route.ts` ; services `lib/services/enrollment-token.ts`, `lib/services/store-token.ts`.
 

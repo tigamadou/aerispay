@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { seedDefaultParametres } from "@/lib/seed/parametres";
 import { seedDefaultCategories } from "@/lib/seed/categories";
-import { seedDefaultCaisse } from "@/lib/seed/caisse";
+import { seedDefaultTerminal } from "@/lib/seed/caisse";
 import { seedProdUsers, seedDevUsers } from "@/lib/seed/users";
 import { seedDevProduits } from "@/lib/seed/produits";
 
@@ -27,7 +27,7 @@ async function main() {
   console.log(`\nSeed OK — Parametres de la structure crees`);
 
   // Caisse par defaut + seuils
-  await seedDefaultCaisse(prisma);
+  await seedDefaultTerminal(prisma);
 
   // ─── Dev uniquement ───────────────────────────────
 

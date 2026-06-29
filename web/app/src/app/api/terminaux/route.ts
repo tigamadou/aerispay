@@ -17,14 +17,14 @@ export async function GET() {
   }
 
   try {
-    const caisses = await prisma.caisse.findMany({
+    const caisses = await prisma.terminalCaisse.findMany({
       where: { active: true },
       orderBy: { createdAt: "asc" },
     });
 
     return Response.json({ data: caisses });
   } catch (error) {
-    console.error("[GET /api/caisse]", error);
+    console.error("[GET /api/terminaux]", error);
     return Response.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }
@@ -43,14 +43,14 @@ export async function POST(req: Request) {
       );
     }
 
-    const caisse = await prisma.caisse.create({
+    const caisse = await prisma.terminalCaisse.create({
       data: { code: parsed.data.code, nom: parsed.data.nom, active: parsed.data.active ?? true },
     });
 
     await logActivity({
-      action: ACTIONS.CAISSE_CREATED,
+      action: ACTIONS.TERMINAL_CREATED,
       actorId: result.user.id,
-      entityType: "Caisse",
+      entityType: "TerminalCaisse",
       entityId: caisse.id,
       metadata: { nom: caisse.nom },
       ipAddress: getClientIp(req),
@@ -59,7 +59,7 @@ export async function POST(req: Request) {
 
     return Response.json({ data: caisse }, { status: 201 });
   } catch (error) {
-    console.error("[POST /api/caisse]", error);
+    console.error("[POST /api/terminaux]", error);
     return Response.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }

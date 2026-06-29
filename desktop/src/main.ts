@@ -131,7 +131,7 @@ async function handleEnrollSubmit(_e: unknown, input: EnrollInput): Promise<Exch
   if (!result.ok) return result;
 
   saveConfig(
-    { nodeUrl: url, caisseId: result.caisseId, codePoste: result.codePoste, nom: result.nom },
+    { nodeUrl: url, terminalId: result.terminalId, codePoste: result.codePoste, nom: result.nom },
     result.storeToken,
   );
   nodeUrl = process.env.AERIS_NODE_URL ?? url;

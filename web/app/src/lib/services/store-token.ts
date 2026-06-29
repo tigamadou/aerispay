@@ -16,7 +16,7 @@ export function hashToken(token: string): string {
 }
 
 export interface IssueParams {
-  caisseId: string;
+  terminalId: string;
   label?: string;
 }
 
@@ -32,7 +32,7 @@ export async function issueStoreToken(params: IssueParams): Promise<IssuedToken>
   const created = await prisma.storeToken.create({
     data: {
       tokenHash: hashToken(token),
-      caisseId: params.caisseId,
+      terminalId: params.terminalId,
       label: params.label ?? null,
     },
   });
@@ -41,7 +41,7 @@ export async function issueStoreToken(params: IssueParams): Promise<IssuedToken>
 
 export interface VerifyResult {
   valid: boolean;
-  caisseId: string | null;
+  terminalId: string | null;
   tokenId: string | null;
 }
 
@@ -51,9 +51,9 @@ export async function verifyStoreToken(token: string): Promise<VerifyResult> {
     where: { tokenHash: hashToken(token) },
   });
   if (!record || record.revoked) {
-    return { valid: false, caisseId: null, tokenId: null };
+    return { valid: false, terminalId: null, tokenId: null };
   }
-  return { valid: true, caisseId: record.caisseId, tokenId: record.id };
+  return { valid: true, terminalId: record.terminalId, tokenId: record.id };
 }
 
 /** Révoque un token (perte/vol de poste) : le poste ne joint plus l'API. */

@@ -24,9 +24,9 @@ export async function GET(
   }
 
   try {
-    const { id: caisseId } = await params;
+    const { id: terminalId } = await params;
 
-    const caisse = await prisma.caisse.findUnique({ where: { id: caisseId }, select: { id: true } });
+    const caisse = await prisma.terminalCaisse.findUnique({ where: { id: terminalId }, select: { id: true } });
     if (!caisse) {
       return Response.json({ error: "Caisse introuvable" }, { status: 404 });
     }
@@ -41,7 +41,7 @@ export async function GET(
     const from = url.searchParams.get("from");
     const to = url.searchParams.get("to");
 
-    const where: Prisma.MouvementCaisseWhereInput = { caisseId };
+    const where: Prisma.MouvementCaisseWhereInput = { terminalId };
 
     if (typeParam && VALID_TYPES.includes(typeParam as TypeMouvementCaisse)) {
       where.type = typeParam as TypeMouvementCaisse;
@@ -74,7 +74,7 @@ export async function GET(
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
   } catch (error) {
-    console.error("[GET /api/caisse/[id]/mouvements]", error);
+    console.error("[GET /api/terminaux/[id]/mouvements]", error);
     return Response.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }
@@ -91,9 +91,9 @@ export async function POST(
   }
 
   try {
-    const { id: caisseId } = await params;
+    const { id: terminalId } = await params;
 
-    const caisse = await prisma.caisse.findUnique({ where: { id: caisseId }, select: { id: true } });
+    const caisse = await prisma.terminalCaisse.findUnique({ where: { id: terminalId }, select: { id: true } });
     if (!caisse) {
       return Response.json({ error: "Caisse introuvable" }, { status: 404 });
     }
@@ -138,7 +138,7 @@ export async function POST(
 
     // Check sufficient balance for outflows on ESPECES
     if (isOutflow && mode === "ESPECES") {
-      const soldes = await computeSoldeCaisseParMode(caisseId);
+      const soldes = await computeSoldeCaisseParMode(terminalId);
       const soldeCash = soldes.find((s) => s.mode === "ESPECES")?.solde ?? 0;
       if (montant > soldeCash) {
         return Response.json(
@@ -152,7 +152,7 @@ export async function POST(
       type,
       mode,
       montant: signedMontant,
-      caisseId,
+      terminalId,
       auteurId: result.user.id,
       motif,
       reference,
@@ -164,14 +164,14 @@ export async function POST(
       actorId: result.user.id,
       entityType: "MouvementCaisse",
       entityId: mouvement.id,
-      metadata: { type, mode, montant: signedMontant, motif, caisseId, hasJustificatif: !!justificatif },
+      metadata: { type, mode, montant: signedMontant, motif, terminalId, hasJustificatif: !!justificatif },
       ipAddress: getClientIp(req),
       userAgent: getClientUserAgent(req),
     });
 
     return Response.json({ data: mouvement }, { status: 201 });
   } catch (error) {
-    console.error("[POST /api/caisse/[id]/mouvements]", error);
+    console.error("[POST /api/terminaux/[id]/mouvements]", error);
     return Response.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }
