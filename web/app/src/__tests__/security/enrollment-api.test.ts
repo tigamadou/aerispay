@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Role } from "@prisma/client";
 
 vi.mock("@/lib/db", () => ({
-  prisma: { terminalCaisse: { findUnique: vi.fn() } },
+  prisma: { terminalCaisse: { findUnique: vi.fn() }, storeToken: { findFirst: vi.fn().mockResolvedValue(null) } },
 }));
 vi.mock("@/auth", () => ({ auth: vi.fn() }));
 vi.mock("@/lib/activity-log", () => ({

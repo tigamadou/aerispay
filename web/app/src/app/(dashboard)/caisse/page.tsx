@@ -6,7 +6,7 @@ import { computeSoldeCaisseParMode } from "@/lib/services/cash-movement";
 import Link from "next/link";
 import type { Metadata } from "next";
 import type { Role } from "@prisma/client";
-import { EnrollmentCodeButton } from "@/components/caisse/EnrollmentCodeButton";
+import { EnrollmentCodeButton } from "@/components/terminaux/EnrollmentCodeButton";
 
 export const dynamic = "force-dynamic";
 

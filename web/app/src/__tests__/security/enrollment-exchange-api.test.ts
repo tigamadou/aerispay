@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/db", () => ({
-  prisma: { terminalCaisse: { findUnique: vi.fn(), update: vi.fn() } },
+  prisma: { terminalCaisse: { findUnique: vi.fn(), update: vi.fn() }, storeToken: { findFirst: vi.fn().mockResolvedValue(null) } },
 }));
 const consumeEnrollmentToken = vi.fn();
 vi.mock("@/lib/services/enrollment-token", () => ({

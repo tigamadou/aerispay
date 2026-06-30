@@ -56,7 +56,8 @@ Deux mécanismes coexistent (définis dans `web/app/src/lib/permissions.ts`) :
 | `/users/[id]` | ADMIN | Détail / édition d'un utilisateur. |
 | `/activity-logs` | `activity_logs:consulter` (ADMIN, MANAGER) | Journal d'audit paginé. |
 | `/activity-logs/[id]` | `activity_logs:consulter` (ADMIN, MANAGER) | Détail d'une entrée du journal. |
-| `/parametres` | `parametres:manage` (ADMIN) | Paramètres généraux + modes de paiement. |
+| `/parametres` | `parametres:manage` (ADMIN) | Paramètres généraux du commerce (lien vers la page Modes de paiement). |
+| `/modes-paiement` | `parametres:manage` (ADMIN) | Gestion des modes de paiement (libellé, activation, ordre). Page dédiée (extraite des paramètres). |
 | `/taxes` | `parametres:manage` (ADMIN) | Gestion des taxes (TVA / taux). |
 
 ### 1.3 Stock — `web/app/src/app/(dashboard)/stock/`
@@ -90,6 +91,16 @@ Deux mécanismes coexistent (définis dans `web/app/src/lib/permissions.ts`) :
 | `/caisse` | `rapports:consulter` (ADMIN, MANAGER) | Vue des caisses et soldes. |
 | `/caisse/mouvements` | `rapports:consulter` (ADMIN, MANAGER) | Mouvements de caisse. |
 | `/caisse/mouvements/nouveau` | `rapports:consulter` (ADMIN, MANAGER) | Saisie d'un mouvement de caisse. |
+
+### 1.6 Terminaux de caisse — `web/app/src/app/(dashboard)/terminaux/`
+
+> Gestion des **terminaux/postes de caisse** (≠ module de caisse). Lecture ADMIN+MANAGER ; créer / renommer / (dés)activer / enrôler / révoquer un jeton = ADMIN seul (actions masquées pour MANAGER).
+
+| Route | Rôle requis | Description |
+|---|---|---|
+| `/terminaux` | `rapports:consulter` (ADMIN, MANAGER) | Liste des terminaux + état (session ouverte, caissier, solde espèces). |
+| `/terminaux/nouveau` | ADMIN | Création d'un terminal (code + nom). Le **code est pré-suggéré** automatiquement (prochain `P<N>` libre) et reste **modifiable** (ex. code parlant `BAR`). |
+| `/terminaux/[id]` | `rapports:consulter` (ADMIN, MANAGER) | Détail : renommer/(dés)activer (ADMIN), enrôlement desktop (code + jetons), liens soldes/mouvements/sessions. |
 
 ---
 
@@ -187,25 +198,32 @@ Fichiers : `comptoir/sessions/route.ts`, `comptoir/sessions/[id]/route.ts`, `...
 
 Fichiers : `comptoir/movements/route.ts`, `comptoir/discrepancies/route.ts`, `comptoir/discrepancies/recurring/route.ts`, `comptoir/sync/route.ts`
 
-### 2.8 Caisse
+### 2.8 Terminaux de caisse
 
 | Méthode | Chemin | Permission | Description |
 |---|---|---|---|
-| GET | `/api/terminaux` | `requireAuth` + `hasPermission(rapports:consulter)` | Liste des terminaux. |
+| GET | `/api/terminaux` | `requireAuth` + `hasPermission(rapports:consulter)` | Liste des terminaux. Paramètres optionnels : `includeInactive=1` (inclut les terminaux désactivés), `state=1` (enrichit chaque terminal de sa session ouverte `{ caissier, ouvertureAt }` et de son `soldeEspeces`). |
+| POST | `/api/terminaux` | `requireRole(ADMIN)` | Création d'un terminal (`{ code, nom, active? }`). |
+| PUT | `/api/terminaux/[id]` | `requireRole(ADMIN)` | Renommer (`nom`) / (dés)activer (`active`). Refuse la désactivation si une session est ouverte (409). |
+| DELETE | `/api/terminaux/[id]` | `requireRole(ADMIN)` | Désactivation (passe `active:false`). |
+| GET | `/api/terminaux/[id]/tokens` | `requireRole(ADMIN)` | Liste des jetons de poste (`StoreToken`) actifs (jamais le hash). |
+| DELETE | `/api/terminaux/[id]/tokens/[tokenId]` | `requireRole(ADMIN)` | Révocation d'un jeton de poste (journal `STORE_TOKEN_REVOKED`). |
 | GET | `/api/terminaux/[id]/mouvements` | `requireAuth` + `hasPermission(rapports:consulter)` | Mouvements d'un terminal. |
 | POST | `/api/terminaux/[id]/mouvements` | `requireAuth` + `hasPermission(comptoir:mouvement_manuel)` | Saisie d'un mouvement de caisse. |
 | GET | `/api/terminaux/[id]/soldes` | `requireAuth` + `hasPermission(rapports:consulter)` | Soldes (théorique/réel) d'un terminal. |
 
-Fichiers : `caisse/route.ts`, `caisse/[id]/mouvements/route.ts`, `caisse/[id]/soldes/route.ts`
+Fichiers : `terminaux/route.ts`, `terminaux/[id]/route.ts`, `terminaux/[id]/tokens/route.ts`, `terminaux/[id]/tokens/[tokenId]/route.ts`, `terminaux/[id]/mouvements/route.ts`, `terminaux/[id]/soldes/route.ts`
 
 ### 2.8 bis Enrôlement des postes (ADR-007)
 
 | Méthode | Chemin | Permission | Description |
 |---|---|---|---|
-| POST | `/api/enrollment` | `requireRole(ADMIN)` | Émet un **code d'enrôlement à usage unique** pour un terminal pré-créé (`{ terminalId, label?, ttlMinutes? }` → `{ enrollmentToken, terminalId, codePoste, expiresAt }`). Code en clair renvoyé une seule fois. |
-| POST | `/api/enrollment/exchange` | Public (auth = le code) | Le poste **échange** le code (`{ token, nom? }`) : consomme le code, (re)nomme la caisse, émet un **token de magasin** (`{ storeToken, terminalId, codePoste, nom }`). `401` code invalide/expiré/consommé ; `422` caisse inactive. |
+| POST | `/api/enrollment` | `requireRole(ADMIN)` | Émet un **code d'enrôlement à usage unique** pour un terminal pré-créé (`{ terminalId, label?, ttlMinutes? }` → `{ enrollmentToken, terminalId, codePoste, expiresAt }`). Code en clair renvoyé une seule fois. **`409`** si le terminal a déjà un jeton de magasin actif (règle 1:1, voir ci-dessous). |
+| POST | `/api/enrollment/exchange` | Public (auth = le code) | Le poste **échange** le code (`{ token, nom? }`) : consomme le code, (re)nomme la caisse, émet un **token de magasin** (`{ storeToken, terminalId, codePoste, nom }`). `401` code invalide/expiré/consommé ; `422` caisse inactive ; **`409`** si un jeton actif existe déjà pour le terminal (garde 1:1). |
 
 Fichiers : `enrollment/route.ts`, `enrollment/exchange/route.ts` ; services `lib/services/enrollment-token.ts`, `lib/services/store-token.ts`.
+
+> **Règle 1:1 — un terminal n'est associé qu'à un seul poste à la fois.** « Associé » = le terminal possède un `StoreToken` **non révoqué**. Tant que c'est le cas, la génération d'un code d'enrôlement est refusée (`409`) et le bouton « Enrôler » est désactivé côté UI (message invitant à révoquer le jeton). Pour appairer une autre machine, l'admin **révoque** d'abord le jeton existant (`DELETE …/tokens/[tokenId]`), ce qui libère le terminal. L'échange applique la même garde en défense en profondeur (cas de deux codes générés puis échangés concurremment).
 
 ### 2.9 Périphériques
 

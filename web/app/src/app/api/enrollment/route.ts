@@ -33,6 +33,20 @@ export async function POST(req: Request): Promise<Response> {
       return Response.json({ error: "Caisse introuvable ou inactive" }, { status: 422 });
     }
 
+    // Règle 1:1 — un terminal n'est associé qu'à un seul poste à la fois. Si un jeton
+    // de magasin actif existe déjà, on refuse d'enrôler une nouvelle machine (il faut
+    // d'abord révoquer le jeton existant).
+    const jetonActif = await prisma.storeToken.findFirst({
+      where: { terminalId: caisse.id, revoked: false },
+      select: { id: true },
+    });
+    if (jetonActif) {
+      return Response.json(
+        { error: "Terminal déjà associé à un poste — révoquez son jeton avant de ré-enrôler." },
+        { status: 409 },
+      );
+    }
+
     const { token, id, expiresAt } = await issueEnrollmentToken({
       terminalId: caisse.id,
       label: parsed.data.label,

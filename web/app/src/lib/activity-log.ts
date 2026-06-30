@@ -78,6 +78,7 @@ export const ACTIONS = {
 
   // Enrôlement poste (E3.1)
   POSTE_ENROLLED: "POSTE_ENROLLED",
+  STORE_TOKEN_REVOKED: "STORE_TOKEN_REVOKED",
 } as const;
 
 export type ActionCode = (typeof ACTIONS)[keyof typeof ACTIONS];

@@ -500,4 +500,9 @@ l'enrôlement en desktop). Comportement livré :
 - **numérotation des ventes par poste** `VTE-<codePoste>-YYYY-NNNNN` (voir
   [03-comptoir-ventes.md](03-comptoir-ventes.md) §6).
 
+**Gestion des terminaux** (création, renommage, (dés)activation, enrôlement desktop, jetons) :
+page dédiée `/terminaux` (voir [09-pages-api.md](09-pages-api.md) §1.6 / §2.8). Ne pas confondre le
+**terminal de caisse** (la station, modèle `TerminalCaisse`) avec le **module de caisse** décrit ici
+(sessions, soldes, mouvements), qui est rattaché à un terminal.
+
 Architecture : [`../../ARCHITECTURE_MVP.md`](../../ARCHITECTURE_MVP.md).

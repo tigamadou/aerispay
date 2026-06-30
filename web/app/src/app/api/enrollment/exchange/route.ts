@@ -34,6 +34,20 @@ export async function POST(req: Request): Promise<Response> {
       return Response.json({ error: "Terminal inactif — contactez l'administrateur" }, { status: 422 });
     }
 
+    // Garde 1:1 (défense en profondeur) — si un jeton de magasin actif existe déjà pour
+    // ce terminal (ex. deux codes générés puis échangés concurremment), on refuse le
+    // second échange : un terminal reste associé à un seul poste à la fois.
+    const jetonActif = await prisma.storeToken.findFirst({
+      where: { terminalId: caisse.id, revoked: false },
+      select: { id: true },
+    });
+    if (jetonActif) {
+      return Response.json(
+        { error: "Terminal déjà associé à un autre poste" },
+        { status: 409 },
+      );
+    }
+
     let nom = caisse.nom;
     const nouveauNom = parsed.data.nom?.trim();
     if (nouveauNom) {

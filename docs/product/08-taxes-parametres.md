@@ -169,9 +169,13 @@ ligne `RCCM: … | NIF: …` quand au moins l'un des deux est renseigné (`pdf-g
 ### 3.5 Page d'administration
 
 `web/app/src/app/(dashboard)/parametres/page.tsx` — accès `parametres:manage` (ADMIN), sinon
-redirection. Charge en parallèle `Parametres` et les modes de paiement, puis rend `ParametresForm`
-et `ModesPaiementSection`. L'intitulé de la page précise que ces informations sont « affichées sur
-les tickets de caisse ».
+redirection. Charge `Parametres` et rend `ParametresForm` (informations « affichées sur les tickets
+de caisse »), avec un **lien vers la page dédiée** des modes de paiement.
+
+Les **modes de paiement** ont leur propre page : `web/app/src/app/(dashboard)/modes-paiement/page.tsx`
+(accès `parametres:manage`), qui charge les `ModePaiementConfig` et rend `ModesPaiementSection`
+(`components/modes-paiement/ModesPaiementSection.tsx`). Les routes API restent sous
+`/api/parametres/modes-paiement` (inchangées).
 
 ---
 

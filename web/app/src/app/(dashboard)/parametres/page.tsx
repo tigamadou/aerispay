@@ -1,9 +1,9 @@
 import { auth } from "@/auth";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { hasPermission } from "@/lib/permissions";
 import { ParametresForm } from "@/components/parametres/ParametresForm";
-import { ModesPaiementSection } from "@/components/parametres/ModesPaiementSection";
 import type { Role } from "@prisma/client";
 import type { Metadata } from "next";
 
@@ -22,14 +22,7 @@ export default async function ParametresPage() {
     redirect("/");
   }
 
-  const [parametres, modesPaiement] = await Promise.all([
-    prisma.parametres.findUnique({ where: { id: "default" } }),
-    prisma.modePaiementConfig.findMany({
-      where: { parametresId: "default" },
-      orderBy: { ordre: "asc" },
-      select: { id: true, code: true, label: true, active: true, ordre: true },
-    }),
-  ]);
+  const parametres = await prisma.parametres.findUnique({ where: { id: "default" } });
 
   const data = {
     nomCommerce: parametres?.nomCommerce ?? "",
@@ -54,7 +47,15 @@ export default async function ParametresPage() {
 
       <ParametresForm initialData={data} />
 
-      <ModesPaiementSection initialModes={modesPaiement} />
+      <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+        <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">Modes de paiement</h2>
+        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          La configuration des modes de paiement a sa propre page.
+        </p>
+        <Link href="/modes-paiement" className="mt-2 inline-block text-sm text-indigo-600 hover:underline">
+          Gérer les modes de paiement →
+        </Link>
+      </div>
     </div>
   );
 }
