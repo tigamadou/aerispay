@@ -1,0 +1,28 @@
+# P5.1 — Empaquetage multi-OS du client caisse. P5.2 — publication pour auto-update.
+appId: com.aerispay.desktop
+productName: AerisPay Caisse
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**/*
+  - renderer/**/*
+  - package.json
+# Modules natifs (node-thermal-printer / serialport) recompilés pour Electron (D0.2).
+npmRebuild: true
+mac:
+  target: [dmg, zip]
+  category: public.app-category.business
+  hardenedRuntime: true
+  # Signature de code requise pour l'auto-update (P5.2) — fournir CSC_LINK / CSC_KEY_PASSWORD en CI.
+win:
+  target: [nsis]
+  # Signature Authenticode requise (P5.2).
+linux:
+  target: [AppImage, deb]
+  category: Office
+# P5.2 — flux d'auto-update (electron-updater) ; bucket S3 paramétré via env en CI.
+publish:
+  provider: s3
+  bucket: ${AERIS_UPDATE_BUCKET}
+  region: ${AERIS_UPDATE_REGION}

@@ -1,0 +1,159 @@
+import { defineConfig } from "cypress";
+import { PrismaClient } from "@prisma/client";
+import { readFileSync } from "fs";
+import { resolve } from "path";
+
+// Load .env from project root (two levels up from web/app)
+try {
+  const envPath = resolve(__dirname, "../../.env");
+  const envContent = readFileSync(envPath, "utf-8");
+  for (const line of envContent.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eqIdx = trimmed.indexOf("=");
+    if (eqIdx === -1) continue;
+    const key = trimmed.slice(0, eqIdx).trim();
+    const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, "");
+    if (!process.env[key]) {
+      process.env[key] = val;
+    }
+  }
+} catch { /* .env not found — rely on existing env vars */ }
+
+const adminEmail = process.env.CYPRESS_ADMIN_EMAIL ?? "admin@aerispay.com";
+const adminPassword = process.env.CYPRESS_ADMIN_PASSWORD ?? "Admin@1234";
+
+let prismaPlugin: PrismaClient | null = null;
+
+function getPrismaPlugin(): PrismaClient {
+  if (!prismaPlugin) {
+    // Use CYPRESS_DB_URL for test DB, fallback to DATABASE_URL
+    const url = process.env.CYPRESS_DB_URL ?? process.env.DATABASE_URL;
+    prismaPlugin = url
+      ? new PrismaClient({ datasources: { db: { url } } })
+      : new PrismaClient();
+  }
+  return prismaPlugin;
+}
+
+export default defineConfig({
+  component: {
+    devServer: {
+      framework: "next",
+      bundler: "webpack",
+    },
+  },
+
+  e2e: {
+    baseUrl: process.env.CYPRESS_BASE_URL ?? "http://aerispay.localhost",
+    specPattern: "cypress/e2e/**/*.cy.{ts,tsx}",
+    supportFile: "cypress/support/e2e.ts",
+    defaultCommandTimeout: 15_000,
+    pageLoadTimeout: 30_000,
+    video: false,
+    env: {
+      ADMIN_EMAIL: adminEmail,
+      ADMIN_PASSWORD: adminPassword,
+    },
+    setupNodeEvents(on, config) {
+      on("task", {
+        async getProduitIdByReference(reference: string) {
+          const p = await getPrismaPlugin().produit.findFirst({ where: { reference } });
+          if (!p) {
+            throw new Error(
+              `Produit "${reference}" introuvable. Exécuter \`npx prisma db seed\` avant les e2e.`
+            );
+          }
+          return p.id;
+        },
+        async cleanVentesForUser(email: string) {
+          const prisma = getPrismaPlugin();
+          const user = await prisma.user.findFirst({ where: { email } });
+          if (!user) return null;
+          const sessions = await prisma.comptoirSession.findMany({
+            where: { userId: user.id },
+            select: { id: true },
+          });
+          const sessionIds = sessions.map((s) => s.id);
+          if (sessionIds.length > 0) {
+            await prisma.paiement.deleteMany({ where: { vente: { sessionId: { in: sessionIds } } } });
+            await prisma.ligneVente.deleteMany({ where: { vente: { sessionId: { in: sessionIds } } } });
+            await prisma.vente.deleteMany({ where: { sessionId: { in: sessionIds } } });
+          }
+          return null;
+        },
+        async getRecentActivityLogs(params: { action?: string; limit?: number }) {
+          const prisma = getPrismaPlugin();
+          const logs = await prisma.activityLog.findMany({
+            where: params.action ? { action: params.action } : undefined,
+            orderBy: { createdAt: "desc" },
+            take: params.limit ?? 5,
+            include: { actor: { select: { id: true, nom: true, email: true } } },
+          });
+          return logs.map((l) => ({
+            id: l.id,
+            action: l.action,
+            entityType: l.entityType,
+            entityId: l.entityId,
+            actorId: l.actorId,
+            actorEmail: l.actor?.email ?? null,
+            metadata: l.metadata,
+            createdAt: l.createdAt.toISOString(),
+          }));
+        },
+        async clearActivityLogs(_: null) {
+          await getPrismaPlugin().activityLog.deleteMany({});
+          return null;
+        },
+        async ensureCaisseHasFunds(_: null) {
+          const prisma = getPrismaPlugin();
+          const caisse = await prisma.terminalCaisse.findFirst({ where: { active: true } });
+          if (!caisse) throw new Error("Aucune caisse active");
+          // Check if there are already movements
+          const count = await prisma.mouvementCaisse.count({ where: { terminalId: caisse.id } });
+          if (count > 0) return caisse.id;
+          // Get admin user
+          const admin = await prisma.user.findFirst({ where: { role: "ADMIN" } });
+          if (!admin) throw new Error("Aucun admin en base");
+          // Create initial fund
+          await prisma.mouvementCaisse.create({
+            data: {
+              type: "FOND_INITIAL",
+              mode: "ESPECES",
+              montant: 100000,
+              terminalId: caisse.id,
+              auteurId: admin.id,
+              motif: "Fond initial e2e",
+            },
+          });
+          return caisse.id;
+        },
+        async restockProduct(reference: string) {
+          const prisma = getPrismaPlugin();
+          await prisma.produit.updateMany({
+            where: { reference },
+            data: { stockActuel: 100 },
+          });
+          return null;
+        },
+        async closeOpenSessions(email: string) {
+          const prisma = getPrismaPlugin();
+          const user = await prisma.user.findFirst({ where: { email } });
+          if (!user) return null;
+          await prisma.comptoirSession.updateMany({
+            where: { userId: user.id, statut: "OUVERTE" },
+            data: { statut: "FERMEE", fermetureAt: new Date(), montantFermetureCash: 0, montantFermetureMobileMoney: 0 },
+          });
+          return null;
+        },
+      });
+      on("after:run", async () => {
+        if (prismaPlugin) {
+          await prismaPlugin.$disconnect();
+          prismaPlugin = null;
+        }
+      });
+      return config;
+    },
+  },
+});

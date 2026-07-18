@@ -1,0 +1,48 @@
+# P5.1 — CI multi-plateforme : build + recompilation des modules natifs + installeurs.
+# P5.2 — publication des artefacts signés vers S3 pour l'auto-update (sur tag).
+name: desktop-build
+
+on:
+  push:
+    tags: ["desktop-v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install
+        run: npm ci || npm install
+      - name: Build TypeScript
+        run: npm run build
+      - name: Unit tests (logique pure)
+        run: npm run test
+      - name: Rebuild native modules (electron-rebuild)
+        run: npm run rebuild:native
+      - name: Package installers
+        env:
+          # Signature de code (P5.2) — secrets fournis par le dépôt.
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          AERIS_UPDATE_BUCKET: ${{ secrets.AERIS_UPDATE_BUCKET }}
+          AERIS_UPDATE_REGION: ${{ secrets.AERIS_UPDATE_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run dist
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: aerispay-caisse-${{ matrix.os }}
+          path: desktop/release/**/*

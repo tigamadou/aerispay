@@ -4,7 +4,7 @@ Application web de caisse enregistreuse et de gestion commerciale pour petits et
 
 ## Déploiement cible (structure, magasins, caisses)
 
-AerisPay vise un usage par **structures** (groupes) pouvant exploiter **plusieurs supermarchés ou points de vente** : chaque site peut disposer d’**une base de données locale** (performances et résilience en caisse), de **plusieurs postes de caisse** (multi-caisses) et de **plusieurs caissiers**, complété par des **sauvegardes en ligne** et des **accès distants** sécurisés (direction, suivi). Le détail métier, technique et d’infrastructure est décrit dans **`SPECS/MULTI_ORGANISATION.md`**. Les comptes se rangent en **deux niveaux** (structure / point de vente) ; au **magasin** l’usage principal est le **rôle caissier**, encadré par gérant et admin local — **`SPECS/AUTH.md`**.
+AerisPay vise un usage par **structures** (groupes) pouvant exploiter **plusieurs supermarchés ou points de vente** : chaque site peut disposer d’**une base de données locale** (performances et résilience en caisse), de **plusieurs postes de caisse** (multi-caisses) et de **plusieurs caissiers**, complété par des **sauvegardes en ligne** et des **accès distants** sécurisés (direction, suivi). Le détail métier, technique et d’infrastructure est décrit dans **`ARCHITECTURE_MVP.md`** (§1 — topologie 3 niveaux). Les comptes se rangent en **deux niveaux** (structure / point de vente) ; au **magasin** l’usage principal est le **rôle caissier**, encadré par gérant et admin local — **`docs/product/01-auth-roles.md`**.
 
 ## Matériel Cible
 
@@ -14,7 +14,7 @@ AerisPay doit être compatible avec les périphériques de caisse courants :
 - Douchette lecteur de code-barres USB/HID en mode clavier.
 - Tiroir-caisse ouvert par impulsion ESC/POS via l’imprimante ticket, ou par interface directe configurée.
 
-Pour l’ordre d’appel (vente → impression → tiroir), le réseau Docker et les tests : **`SPECS/PERIPHERIQUES.md`** (à lire avec `SPECS/CAISSE.md` et `SPECS/IMPRESSION.md`).
+Pour l’ordre d’appel (vente → impression → tiroir), le réseau Docker et les tests : **`docs/product/05-impression-peripheriques.md`** (à lire avec `docs/product/03-comptoir-ventes.md` et `docs/product/05-impression-peripheriques.md`).
 
 ## Méthodologie
 

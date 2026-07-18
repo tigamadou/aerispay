@@ -5,188 +5,131 @@
 
 ---
 
-## 1. Contexte du Projet
+## 1. Contexte & architecture
 
-**AerisPay** est une application web de caisse enregistreuse et de gestion commerciale destinée aux petits et moyens commerces. La **cible long terme** inclut le déploiement par **plusieurs points de vente** (même **structure** / groupe), le **multi-caissiers** et le **multi-postes** (plusieurs caisses par magasin), une **base de données locale** en magasin, et des **sauvegardes en ligne** + **accès distants** contrôlés — voir `SPECS/MULTI_ORGANISATION.md`. Les **utilisateurs** se répartissent en **deux niveaux** (groupe vs point de vente) : au **PDV** l’équipe compte surtout des **caissiers** ; rôles et matrices : `SPECS/AUTH.md`. Le MVP couvre deux modules fondamentaux :
+**AerisPay** est une application de **caisse enregistreuse (POS)** et de **gestion commerciale**
+pour petits et moyens commerces. Le produit a migré d'une application web mono-base vers une
+**architecture desktop à 3 niveaux** (livrée le 2026-06-26 : logique nœud multi-caisse, client
+Electron `desktop/`, packaging electron-builder et schéma cloud `cloud/prisma/`) :
 
-- **Gestion de Stock** : produits, catégories, mouvements, alertes de rupture
-- **Gestion de Caisse (POS)** : interface point de vente, ventes, paiements, tickets, douchette code-barres, imprimante ticket et tiroir-caisse
-- **Journal d’activité** : trace d’audit des opérations (consultation `ADMIN` / `MANAGER`)
+```
+┌─ Niveau 1 — CAISSE / POSTE ────────── Client Electron, SANS base de données
+│     Renderer = UI servie par le nœud · Main = périphériques (ESC/POS, tiroir, douchette)
+│     Bloque si le nœud est indisponible (pas de mode dégradé)
+│            │ HTTPS LAN (token magasin scopé par poste)
+├─ Niveau 2 — NŒUD MAGASIN ──────────── Backend Next.js + Prisma + MySQL (CE dépôt), en local
+│     Source de vérité du magasin · API · worker de synchronisation · outbox EventCaisse
+│            │ sync magasin ↔ cloud (eventual consistency)
+└─ Niveau 3 — CLOUD / ORGANISATION ──── Agrégation multi-magasins · référence descendante · audit
+```
 
-L'application est développée en **Next.js 14 (App Router) + TypeScript + Prisma + MySQL**.
+**Décision structurante (ADR-001) : il n'y a pas de mode autonome.** Le client Electron est
+**toujours** un client du nœud magasin ; le nœud n'est jamais embarqué dans le client (il peut être
+co-localisé en `localhost` pour un mono-poste, mais reste un service distinct).
 
-Le déploiement et le travail local peuvent s’appuyer sur **Docker Compose** : deux fichiers (`docker-compose.yml` pour le dev, `docker-compose.prod.yml` pour la prod) et le guide **`DOCKER.md`**.
+Le code applicatif de ce dépôt **est le nœud magasin**. Sa logique métier (caisse, stock, ventes,
+sessions) ne change pas avec le pivot — seule la topologie de déploiement évolue.
+
+**Modules** : Stock · Comptoir (POS) / Ventes · Caisse & sessions (ouverture/clôture/validation à
+l'aveugle, réconciliation, fond & levée, intégrité) · Taxes · Paramètres · Journal d'activité ·
+Dashboard.
 
 ---
 
-## 2. Stack Technique
+## 2. Documentation de référence (À LIRE avant de coder)
 
-```
-Frontend     : Next.js 14 (App Router) · TypeScript · Tailwind CSS · shadcn/ui
-State        : Zustand (panier POS) · TanStack Query (données async)
-Forms        : React Hook Form + Zod
-Backend      : Next.js API Routes
-ORM          : Prisma
-Database     : MySQL
-Auth         : NextAuth.js v5 (credentials provider)
-PDF          : @react-pdf/renderer
-Thermique    : node-thermal-printer (ESC/POS)
-Périphériques: imprimante ticket ESC/POS · douchette code-barres USB/HID · tiroir-caisse via impulsion ESC/POS
-Tests        : Vitest + React Testing Library + Playwright (e2e)
-Linting      : ESLint + Prettier
-```
+| Besoin | Où |
+|---|---|
+| **Le *QUOI*** — comportement produit dérivé du code (règles, modèles, endpoints) | **`docs/product/`** (index dans `docs/product/README.md`) |
+| **Le *COMMENT*** — architecture desktop, synchronisation, sécurité, **ADR** | `ARCHITECTURE_MVP.md` |
+| **Exploitation du nœud** (supervision, sauvegardes/restauration, incidents) | `RUNBOOK.md` |
+| **Backlog fonctionnel résiduel** (hors migration desktop) | `docs/product/README.md` |
+| **Architecture & schéma de données** | `ARCHITECTURE_MVP.md` |
+| **Déploiement (nœud magasin)** | `DOCKER.md` |
+
+> La doc produit (`docs/product/`) est dérivée du code et fait foi ; l'ancien dossier de specs
+> a été retiré. La migration desktop 3 niveaux est **livrée** (2026-06-26) ; le pilotage par roadmap
+> n'est plus actif. Avant toute tâche : lire la doc produit du module concerné et le backlog résiduel
+> (`docs/product/README.md`).
 
 ---
 
-## 3. Structure du Projet (à respecter absolument)
-
-> **Règle absolue :** le code applicatif Next.js/Prisma vit sous **`web/app/`**. Les fichiers Docker Compose et la documentation sont à la **racine du dépôt**. Les chemins de fichiers dans les tickets sont relatifs à `web/app/` sauf mention contraire.
+## 3. Stack technique
 
 ```
-aerispay/                              ← racine du dépôt (docker compose, docs)
-├── docker-compose.yml                 ← Dev : MySQL + phpMyAdmin + app
-├── docker-compose.prod.yml            ← Prod : image buildée + MySQL
-├── DOCKER.md
-├── CLAUDE.md                          ← ce fichier
-├── ROADMAP.md
-├── ARCHITECTURE_MVP.md
-├── CONVENTIONS.md
-├── TODO.md
-├── SPECS/
-│   ├── AUTH.md
-│   ├── STOCK.md
-│   ├── CAISSE.md
-│   ├── IMPRESSION.md
-│   ├── PERIPHERIQUES.md               ← périphériques caisse (web vs serveur, ordre, Docker)
-│   ├── MULTI_ORGANISATION.md          ← multi-magasins, local + sauvegarde ; rôles groupe/PDV → SPECS/AUTH.md
-│   ├── PAGES_MVP.md                  ← pages / routes App Router MVP : actions & règles
-│   ├── DASHBOARD.md                  ← KPI, graphiques, /api/dashboard/kpis
-│   └── ACTIVITY_LOG.md
-└── web/                               ← artefacts applicatifs
-    ├── Dockerfile                     ← Image production Next.js (standalone)
-    ├── development.env.example        ← Exemple variables développement (copier vers .env racine)
-    ├── production.env.example         ← Exemple variables production
-    └── app/                           ← Application Next.js — npm/npx/prisma depuis ici
-        ├── app/
-        │   ├── (auth)/
-        │   │   └── login/page.tsx
-        │   ├── (dashboard)/
-        │   │   ├── layout.tsx         ← sidebar + navbar
-        │   │   ├── page.tsx           ← dashboard KPIs
-        │   │   ├── users/             ← ADMIN uniquement : liste + création de comptes
-        │   │   │   ├── page.tsx
-        │   │   │   └── nouveau/page.tsx
-        │   │   ├── activity-logs/     ← ADMIN + MANAGER : journal d’audit
-        │   │   │   └── page.tsx
-        │   │   ├── stock/
-        │   │   │   ├── page.tsx
-        │   │   │   ├── [id]/page.tsx
-        │   │   │   ├── nouveau/page.tsx
-        │   │   │   ├── categories/page.tsx
-        │   │   │   └── mouvements/page.tsx
-        │   │   └── caisse/
-        │   │       ├── page.tsx       ← interface POS principale
-        │   │       ├── sessions/page.tsx
-        │   │       ├── ventes/page.tsx
-        │   │       └── tickets/[id]/page.tsx
-        │   └── api/
-        │       ├── auth/[...nextauth]/route.ts
-        │       ├── users/route.ts       ← GET liste / POST création (ADMIN uniquement)
-        │       ├── users/[id]/route.ts  ← GET / PUT / désactivation (ADMIN uniquement)
-        │       ├── activity-logs/route.ts ← GET liste paginée (ADMIN + MANAGER)
-        │       ├── produits/route.ts
-        │       ├── produits/[id]/route.ts
-        │       ├── categories/route.ts
-        │       ├── stock/mouvements/route.ts
-        │       ├── stock/alertes/route.ts
-        │       ├── caisse/sessions/route.ts
-        │       ├── caisse/sessions/[id]/route.ts
-        │       ├── ventes/route.ts
-        │       ├── ventes/[id]/route.ts
-        │       ├── ventes/[id]/annuler/route.ts
-        │       ├── tickets/[id]/pdf/route.ts
-        │       ├── tickets/[id]/print/route.ts   ← impression thermique ESC/POS
-        │       ├── cash-drawer/open/route.ts      ← tiroir-caisse
-        │       └── dashboard/kpis/route.ts
-        ├── components/
-        │   ├── ui/                    ← shadcn/ui uniquement, ne pas modifier
-        │   ├── stock/
-        │   │   ├── ProductCard.tsx
-        │   │   ├── ProductForm.tsx
-        │   │   ├── StockAlertBadge.tsx
-        │   │   └── MovementTable.tsx
-        │   ├── caisse/
-        │   │   ├── POSGrid.tsx
-        │   │   ├── Cart.tsx
-        │   │   ├── PaymentModal.tsx
-        │   │   └── ReceiptPreview.tsx
-        │   ├── users/                 ← ADMIN — gestion des comptes
-        │   │   ├── UserForm.tsx
-        │   │   └── UsersTable.tsx
-        │   ├── activity-logs/
-        │   │   └── ActivityLogTable.tsx
-        │   └── shared/
-        │       ├── Navbar.tsx
-        │       ├── Sidebar.tsx
-        │       ├── KPICard.tsx
-        │       └── DataTable.tsx
-        ├── hooks/                     ← TanStack Query hooks personnalisés (ex. useProduits.ts)
-        ├── store/                     ← Zustand stores (ex. cartStore.ts)
-        ├── lib/
-        │   ├── db.ts                  ← singleton Prisma client
-        │   ├── auth.ts                ← config NextAuth
-        │   ├── activity-log.ts        ← logActivity + constantes d’actions
-        │   ├── validations/
-        │   │   ├── produit.ts
-        │   │   ├── vente.ts
-        │   │   └── session.ts
-        │   ├── receipt/
-        │   │   ├── pdf-generator.ts
-        │   │   └── thermal-printer.ts
-        │   └── utils.ts
-        ├── prisma/
-        │   ├── schema.prisma
-        │   └── seed.ts
-        └── types/
-            └── index.ts
+Client desktop : Electron (main Node : périphériques ; renderer : UI du nœud) — livré sous `desktop/`
+Frontend       : Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS · shadcn/ui
+State          : Zustand (panier POS) · TanStack Query (données async)
+Forms          : React Hook Form + Zod
+Backend (nœud) : Next.js API Routes · Prisma · MySQL
+Auth           : NextAuth.js v5 (credentials) — au niveau nœud magasin
+PDF            : @react-pdf/renderer
+Thermique      : node-thermal-printer (ESC/POS) — dans le main Electron (`desktop/src/devices.ts`) ;
+                 contenu du ticket construit par `web/app` (`lib/receipt/buildReceiptContent`)
+Sync           : worker magasin ↔ cloud, outbox EventCaisse (référence descendante / transactionnel montant)
+Tests          : Vitest + React Testing Library + Cypress/Playwright (e2e)
+Qualité        : ESLint + Prettier
 ```
 
 ---
 
-## 4. Règles Impératives pour les Agents
+## 4. Structure du dépôt
 
-### 4.1 Avant de coder
-- Toujours lire `CONVENTIONS.md` avant d’écrire du code
-- Toujours lire `ARCHITECTURE_MVP.md` pour le schéma Prisma de référence et la liste des endpoints
-- Toujours lire la spec du module concerné dans `SPECS/`
-- Pour toute **nouvelle page** ou écran du dashboard : vérifier `SPECS/PAGES_MVP.md` (actions, rôles) et `SPECS/DASHBOARD.md` (KPI, visibilité par rôle, API)
-- Pour toute **action métier sensible** (CRUD critique, caisse, auth) : consulter `SPECS/ACTIVITY_LOG.md` et appeler `logActivity` lorsque c’est prévu
-- Pour l’impression ticket, le tiroir-caisse et la douchette : consulter `SPECS/PERIPHERIQUES.md` en plus de `SPECS/CAISSE.md` et `SPECS/IMPRESSION.md`
-- Pour le déploiement multi-sites, sauvegarde en ligne et accès distant (sans implémenter avant d’avoir relu la spec) : `SPECS/MULTI_ORGANISATION.md`
-- Pour rôles utilisateurs (groupe **vs** point de vente, caissiers, administrateur local) : `SPECS/AUTH.md`
-- Vérifier `TODO.md` pour savoir quelle tâche est en cours
-- Appliquer le **TDD obligatoire** : écrire d’abord les tests qui décrivent le comportement attendu, les voir échouer si possible, puis implémenter le code minimal pour les faire passer
-- Ne jamais modifier les fichiers dans `components/ui/` (shadcn)
+> **Règle absolue :** le code applicatif vit sous **`web/app/src/`** (App Router, composants, lib,
+> tests dans `web/app/src/__tests__/`). Prisma sous `web/app/prisma/`. Docker Compose et docs à la
+> **racine**. Les chemins des tickets sont relatifs à `web/app/` sauf mention contraire.
 
-### 4.2 TypeScript
-- **Strict mode activé** — pas de `any`, pas de `as unknown`
-- Toutes les props de composants doivent avoir une interface ou un type nommé
-- Les réponses d'API doivent avoir un type de retour explicite
-- Utiliser les types Prisma générés (`import type { Produit } from '@prisma/client'`)
+```
+aerispay/
+├── docker-compose.yml · docker-compose.prod.yml · DOCKER.md
+├── CLAUDE.md · ARCHITECTURE_MVP.md · RUNBOOK.md · CONVENTIONS.md · README.md
+│      └ ARCHITECTURE_MVP.md = le COMMENT (topologie, ADR, sync, sécurité) · RUNBOOK.md = exploitation
+├── docs/
+│   └── product/                  ← doc produit (le QUOI), dérivée du code — 01..09 + README
+├── desktop/                       ← client Electron (niveau 1) : main périphériques + renderer kiosque
+├── cloud/                         ← schéma cloud (niveau 3) : prisma/schema.prisma (agrégation)
+└── web/
+    ├── Dockerfile · development.env.example · production.env.example
+    └── app/                       ← nœud magasin (npm/npx/prisma depuis ici)
+        ├── src/
+        │   ├── app/               ← App Router : (auth)/, (dashboard)/, api/
+        │   ├── components/        ← ui/ (shadcn, NE PAS modifier) · stock/ · comptoir/ · …
+        │   ├── lib/               ← db.ts · auth.ts · permissions.ts · activity-log.ts ·
+        │   │                         services/ (cash-movement, reconciliation, seuils, integrity) ·
+        │   │                         validations/ · receipt/ · rate-limit.ts
+        │   ├── hooks/ · store/ · types/
+        │   └── __tests__/         ← Vitest / RTL
+        └── prisma/                ← schema.prisma · migrations/ · seed
+```
 
-### 4.3 API Routes
-- Toujours valider les inputs avec **Zod** avant de toucher Prisma
-- Toujours wrapper les opérations DB dans un **try/catch**
-- Réponses d'erreur standardisées : `{ error: string, code?: string }`
-- Réponses succès : `{ data: T, message?: string }`
-- Les transactions Prisma (ex: créer vente + décrémenter stock) utilisent `prisma.$transaction()`
+(Cartographie exhaustive des pages et endpoints : `docs/product/09-pages-api.md`.)
+
+---
+
+## 5. Règles impératives
+
+### 5.1 Avant de coder
+- Lire `CONVENTIONS.md`, la doc produit du module (`docs/product/`), et le backlog résiduel (`docs/product/README.md`).
+- Pour une action sensible (caisse, ventes, auth, stock) : vérifier `docs/product/07-journal-activite.md`
+  et appeler `logActivity` lorsque c'est prévu.
+- **TDD obligatoire** : écrire les tests d'abord, les voir échouer, puis le code minimal pour les faire passer.
+- Ne jamais modifier `components/ui/` (shadcn).
+- **Next.js 16 a des breaking changes** : lire les guides sous `web/app/node_modules/next/dist/docs/`
+  avant d'écrire du code Next (cf. `web/app/AGENTS.md`).
+
+### 5.2 TypeScript
+- **Strict** — pas de `any`, pas de `as unknown`. Props typées par interface/type nommé.
+- Réponses d'API à type de retour explicite. Utiliser les types Prisma générés (`import type { Produit } from '@prisma/client'`).
+
+### 5.3 API Routes
+- Valider les inputs avec **Zod** avant Prisma. Wrapper les opérations DB dans **try/catch**.
+- Erreurs : `{ error: string, code?: string }` · Succès : `{ data: T, message?: string }`.
+- Transactions multi-écritures via `prisma.$transaction()` (ex. vente + stock + mouvements caisse).
 
 ```ts
-// ✅ Pattern API Route correct
 export async function POST(req: Request) {
   try {
-    const body = await req.json()
-    const parsed = ProduitSchema.safeParse(body)
+    const parsed = ProduitSchema.safeParse(await req.json())
     if (!parsed.success) {
       return Response.json({ error: 'Données invalides', details: parsed.error.flatten() }, { status: 400 })
     }
@@ -199,105 +142,75 @@ export async function POST(req: Request) {
 }
 ```
 
-### 4.4 Composants React
-- Composants **fonctionnels uniquement** (pas de classes)
-- Props typées avec une interface dédiée au-dessus du composant
-- Utiliser les composants shadcn/ui (`Button`, `Input`, `Table`, `Dialog`, etc.)
-- Tailwind CSS uniquement pour les styles — pas de CSS modules, pas de styled-components
-- Les formulaires utilisent **React Hook Form + Zod resolver**
+### 5.4 Composants React
+- Fonctionnels uniquement, props typées par interface dédiée. Composants shadcn/ui. Tailwind only.
+- Formulaires : React Hook Form + Zod resolver.
 
-### 4.5 Prisma & Base de données
-- Ne jamais exposer le client Prisma directement dans les composants
-- Utiliser `lib/db.ts` qui exporte le singleton
-- Les migrations se font avec `npx prisma migrate dev --name <description>`
-- Toujours mettre à jour `prisma/seed.ts` avec des données de test cohérentes
+### 5.5 Prisma & base de données
+- Ne jamais exposer le client Prisma dans les composants ; utiliser le singleton `lib/db.ts`.
+- Migrations : `npx prisma migrate dev --name <description>`. Garder `seed` cohérent.
 
-### 4.6 Gestion d'état
-- **TanStack Query** pour toutes les données serveur (fetch, cache, invalidation)
-- **Zustand** uniquement pour l'état UI local persistant (panier POS, état session)
-- Pas de Redux, pas de Context API pour la data fetching
+### 5.6 État
+- **TanStack Query** pour les données serveur · **Zustand** pour l'état UI local (panier POS).
+  Pas de Redux, pas de Context pour la data fetching.
 
-### 4.7 Sécurité
-- Toutes les API Routes doivent vérifier l'authentification via NextAuth `getServerSession()`
-- **Pas d'inscription publique** : aucune route de type `register` accessible sans session. La création d'utilisateurs se fait par **`ADMIN` uniquement** via `/api/users` (POST) et les pages `/users`
-- Les actions sensibles (annuler vente, modifier stock) doivent vérifier le rôle (`ADMIN` ou `MANAGER`)
-- Ne jamais logger de données sensibles (mots de passe, tokens)
-- Les variables d'environnement sensibles sont uniquement dans `.env.local` (non commité)
+### 5.7 Sécurité
+- Toute API Route vérifie l'authentification (`requireAuth` / `getServerSession`).
+- **Pas d'inscription publique** : création d'utilisateurs par **ADMIN** uniquement (`/api/users`).
+- Actions sensibles (annuler vente, modifier stock, force-close) : vérifier le rôle (`hasPermission`/`requireRole`).
+- Ne jamais logger de données sensibles (mots de passe, tokens). Secrets en `.env.local` (non commité) ;
+  en desktop, tokens dans le trousseau OS (voir `ARCHITECTURE_MVP.md` §8 — Sécurité).
 
-### 4.8 Tests
-- **TDD obligatoire pour chaque fonctionnalité** : les tests Vitest / RTL / Playwright sont écrits avant l’implémentation métier ou UI
-- Un ticket fonctionnel n’est terminé que si les tests ciblant le comportement demandé passent
-- Chaque API Route doit avoir un test unitaire Vitest
-- Les composants critiques (Cart, PaymentModal, ProductForm) doivent avoir des tests RTL
-- Les flux e2e critiques (vente complète, mouvement stock) doivent avoir des tests Playwright
+### 5.8 Tests
+- **TDD obligatoire** : Vitest (API/métier), RTL (composants critiques : Cart, PaymentModal, ProductForm),
+  Cypress/Playwright (flux e2e). Un ticket n'est terminé que si les tests du comportement passent.
+- Baseline de référence : `cd web/app && npx vitest run`.
 
 ---
 
-## 5. Variables d'Environnement Requises
+## 6. Variables d'environnement (nœud magasin)
 
 ```env
-# web/app/.env.local (développement — lancement Next.js sur l’hôte)
-# Avec `docker compose up` (voir docker-compose.yml), utiliser l’hôte : localhost:3306
-# Exemple complet : web/development.env.example (copier vers .env à la racine pour Docker Compose)
+# web/app/.env.local (dev — Next.js sur l'hôte ; avec docker compose, base sur localhost:3306)
 DATABASE_URL="mysql://user:password@localhost:3306/aerispay"
-NEXTAUTH_SECRET="<générer avec: openssl rand -base64 32>"
-NEXTAUTH_URL="http://localhost:3000"
-
-# Optionnel pour production
-NEXT_PUBLIC_APP_NAME="AerisPay"
-NEXT_PUBLIC_APP_VERSION="1.0.0"
+NEXTAUTH_SECRET="<openssl rand -base64 32>"
+NEXTAUTH_URL="http://aerispay.localhost"
+# Optionnel : NEXT_PUBLIC_APP_NAME · NEXT_PUBLIC_APP_VERSION · PRINTER_* · CASH_DRAWER_*
 ```
 
-En **production (image Docker)**, `DATABASE_URL` pointe vers le service Compose `db` (hostname `db`, port `3306`), pas `localhost` — voir `web/production.env.example` et `DOCKER.md`.
+En **production**, `DATABASE_URL` pointe vers le service Compose `db` (hostname `db`) — voir `DOCKER.md`.
 
 ---
 
-## 6. Commandes Utiles
+## 7. Commandes utiles
 
 ```bash
-# Démarrage
-npm run dev
-
-# Docker (dev : MySQL + phpMyAdmin)
-docker compose up -d
-docker compose down
-
-# Production (image app + base — détails dans DOCKER.md)
-# docker compose -f docker-compose.prod.yml --env-file docker/env/production.env up -d --build
-
-# Base de données
-npx prisma migrate dev --name <description>   # nouvelle migration
-npx prisma db push                            # sync schema sans migration
-npx prisma studio                             # UI base de données
-npx prisma db seed                            # peupler avec données de test
-
-# Tests
-npm run test                                  # Vitest
-npm run test:e2e                              # Playwright
-npm run test:coverage                         # couverture
-
-# Qualité
-npm run lint                                  # ESLint
-npm run format                                # Prettier
-npm run type-check                            # tsc --noEmit
+npm run dev                                   # nœud magasin (depuis web/app/)
+docker compose up -d                          # dev : MySQL + phpMyAdmin (depuis la racine)
+npx prisma migrate dev --name <desc>          # migration
+npx prisma db seed                            # données de test
+npm run test                                  # Vitest      ·  npm run test:e2e     # Cypress
+npm run lint  ·  npm run format  ·  npm run type-check
 ```
 
 ---
 
-## 7. Comportement Attendu des Agents
+## 8. Comportement attendu des agents
 
-Quand un agent travaille sur ce projet, il doit :
+1. **Lire ce fichier en entier.**
+2. Identifier la tâche dans le **backlog fonctionnel résiduel** (`docs/product/README.md`) ; pour une nouvelle vague de travail, créer un document de pilotage dédié.
+3. Lire la **doc produit** du module (`docs/product/`) et `CONVENTIONS.md`.
+4. **Écrire/mettre à jour les tests d'abord** (TDD), puis du code complet et fonctionnel (pas de pseudo-code, pas de `// TODO`).
+5. Tester avant de marquer terminé ; **mettre à jour la doc produit concernée** si le comportement change.
+6. Ne pas modifier `CLAUDE.md` ou les ADR sans instruction explicite.
 
-1. **Lire ce fichier en entier** avant de commencer
-2. **Identifier la tâche** dans `TODO.md`
-3. **Lire la spec** dans `SPECS/<MODULE>.md`
-4. **Respecter les conventions** de `CONVENTIONS.md`
-5. **Écrire ou mettre à jour les tests d’abord** pour le comportement attendu
-6. **Écrire du code complet et fonctionnel** — pas de pseudo-code, pas de `// TODO`
-7. **Tester** le code qu'il écrit avant de marquer la tâche comme terminée
-8. **Mettre à jour `TODO.md`** une fois la tâche complétée
-9. **Ne jamais modifier** `CLAUDE.md`, `ROADMAP.md` ou les specs sans instruction explicite
+### 8.1 Specs & plans d'implémentation — **éphémères**
+Les documents de **spec** (`docs/superpowers/specs/`) et de **plan d'implémentation** sont des artefacts de travail **temporaires**, pas de la doc pérenne. Dès qu'une fonctionnalité est **implémentée et vérifiée** (tests verts), **supprimer** le fichier de spec et le fichier de plan correspondants — dans le **même commit/PR** que la fin de l'implémentation. La connaissance pérenne va dans la **doc produit** (`docs/product/`, le QUOI) et `ARCHITECTURE_MVP.md` (le COMMENT + ADR), pas dans les specs/plans.
+
+### 8.2 Convention de commit
+- **Aucun commit automatique.** C'est **l'utilisateur** qui réalise les commits. Ne jamais lancer `git commit` (ni `git add` en vue d'un commit) sans une **instruction explicite et précise** de l'utilisateur le demandant. À la fin d'une tâche : s'arrêter, signaler que le travail est terminé et prêt à committer (un message peut être suggéré), puis attendre. Cette règle prime sur toute consigne d'exécution de plan (y compris `scripts/run-plans.sh`) qui supposerait un commit par tâche.
+- Les messages de commit **ne contiennent jamais** de mention de **co-auteur** (`Co-Authored-By`). (Le trailer `Claude-Session:` reste autorisé.)
 
 ---
 
-*AerisPay MVP · Dernière mise à jour : Avril 2026*
+*AerisPay · architecture desktop 3 niveaux · doc produit dérivée du code (`docs/product/`).*
