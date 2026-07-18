@@ -11,7 +11,7 @@ import type { Role } from "@prisma/client";
 vi.mock("@/lib/db", () => ({
   prisma: {
     comptoirSession: { findFirst: vi.fn(), create: vi.fn() },
-    caisse: { findFirst: vi.fn(), findMany: vi.fn(), findUnique: vi.fn() },
+    terminalCaisse: { findFirst: vi.fn(), findMany: vi.fn(), findUnique: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -53,7 +53,7 @@ describe("Lot G — FOND_OUVERTURE à l'ouverture", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     POST = (await import("@/app/api/comptoir/sessions/route")).POST;
-    (prisma.caisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: "caisse-1", active: true }]);
+    (prisma.terminalCaisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: "caisse-1", active: true }]);
     (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn: Function) => {
       const tx = {
         comptoirSession: {

@@ -8,7 +8,7 @@ import type { Role } from "@prisma/client";
 vi.mock("@/lib/db", () => ({
   prisma: {
     comptoirSession: { findUnique: vi.fn() },
-    caisse: { findFirst: vi.fn(), findUnique: vi.fn() },
+    terminalCaisse: { findFirst: vi.fn(), findUnique: vi.fn() },
     mouvementCaisse: { create: vi.fn(), findMany: vi.fn() },
     seuilCaisse: { findMany: vi.fn() },
     $transaction: vi.fn(),
@@ -27,11 +27,11 @@ vi.mock("@/lib/activity-log", () => ({
 vi.mock("@/lib/services/cash-movement", () => ({
   createMovement: vi.fn().mockResolvedValue({
     id: "mv-1", type: "RETRAIT", mode: "ESPECES", montant: -1000,
-    caisseId: "caisse-1", auteurId: "user-1", createdAt: new Date(),
+    terminalId: "caisse-1", auteurId: "user-1", createdAt: new Date(),
   }),
   createMovementInTx: vi.fn().mockResolvedValue({
     id: "mv-1", type: "RETRAIT", mode: "ESPECES", montant: -1000,
-    caisseId: "caisse-1", auteurId: "user-1", createdAt: new Date(),
+    terminalId: "caisse-1", auteurId: "user-1", createdAt: new Date(),
   }),
   computeSoldeCaisseParMode: vi.fn(),
 }));
@@ -65,7 +65,7 @@ describe("P1-003: Withdrawal atomicity (comptoir/movements)", () => {
     (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: "s-1", statut: "OUVERTE", userId: "user-1",
     });
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
+    (prisma.terminalCaisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
   });
 
   it("withdrawal succeeds when balance is sufficient", async () => {
@@ -118,8 +118,8 @@ describe("P1-003: Withdrawal atomicity (caisse/[id]/mouvements)", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    POST = (await import("@/app/api/caisse/[id]/mouvements/route")).POST;
-    (prisma.caisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
+    POST = (await import("@/app/api/terminaux/[id]/mouvements/route")).POST;
+    (prisma.terminalCaisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
   });
 
   it("withdrawal rejected when balance is 0", async () => {
@@ -129,7 +129,7 @@ describe("P1-003: Withdrawal atomicity (caisse/[id]/mouvements)", () => {
     ]);
 
     const res = await POST(
-      new Request("http://localhost/api/caisse/caisse-1/mouvements", {
+      new Request("http://localhost/api/terminaux/caisse-1/mouvements", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

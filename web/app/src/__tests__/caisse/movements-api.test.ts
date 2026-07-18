@@ -6,7 +6,7 @@ import type { Role } from "@prisma/client";
 vi.mock("@/lib/db", () => ({
   prisma: {
     comptoirSession: { findUnique: vi.fn() },
-    caisse: { findFirst: vi.fn() },
+    terminalCaisse: { findFirst: vi.fn() },
     mouvementCaisse: { create: vi.fn(), findMany: vi.fn() },
     seuilCaisse: { findMany: vi.fn() },
   },
@@ -24,7 +24,7 @@ vi.mock("@/lib/activity-log", () => ({
 vi.mock("@/lib/services/cash-movement", () => ({
   createMovement: vi.fn().mockResolvedValue({
     id: "mv-1", type: "APPORT", mode: "ESPECES", montant: 5000,
-    caisseId: "caisse-1", auteurId: "user-1", createdAt: new Date(),
+    terminalId: "caisse-1", auteurId: "user-1", createdAt: new Date(),
   }),
   computeSoldeCaisseParMode: vi.fn().mockResolvedValue([
     { mode: "ESPECES", solde: 50000 },
@@ -59,7 +59,7 @@ function jsonReq(body: Record<string, unknown>): Request {
   });
 }
 
-const openSession = { id: "s-1", statut: "OUVERTE", userId: "user-1", caisseId: "caisse-1" };
+const openSession = { id: "s-1", statut: "OUVERTE", userId: "user-1", terminalId: "caisse-1" };
 const fakeCaisse = { id: "caisse-1" };
 
 const validApport = {
@@ -77,10 +77,10 @@ describe("POST /api/comptoir/movements", () => {
     vi.clearAllMocks();
     POST = (await import("@/app/api/comptoir/movements/route")).POST;
     (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(openSession);
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(fakeCaisse);
+    (prisma.terminalCaisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(fakeCaisse);
     (createMovement as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: "mv-1", type: "APPORT", mode: "ESPECES", montant: 5000,
-      caisseId: "caisse-1", auteurId: "user-1", createdAt: new Date(),
+      terminalId: "caisse-1", auteurId: "user-1", createdAt: new Date(),
     });
     (computeSoldeCaisseParMode as ReturnType<typeof vi.fn>).mockResolvedValue([
       { mode: "ESPECES", solde: 50000 },
@@ -102,7 +102,7 @@ describe("POST /api/comptoir/movements", () => {
     const res = await POST(jsonReq(validApport));
     expect(res.status).toBe(201);
     expect(createMovement).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "APPORT", mode: "ESPECES", montant: 5000, caisseId: "caisse-1" }),
+      expect.objectContaining({ type: "APPORT", mode: "ESPECES", montant: 5000, terminalId: "caisse-1" }),
     );
   });
 

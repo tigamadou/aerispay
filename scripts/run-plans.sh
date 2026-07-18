@@ -68,11 +68,21 @@ count_pending_plans() {
   find "$REPO_ROOT/$PLANS_DIR" -maxdepth 1 -type f -name '*.md' ! -name 'README.md' 2>/dev/null | wc -l | tr -d ' '
 }
 
-# Détecte une limite d'usage / rate-limit dans la FIN du log uniquement (le message
-# d'erreur apparaît en queue de flux). Motifs stricts pour éviter les faux positifs
-# venant du contenu métier (tests, code) au milieu du flux.
+# Détecte une VRAIE limite d'usage / rate-limit. On ancre sur l'enveloppe d'erreur
+# du flux stream-json (un événement final "type":"result" avec "is_error":true),
+# PAS sur des mots libres : le log contient tout le flux (texte, raisonnement,
+# résultats d'outils = contenu des fichiers lus). Un simple grep de mots-clés
+# produit des faux positifs dès que le contenu métier mentionne « rate limit »,
+# « 429 », « overloaded »… (ce script lui-même contient ces chaînes). On exige
+# DONC à la fois is_error:true ET une phrase de quota, et on retire les tokens
+# trop génériques (429, reset at).
 hit_usage_limit() {
-  tail -n 80 "$1" | grep -qiE 'usage limit reached|rate.?limit|too many requests|429|overloaded|quota exceeded|reset at'
+  # 1) Type d'erreur API explicite : chaînes techniques (rate_limit_error /
+  #    overloaded_error) absentes du contenu métier normal. Robuste en text ET json.
+  tail -n 30 "$1" | grep -qiE 'rate_limit_error|overloaded_error' && return 0
+  # 2) Sinon : enveloppe d'erreur stream-json (is_error:true) ET phrase de quota.
+  tail -n 20 "$1" | grep -qE '"is_error"[[:space:]]*:[[:space:]]*true' \
+    && tail -n 20 "$1" | grep -qiE 'usage limit|too many requests|overloaded|quota'
 }
 
 # Consigne de concision injectée dans le system prompt pour économiser les tokens.

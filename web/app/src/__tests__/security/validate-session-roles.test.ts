@@ -6,7 +6,7 @@ import type { Role } from "@prisma/client";
 vi.mock("@/lib/db", () => ({
   prisma: {
     comptoirSession: { findUnique: vi.fn(), update: vi.fn() },
-    caisse: { findFirst: vi.fn().mockResolvedValue({ id: "caisse-1" }) },
+    terminalCaisse: { findFirst: vi.fn().mockResolvedValue({ id: "caisse-1" }) },
     mouvementCaisse: { findMany: vi.fn().mockResolvedValue([]) },
     seuilCaisse: { findMany: vi.fn().mockResolvedValue([]) },
   },

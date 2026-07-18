@@ -7,7 +7,7 @@ interface CreateMovementParams {
   type: TypeMouvementCaisse;
   mode: string;
   montant: number;
-  caisseId: string;
+  terminalId: string;
   auteurId: string;
   sessionId?: string;
   venteId?: string;
@@ -37,7 +37,7 @@ export async function createMovementInTx(
       type: params.type,
       mode: params.mode,
       montant: params.montant,
-      caisseId: params.caisseId,
+      terminalId: params.terminalId,
       sessionId: params.sessionId ?? null,
       auteurId: params.auteurId,
       venteId: params.venteId ?? null,
@@ -58,7 +58,7 @@ export async function createMovement(params: CreateMovementParams) {
       type: params.type,
       mode: params.mode,
       montant: params.montant,
-      caisseId: params.caisseId,
+      terminalId: params.terminalId,
       sessionId: params.sessionId ?? null,
       auteurId: params.auteurId,
       venteId: params.venteId ?? null,
@@ -78,11 +78,11 @@ export async function createMovement(params: CreateMovementParams) {
  * `computeSoldeSession`, qui est scopé à la session et inclut le FOND_OUVERTURE.
  */
 export async function computeSoldeCaisseParMode(
-  caisseId: string,
+  terminalId: string,
 ): Promise<SoldeTheoriqueParMode[]> {
   const result = await prisma.mouvementCaisse.groupBy({
     by: ["mode"],
-    where: { caisseId },
+    where: { terminalId },
     _sum: { montant: true },
   });
 
@@ -143,7 +143,7 @@ export async function leverRecettesInTx(
   tx: Prisma.TransactionClient,
   params: {
     sessionId: string;
-    caisseId: string;
+    terminalId: string;
     auteurId: string;
     floatParMode: Record<string, number>;
     justificatif?: string;
@@ -160,7 +160,7 @@ export async function leverRecettesInTx(
         type: "LEVEE",
         mode,
         montant: -aLever,
-        caisseId: params.caisseId,
+        terminalId: params.terminalId,
         sessionId: params.sessionId,
         auteurId: params.auteurId,
         motif: "Levée des recettes vers le coffre (clôture)",
@@ -231,9 +231,9 @@ export async function listMovements(sessionId: string) {
 /**
  * List all movements for a caisse, ordered by creation time (desc).
  */
-export async function listCaisseMovements(caisseId: string) {
+export async function listCaisseMovements(terminalId: string) {
   return prisma.mouvementCaisse.findMany({
-    where: { caisseId },
+    where: { terminalId },
     orderBy: { createdAt: "desc" },
     include: {
       auteur: { select: { id: true, nom: true } },

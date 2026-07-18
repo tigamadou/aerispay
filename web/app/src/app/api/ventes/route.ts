@@ -86,10 +86,10 @@ export async function POST(req: Request) {
 
     const { sessionId, lignes, paiements, remise, nomClient, notesCaissier } = parsed.data;
 
-    // Verify session is open and get caisseId + code poste from session (F1.1/F1.2)
+    // Verify session is open and get terminalId + code poste from session (F1.1/F1.2)
     const session = await prisma.comptoirSession.findUnique({
       where: { id: sessionId },
-      select: { id: true, statut: true, caisseId: true, caisse: { select: { code: true } } },
+      select: { id: true, statut: true, terminalId: true, terminal: { select: { code: true } } },
     });
     if (!session || session.statut !== "OUVERTE") {
       return Response.json(
@@ -97,8 +97,8 @@ export async function POST(req: Request) {
         { status: 422 }
       );
     }
-    const caisseId = session.caisseId;
-    const codePoste = session.caisse.code;
+    const terminalId = session.terminalId;
+    const codePoste = session.terminal.code;
 
     // Fetch active taxes from config
     const activeTaxes = await prisma.taxe.findMany({
@@ -262,7 +262,7 @@ export async function POST(req: Request) {
                 type: "VENTE",
                 mode: createdPaiement.mode,
                 montant: paiementMontant,
-                caisseId,
+                terminalId,
                 sessionId,
                 auteurId: result.user.id,
                 venteId: newVente.id,

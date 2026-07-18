@@ -14,7 +14,7 @@ vi.mock("electron", () => ({
 import { encodeConfigFile, decodeConfigFile } from "../config-store";
 import type { PosteConfig } from "../config";
 
-const config: PosteConfig = { nodeUrl: "https://x:3000", caisseId: "c1", codePoste: "P1", nom: "Entrée" };
+const config: PosteConfig = { nodeUrl: "https://x:3000", terminalId: "c1", codePoste: "P1", nom: "Entrée" };
 // faux chiffrement réversible (base64) pour le test
 const enc = (s: string) => Buffer.from(s, "utf8").toString("base64");
 const dec = (b64: string) => Buffer.from(b64, "base64").toString("utf8");
@@ -36,6 +36,6 @@ describe("config-store (purs)", () => {
   });
 
   it("champ storeTokenEnc absent → null", () => {
-    expect(decodeConfigFile(JSON.stringify({ nodeUrl: "x", caisseId: "c1" }), dec)).toBeNull();
+    expect(decodeConfigFile(JSON.stringify({ nodeUrl: "x", terminalId: "c1" }), dec)).toBeNull();
   });
 });

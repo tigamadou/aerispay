@@ -1,15 +1,15 @@
 /**
  * F1.1 — CRUD admin caisses :
- * POST /api/caisse — création (ADMIN only)
- * PUT /api/caisse/[id] — mise à jour (ADMIN only)
- * DELETE /api/caisse/[id] — soft-delete (ADMIN only, refusé si session OUVERTE)
+ * POST /api/terminaux — création (ADMIN only)
+ * PUT /api/terminaux/[id] — mise à jour (ADMIN only)
+ * DELETE /api/terminaux/[id] — soft-delete (ADMIN only, refusé si session OUVERTE)
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Role } from "@prisma/client";
 
 vi.mock("@/lib/db", () => ({
   prisma: {
-    caisse: { create: vi.fn(), findUnique: vi.fn(), update: vi.fn(), findMany: vi.fn() },
+    terminalCaisse: { create: vi.fn(), findUnique: vi.fn(), update: vi.fn(), findMany: vi.fn() },
     comptoirSession: { findFirst: vi.fn() },
   },
 }));
@@ -18,9 +18,9 @@ vi.mock("@/auth", () => ({ auth: vi.fn() }));
 vi.mock("@/lib/activity-log", () => ({
   logActivity: vi.fn(),
   ACTIONS: {
-    CAISSE_CREATED: "CAISSE_CREATED",
-    CAISSE_UPDATED: "CAISSE_UPDATED",
-    CAISSE_DEACTIVATED: "CAISSE_DEACTIVATED",
+    TERMINAL_CREATED: "CAISSE_CREATED",
+    TERMINAL_UPDATED: "CAISSE_UPDATED",
+    TERMINAL_DEACTIVATED: "CAISSE_DEACTIVATED",
   },
   getClientIp: vi.fn(),
   getClientUserAgent: vi.fn(),
@@ -37,21 +37,21 @@ function mockUser(role: Role, id = "admin-1") {
 
 const fakeCaisse = { id: "caisse-1", code: "P1", nom: "Caisse principale", active: true, createdAt: new Date() };
 
-describe("POST /api/caisse — création", () => {
+describe("POST /api/terminaux — création", () => {
   let POST: (req: Request) => Promise<Response>;
   beforeEach(async () => {
     vi.clearAllMocks();
-    POST = (await import("@/app/api/caisse/route")).POST;
+    POST = (await import("@/app/api/terminaux/route")).POST;
   });
 
   const req = (b: unknown) =>
-    new Request("http://localhost/api/caisse", {
+    new Request("http://localhost/api/terminaux", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b),
     });
 
   it("ADMIN crée une caisse → 201", async () => {
     mockUser("ADMIN");
-    (prisma.caisse.create as ReturnType<typeof vi.fn>).mockResolvedValue(fakeCaisse);
+    (prisma.terminalCaisse.create as ReturnType<typeof vi.fn>).mockResolvedValue(fakeCaisse);
     const res = await POST(req({ code: "P3", nom: "Caisse principale" }));
     expect(res.status).toBe(201);
     expect((await res.json()).data.nom).toBe("Caisse principale");
@@ -82,23 +82,23 @@ describe("POST /api/caisse — création", () => {
   });
 });
 
-describe("PUT /api/caisse/[id] — mise à jour", () => {
+describe("PUT /api/terminaux/[id] — mise à jour", () => {
   let PUT: (req: Request, ctx: { params: Promise<{ id: string }> }) => Promise<Response>;
   beforeEach(async () => {
     vi.clearAllMocks();
-    PUT = (await import("@/app/api/caisse/[id]/route")).PUT;
+    PUT = (await import("@/app/api/terminaux/[id]/route")).PUT;
   });
 
   const req = (b: unknown) =>
-    new Request("http://localhost/api/caisse/caisse-1", {
+    new Request("http://localhost/api/terminaux/caisse-1", {
       method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b),
     });
   const ctx = { params: Promise.resolve({ id: "caisse-1" }) };
 
   it("ADMIN renomme → 200", async () => {
     mockUser("ADMIN");
-    (prisma.caisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(fakeCaisse);
-    (prisma.caisse.update as ReturnType<typeof vi.fn>).mockResolvedValue({ ...fakeCaisse, nom: "Nouveau" });
+    (prisma.terminalCaisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(fakeCaisse);
+    (prisma.terminalCaisse.update as ReturnType<typeof vi.fn>).mockResolvedValue({ ...fakeCaisse, nom: "Nouveau" });
     const res = await PUT(req({ nom: "Nouveau" }), ctx);
     expect(res.status).toBe(200);
     expect((await res.json()).data.nom).toBe("Nouveau");
@@ -106,7 +106,7 @@ describe("PUT /api/caisse/[id] — mise à jour", () => {
 
   it("introuvable → 404", async () => {
     mockUser("ADMIN");
-    (prisma.caisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (prisma.terminalCaisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     const res = await PUT(req({ nom: "X" }), { params: Promise.resolve({ id: "x" }) });
     expect(res.status).toBe(404);
   });
@@ -118,21 +118,21 @@ describe("PUT /api/caisse/[id] — mise à jour", () => {
   });
 });
 
-describe("DELETE /api/caisse/[id] — soft-delete", () => {
+describe("DELETE /api/terminaux/[id] — soft-delete", () => {
   let DELETE_fn: (req: Request, ctx: { params: Promise<{ id: string }> }) => Promise<Response>;
   beforeEach(async () => {
     vi.clearAllMocks();
-    DELETE_fn = (await import("@/app/api/caisse/[id]/route")).DELETE;
+    DELETE_fn = (await import("@/app/api/terminaux/[id]/route")).DELETE;
   });
 
-  const req = () => new Request("http://localhost/api/caisse/caisse-1", { method: "DELETE" });
+  const req = () => new Request("http://localhost/api/terminaux/caisse-1", { method: "DELETE" });
   const ctx = { params: Promise.resolve({ id: "caisse-1" }) };
 
   it("ADMIN désactive sans session ouverte → 200", async () => {
     mockUser("ADMIN");
-    (prisma.caisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(fakeCaisse);
+    (prisma.terminalCaisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(fakeCaisse);
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-    (prisma.caisse.update as ReturnType<typeof vi.fn>).mockResolvedValue({ ...fakeCaisse, active: false });
+    (prisma.terminalCaisse.update as ReturnType<typeof vi.fn>).mockResolvedValue({ ...fakeCaisse, active: false });
     const res = await DELETE_fn(req(), ctx);
     expect(res.status).toBe(200);
     expect((await res.json()).data.active).toBe(false);
@@ -140,7 +140,7 @@ describe("DELETE /api/caisse/[id] — soft-delete", () => {
 
   it("refus si session OUVERTE → 409", async () => {
     mockUser("ADMIN");
-    (prisma.caisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(fakeCaisse);
+    (prisma.terminalCaisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(fakeCaisse);
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE" });
     const res = await DELETE_fn(req(), ctx);
     expect(res.status).toBe(409);
@@ -148,7 +148,7 @@ describe("DELETE /api/caisse/[id] — soft-delete", () => {
 
   it("introuvable → 404", async () => {
     mockUser("ADMIN");
-    (prisma.caisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (prisma.terminalCaisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     const res = await DELETE_fn(req(), { params: Promise.resolve({ id: "x" }) });
     expect(res.status).toBe(404);
   });

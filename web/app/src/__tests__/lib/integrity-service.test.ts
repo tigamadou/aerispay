@@ -20,7 +20,7 @@ const createdAt = new Date("2026-01-01T09:00:00Z");
 
 const fakeSession = {
   id: "s-1",
-  caisseId: "caisse-1",
+  terminalId: "caisse-1",
   userId: "u-1",
   ouvertureAt,
   declarationsCaissier: { ESPECES: 60000 },
@@ -75,7 +75,7 @@ describe("computeHashForSession", () => {
     expect(hashWithPrev).not.toBe(hashWithoutPrev);
   });
 
-  it("F1.3 — le chaînage filtre la session précédente par caisseId", async () => {
+  it("F1.3 — le chaînage filtre la session précédente par terminalId", async () => {
     (prisma.comptoirSession.findUniqueOrThrow as ReturnType<typeof vi.fn>).mockResolvedValue(fakeSession);
     (prisma.mouvementCaisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue(fakeMovements);
     let prevWhere: Record<string, unknown> | undefined;
@@ -87,7 +87,7 @@ describe("computeHashForSession", () => {
     );
 
     await computeHashForSession("s-1", fermetureAt);
-    expect(prevWhere).toMatchObject({ caisseId: "caisse-1" });
+    expect(prevWhere).toMatchObject({ terminalId: "caisse-1" });
   });
 
   it("gère la première session (pas de hash précédent)", async () => {
@@ -121,7 +121,7 @@ describe("verifySessionIntegrity", () => {
     // Compute expected hash first
     const expectedHash = computeSessionHash({
       sessionId: "s-1",
-      caisseId: "caisse-1",
+      terminalId: "caisse-1",
       userId: "u-1",
       ouvertureAt: ouvertureAt.toISOString(),
       validationAt: fermetureAt.toISOString(),

@@ -107,10 +107,10 @@ export default defineConfig({
         },
         async ensureCaisseHasFunds(_: null) {
           const prisma = getPrismaPlugin();
-          const caisse = await prisma.caisse.findFirst({ where: { active: true } });
+          const caisse = await prisma.terminalCaisse.findFirst({ where: { active: true } });
           if (!caisse) throw new Error("Aucune caisse active");
           // Check if there are already movements
-          const count = await prisma.mouvementCaisse.count({ where: { caisseId: caisse.id } });
+          const count = await prisma.mouvementCaisse.count({ where: { terminalId: caisse.id } });
           if (count > 0) return caisse.id;
           // Get admin user
           const admin = await prisma.user.findFirst({ where: { role: "ADMIN" } });
@@ -121,7 +121,7 @@ export default defineConfig({
               type: "FOND_INITIAL",
               mode: "ESPECES",
               montant: 100000,
-              caisseId: caisse.id,
+              terminalId: caisse.id,
               auteurId: admin.id,
               motif: "Fond initial e2e",
             },

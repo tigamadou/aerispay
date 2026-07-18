@@ -15,7 +15,7 @@ export async function GET(
   try {
     const { id } = await params;
 
-    const caisse = await prisma.caisse.findUnique({
+    const caisse = await prisma.terminalCaisse.findUnique({
       where: { id },
       select: { id: true, nom: true, active: true },
     });
@@ -35,7 +35,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("[GET /api/caisse/[id]/soldes]", error);
+    console.error("[GET /api/terminaux/[id]/soldes]", error);
     return Response.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }

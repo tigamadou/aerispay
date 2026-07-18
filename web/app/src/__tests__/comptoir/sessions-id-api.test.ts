@@ -8,7 +8,7 @@ vi.mock("@/lib/db", () => ({
     paiement: { aggregate: vi.fn(), findMany: vi.fn() },
     vente: { aggregate: vi.fn() },
     mouvementCaisse: { findMany: vi.fn() },
-    caisse: { findFirst: vi.fn() },
+    terminalCaisse: { findFirst: vi.fn() },
   },
 }));
 
@@ -80,7 +80,7 @@ describe("GET /api/comptoir/sessions/[id]", () => {
     (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
     (prisma.mouvementCaisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     (prisma.paiement.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
+    (prisma.terminalCaisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
 
     const res = await GET(new Request("http://localhost"), { params: Promise.resolve({ id: "s-1" }) });
     expect(res.status).toBe(200);
@@ -95,7 +95,7 @@ describe("GET /api/comptoir/sessions/[id]", () => {
     (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
     (prisma.mouvementCaisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     (prisma.paiement.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
+    (prisma.terminalCaisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
 
     // Grand livre dit 128000 pour ESPECES
     (computeSoldeCaisseParMode as ReturnType<typeof vi.fn>).mockResolvedValue([
@@ -185,7 +185,7 @@ describe("PUT /api/comptoir/sessions/[id] (close)", () => {
     mockSession("CAISSIER", "user-1");
     (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
     mockVenteAggregateForClose();
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
+    (prisma.terminalCaisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
     (prisma.comptoirSession.update as ReturnType<typeof vi.fn>).mockResolvedValue({
       ...mockOpenSession, statut: "FERMEE",
       montantFermetureCash: new Decimal(76000), montantFermetureMobileMoney: new Decimal(0),
@@ -206,7 +206,7 @@ describe("PUT /api/comptoir/sessions/[id] (close)", () => {
     mockSession("ADMIN", "admin-1");
     (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(mockOpenSession);
     mockVenteAggregateForClose();
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
+    (prisma.terminalCaisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
     (prisma.comptoirSession.update as ReturnType<typeof vi.fn>).mockResolvedValue({
       ...mockOpenSession, statut: "FERMEE",
       montantFermetureCash: new Decimal(50000), montantFermetureMobileMoney: new Decimal(0),
@@ -231,7 +231,7 @@ describe("PUT /api/comptoir/sessions/[id] (close)", () => {
     };
     (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(overDeclaredSession);
     mockVenteAggregateForClose();
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
+    (prisma.terminalCaisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
 
     // Grand livre says 130000 (real: 80000 + 50000 sales)
     const { computeSoldeCaisseParMode } = await import("@/lib/services/cash-movement");

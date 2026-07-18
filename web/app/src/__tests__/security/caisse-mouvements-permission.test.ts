@@ -5,7 +5,7 @@ import type { Role } from "@prisma/client";
 
 vi.mock("@/lib/db", () => ({
   prisma: {
-    caisse: { findUnique: vi.fn() },
+    terminalCaisse: { findUnique: vi.fn() },
     mouvementCaisse: { findMany: vi.fn(), count: vi.fn(), create: vi.fn() },
     seuilCaisse: { findMany: vi.fn() },
   },
@@ -23,7 +23,7 @@ vi.mock("@/lib/activity-log", () => ({
 vi.mock("@/lib/services/cash-movement", () => ({
   createMovement: vi.fn().mockResolvedValue({
     id: "mv-1", type: "APPORT", mode: "ESPECES", montant: 5000,
-    caisseId: "caisse-1", auteurId: "user-1", createdAt: new Date(),
+    terminalId: "caisse-1", auteurId: "user-1", createdAt: new Date(),
   }),
   computeSoldeCaisseParMode: vi.fn().mockResolvedValue([
     { mode: "ESPECES", solde: 50000 },
@@ -44,7 +44,7 @@ function mockSession(role: Role, id = "user-1") {
 }
 
 function postReq(body: Record<string, unknown>): Request {
-  return new Request("http://localhost/api/caisse/caisse-1/mouvements", {
+  return new Request("http://localhost/api/terminaux/caisse-1/mouvements", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -52,7 +52,7 @@ function postReq(body: Record<string, unknown>): Request {
 }
 
 function getReq(): Request {
-  return new Request("http://localhost/api/caisse/caisse-1/mouvements", {
+  return new Request("http://localhost/api/terminaux/caisse-1/mouvements", {
     method: "GET",
   });
 }
@@ -66,16 +66,16 @@ const validBody = {
 
 const params = Promise.resolve({ id: "caisse-1" });
 
-describe("POST /api/caisse/[id]/mouvements — permission fix (P1-007)", () => {
+describe("POST /api/terminaux/[id]/mouvements — permission fix (P1-007)", () => {
   let POST: (req: Request, ctx: { params: Promise<{ id: string }> }) => Promise<Response>;
   let GET: (req: Request, ctx: { params: Promise<{ id: string }> }) => Promise<Response>;
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    const mod = await import("@/app/api/caisse/[id]/mouvements/route");
+    const mod = await import("@/app/api/terminaux/[id]/mouvements/route");
     POST = mod.POST;
     GET = mod.GET;
-    (prisma.caisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
+    (prisma.terminalCaisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
   });
 
   it("CAISSIER can POST a movement (has comptoir:mouvement_manuel)", async () => {

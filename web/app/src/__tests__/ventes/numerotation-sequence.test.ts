@@ -14,7 +14,7 @@ vi.mock("@/lib/db", () => ({
     vente: { findFirst: vi.fn(), create: vi.fn(), findMany: vi.fn(), count: vi.fn() },
     produit: { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     mouvementStock: { create: vi.fn() },
-    caisse: { findFirst: vi.fn() },
+    terminalCaisse: { findFirst: vi.fn() },
     taxe: { findMany: vi.fn().mockResolvedValue([]) },
     sequence: { upsert: vi.fn() },
     $transaction: vi.fn(),
@@ -75,8 +75,8 @@ describe("Lot E — numérotation via compteur Sequence", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     POST = (await import("@/app/api/ventes/route")).POST;
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
-    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE", caisseId: "caisse-1", caisse: { code: "P1" } });
+    (prisma.terminalCaisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
+    (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "s-1", statut: "OUVERTE", terminalId: "caisse-1", terminal: { code: "P1" } });
   });
 
   function post() {

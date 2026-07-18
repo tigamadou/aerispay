@@ -8,7 +8,7 @@ import { hashToken } from "@/lib/services/store-token";
  * fois par le poste contre un token de magasin (cf. exchange). Seul le hash est persisté.
  */
 export interface IssueEnrollmentParams {
-  caisseId: string;
+  terminalId: string;
   label?: string;
   ttlMinutes?: number;
 }
@@ -19,27 +19,27 @@ export async function issueEnrollmentToken(
   const token = randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + (params.ttlMinutes ?? 60) * 60_000);
   const created = await prisma.enrollmentToken.create({
-    data: { tokenHash: hashToken(token), caisseId: params.caisseId, label: params.label ?? null, expiresAt },
+    data: { tokenHash: hashToken(token), terminalId: params.terminalId, label: params.label ?? null, expiresAt },
   });
   return { token, id: created.id, expiresAt };
 }
 
 export interface ConsumeResult {
   valid: boolean;
-  caisseId: string | null;
+  terminalId: string | null;
   tokenId: string | null;
 }
 
 export async function consumeEnrollmentToken(token: string): Promise<ConsumeResult> {
   const record = await prisma.enrollmentToken.findUnique({ where: { tokenHash: hashToken(token) } });
   if (!record || record.consumedAt || record.expiresAt.getTime() <= Date.now()) {
-    return { valid: false, caisseId: null, tokenId: null };
+    return { valid: false, terminalId: null, tokenId: null };
   }
   // Consommation atomique : garde anti-course (un seul updateMany réussit).
   const updated = await prisma.enrollmentToken.updateMany({
     where: { id: record.id, consumedAt: null },
     data: { consumedAt: new Date() },
   });
-  if (updated.count !== 1) return { valid: false, caisseId: null, tokenId: null };
-  return { valid: true, caisseId: record.caisseId, tokenId: record.id };
+  if (updated.count !== 1) return { valid: false, terminalId: null, tokenId: null };
+  return { valid: true, terminalId: record.terminalId, tokenId: record.id };
 }

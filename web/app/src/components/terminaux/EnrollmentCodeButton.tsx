@@ -3,10 +3,12 @@
 import { useState } from "react";
 
 interface Props {
-  caisseId: string;
+  terminalId: string;
+  /** Vrai si le terminal a déjà un jeton actif (déjà associé à un poste). */
+  alreadyEnrolled?: boolean;
 }
 
-export function EnrollmentCodeButton({ caisseId }: Props) {
+export function EnrollmentCodeButton({ terminalId, alreadyEnrolled = false }: Props) {
   const [code, setCode] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +22,7 @@ export function EnrollmentCodeButton({ caisseId }: Props) {
       const res = await fetch("/api/enrollment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ caisseId }),
+        body: JSON.stringify({ terminalId }),
       });
       const body = await res.json();
       if (!res.ok) {
@@ -38,11 +40,16 @@ export function EnrollmentCodeButton({ caisseId }: Props) {
 
   return (
     <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-      <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Enrôler un poste</h3>
-      <p className="text-xs text-zinc-500">Génère un code à usage unique à saisir sur le poste de caisse.</p>
+      <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Enrôler ce terminal</h3>
+      <p className="text-xs text-zinc-500">Génère un code à usage unique à saisir sur le terminal de caisse.</p>
+      {alreadyEnrolled && (
+        <p className="mt-2 text-sm text-amber-600">
+          Terminal déjà associé à un poste. Révoquez son jeton pour ré-enrôler une autre machine.
+        </p>
+      )}
       <button
         onClick={generate}
-        disabled={loading}
+        disabled={loading || alreadyEnrolled}
         className="mt-3 rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
       >
         {loading ? "Génération…" : "Générer un code d'enrôlement"}

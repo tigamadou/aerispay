@@ -6,7 +6,7 @@ import type { PosteConfig } from "./config";
 
 interface ConfigFile {
   nodeUrl: string;
-  caisseId: string;
+  terminalId: string;
   codePoste?: string;
   nom?: string;
   /** Token de magasin chiffré (safeStorage) en base64. */
@@ -17,7 +17,7 @@ interface ConfigFile {
 export function encodeConfigFile(config: PosteConfig, storeToken: string, encrypt: (s: string) => string): string {
   const file: ConfigFile = {
     nodeUrl: config.nodeUrl,
-    caisseId: config.caisseId,
+    terminalId: config.terminalId,
     codePoste: config.codePoste,
     nom: config.nom,
     storeTokenEnc: encrypt(storeToken),
@@ -36,9 +36,9 @@ export function decodeConfigFile(
   } catch {
     return null;
   }
-  if (!parsed.nodeUrl || !parsed.caisseId || !parsed.storeTokenEnc) return null;
+  if (!parsed.nodeUrl || !parsed.terminalId || !parsed.storeTokenEnc) return null;
   return {
-    config: { nodeUrl: parsed.nodeUrl, caisseId: parsed.caisseId, codePoste: parsed.codePoste, nom: parsed.nom },
+    config: { nodeUrl: parsed.nodeUrl, terminalId: parsed.terminalId, codePoste: parsed.codePoste, nom: parsed.nom },
     storeToken: decrypt(parsed.storeTokenEnc),
   };
 }

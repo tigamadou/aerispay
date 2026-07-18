@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Role } from "@prisma/client";
 
 vi.mock("@/lib/db", () => ({
-  prisma: { caisse: { findUnique: vi.fn() } },
+  prisma: { terminalCaisse: { findUnique: vi.fn() }, storeToken: { findFirst: vi.fn().mockResolvedValue(null) } },
 }));
 vi.mock("@/auth", () => ({ auth: vi.fn() }));
 vi.mock("@/lib/activity-log", () => ({
@@ -44,35 +44,35 @@ describe("POST /api/enrollment", () => {
 
   it("ADMIN génère un code d'enrôlement pour une caisse active → 201", async () => {
     mockUser("ADMIN");
-    (prisma.caisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true, code: "P1" });
+    (prisma.terminalCaisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true, code: "P1" });
     const expiresAt = new Date(Date.now() + 3_600_000);
     issueEnrollmentToken.mockResolvedValue({ token: "a".repeat(64), id: "et-1", expiresAt });
 
-    const res = await POST(req({ caisseId: "caisse-1", label: "Poste 1" }));
+    const res = await POST(req({ terminalId: "caisse-1", label: "Poste 1" }));
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.data.enrollmentToken).toBe("a".repeat(64));
-    expect(body.data.caisseId).toBe("caisse-1");
+    expect(body.data.terminalId).toBe("caisse-1");
     expect(body.data.codePoste).toBe("P1");
-    expect(issueEnrollmentToken).toHaveBeenCalledWith({ caisseId: "caisse-1", label: "Poste 1", ttlMinutes: undefined });
+    expect(issueEnrollmentToken).toHaveBeenCalledWith({ terminalId: "caisse-1", label: "Poste 1", ttlMinutes: undefined });
   });
 
   it("CAISSIER → 403", async () => {
     mockUser("CAISSIER");
-    const res = await POST(req({ caisseId: "caisse-1" }));
+    const res = await POST(req({ terminalId: "caisse-1" }));
     expect(res.status).toBe(403);
     expect(issueEnrollmentToken).not.toHaveBeenCalled();
   });
 
   it("caisse introuvable ou inactive → 422", async () => {
     mockUser("ADMIN");
-    (prisma.caisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-    const res = await POST(req({ caisseId: "x" }));
+    (prisma.terminalCaisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    const res = await POST(req({ terminalId: "x" }));
     expect(res.status).toBe(422);
     expect(issueEnrollmentToken).not.toHaveBeenCalled();
   });
 
-  it("caisseId manquant → 400", async () => {
+  it("terminalId manquant → 400", async () => {
     mockUser("ADMIN");
     const res = await POST(req({}));
     expect(res.status).toBe(400);

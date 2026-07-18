@@ -11,7 +11,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     comptoirSession: { findUnique: vi.fn(), update: vi.fn(), findFirst: vi.fn() },
     mouvementCaisse: { findMany: vi.fn() },
-    caisse: { findFirst: vi.fn() },
+    terminalCaisse: { findFirst: vi.fn() },
   },
 }));
 
@@ -60,7 +60,7 @@ function mockUser(role: Role, id = "manager-1") {
 const pendingSession = {
   id: "s-1", statut: "EN_ATTENTE_VALIDATION", userId: "caissier-1",
   declarationsCaissier: { ESPECES: 78000 }, tentativesRecomptage: 0,
-  caisseId: "caisse-1",
+  terminalId: "caisse-1",
 };
 const ctx = { params: Promise.resolve({ id: "s-1" }) };
 
@@ -78,7 +78,7 @@ describe("Lot G — levée déclenchée à la validation", () => {
     );
     (prisma.comptoirSession.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (prisma.mouvementCaisse.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
+    (prisma.terminalCaisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
   });
 
   it("déclenche leverRecettesInTx sur VALIDATED (caissier ≡ valideur)", async () => {
@@ -91,7 +91,7 @@ describe("Lot G — levée déclenchée à la validation", () => {
     expect(res.status).toBe(200);
     expect(leverRecettesInTx).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ sessionId: "s-1", caisseId: "caisse-1", auteurId: "manager-1" }),
+      expect.objectContaining({ sessionId: "s-1", terminalId: "caisse-1", auteurId: "manager-1" }),
     );
   });
 

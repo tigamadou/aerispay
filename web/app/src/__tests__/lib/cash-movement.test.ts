@@ -25,7 +25,7 @@ const baseParams = {
   type: "APPORT" as const,
   mode: "ESPECES" as const,
   montant: 5000,
-  caisseId: "c-1",
+  terminalId: "c-1",
   auteurId: "u-1",
 };
 
@@ -46,7 +46,7 @@ describe("cash-movement service", () => {
           type: "APPORT",
           mode: "ESPECES",
           montant: 5000,
-          caisseId: "c-1",
+          terminalId: "c-1",
           auteurId: "u-1",
           sessionId: null,
           venteId: null,
@@ -134,7 +134,7 @@ describe("cash-movement service", () => {
       // Verify it uses groupBy, not findMany
       expect(prisma.mouvementCaisse.groupBy).toHaveBeenCalledWith({
         by: ["mode"],
-        where: { caisseId: "c-1" },
+        where: { terminalId: "c-1" },
         _sum: { montant: true },
       });
     });
@@ -206,7 +206,7 @@ describe("cash-movement service", () => {
       await listCaisseMovements("c-1");
 
       expect(prisma.mouvementCaisse.findMany).toHaveBeenCalledWith({
-        where: { caisseId: "c-1" },
+        where: { terminalId: "c-1" },
         orderBy: { createdAt: "desc" },
         include: {
           auteur: { select: { id: true, nom: true } },

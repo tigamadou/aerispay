@@ -49,6 +49,11 @@ export default async function DashboardLayout({ children }: { children: ReactNod
                   Caisse
                 </Link>
               )}
+              {hasPermission(role, "rapports:consulter") && (
+                <Link href="/terminaux" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
+                  Terminaux
+                </Link>
+              )}
               <Link href="/comptoir" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
                 POS
               </Link>
@@ -68,6 +73,11 @@ export default async function DashboardLayout({ children }: { children: ReactNod
               {canManageParametres && (
                 <Link href="/taxes" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
                   Taxes
+                </Link>
+              )}
+              {canManageParametres && (
+                <Link href="/modes-paiement" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
+                  Modes de paiement
                 </Link>
               )}
               {canManageParametres && (

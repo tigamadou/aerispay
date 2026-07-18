@@ -130,8 +130,8 @@ Incrément atomique → numéros uniques et monotones sous concurrence, **sans p
 ### Modèles liés
 
 - `MouvementCaisse` (`schema.prisma:204`) : `type` (`TypeMouvementCaisse`), `mode`,
-  `montant` `Decimal(10,2)`, `caisseId`, `sessionId?`, `venteId?`, `auteurId`.
-- `ComptoirSession` (`schema.prisma:126`), `Caisse` (`schema.prisma:113`),
+  `montant` `Decimal(10,2)`, `terminalId`, `sessionId?`, `venteId?`, `auteurId`.
+- `ComptoirSession` (`schema.prisma:126`), `TerminalCaisse` (`schema.prisma:113`),
   `Taxe` (`schema.prisma:381`), `ModePaiementConfig` (`schema.prisma:366`).
 
 ---
@@ -187,7 +187,7 @@ Remise : au niveau **vente**, la remise est transmise en **montant** (`remise`,
 ## 6. Numérotation (Sequence, format, atomicité)
 
 - **Format** : `VTE-<codePoste>-<annee>-<NNNNN>`, où `codePoste` est le **code de la caisse** de la
-  session (`session.caisse.code`, `route.ts:101`) et `NNNNN` la séquence sur **minimum 5 chiffres**
+  session (`session.terminal.code`, `route.ts:101`) et `NNNNN` la séquence sur **minimum 5 chiffres**
   (`padStart(5, "0")`), **sans plafond** au-delà de 99 999 (`genererNumeroVente`, `route.ts:13`).
   Le **préfixe poste** (RULE-NUM-001 / F1.2) garantit l'unicité à l'échelle de l'organisation lors
   de l'agrégation cloud de plusieurs magasins/caisses.
@@ -198,7 +198,7 @@ Remise : au niveau **vente**, la remise est transmise en **montant** (`remise`,
   protège en dernier ressort ; une collision `P2002` déclenche jusqu'à **3 re-tentatives**
   (`MAX_P2002_RETRIES`, `route.ts:8`) ; échec final → `409`
   « Conflit de numéro de vente, veuillez réessayer » (`route.ts:320`).
-- Compteur séparé par poste/année → la **séquence redémarre** chaque année, par caisse.
+- Compteur séparé par poste/année → la **séquence redémarre** chaque année, par terminal.
 
 ---
 

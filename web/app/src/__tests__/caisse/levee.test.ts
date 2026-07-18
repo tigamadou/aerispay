@@ -33,7 +33,7 @@ describe("Lot G — leverRecettesInTx", () => {
 
     const levees = await leverRecettesInTx(tx as never, {
       sessionId: "s-1",
-      caisseId: "caisse-1",
+      terminalId: "caisse-1",
       auteurId: "user-1",
       floatParMode: { ESPECES: 20000 },
       justificatif: "Levée coffre",
@@ -41,7 +41,7 @@ describe("Lot G — leverRecettesInTx", () => {
 
     // LEVEE ESPECES = -(50000 - 20000) = -30000
     expect(create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ type: "LEVEE", mode: "ESPECES", montant: -30000, sessionId: "s-1", caisseId: "caisse-1" }),
+      data: expect.objectContaining({ type: "LEVEE", mode: "ESPECES", montant: -30000, sessionId: "s-1", terminalId: "caisse-1" }),
     });
     // LEVEE MTN = -(8000 - 0) = -8000
     expect(create).toHaveBeenCalledWith({
@@ -56,7 +56,7 @@ describe("Lot G — leverRecettesInTx", () => {
   it("ne lève rien si le solde est déjà au float", async () => {
     const { tx, create } = makeTx([{ mode: "ESPECES", montant: 20000 }]);
     const levees = await leverRecettesInTx(tx as never, {
-      sessionId: "s-1", caisseId: "c-1", auteurId: "u-1", floatParMode: { ESPECES: 20000 },
+      sessionId: "s-1", terminalId: "c-1", auteurId: "u-1", floatParMode: { ESPECES: 20000 },
     });
     expect(levees).toHaveLength(0);
     expect(create).not.toHaveBeenCalled();

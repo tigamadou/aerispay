@@ -18,23 +18,24 @@ const DEFAULT_SEUILS = [
   { id: "THRESHOLD_SOLO_AUTO_VALIDATION", valeur: 0, description: "Plafond d'ecart pour l'auto-validation en mode caissier solo (FCFA, 0 = desactive)" },
 ];
 
-/** Seed la caisse par defaut et les seuils (prod + dev). */
-export async function seedDefaultCaisse(prisma: PrismaClient): Promise<void> {
-  const caisse = await prisma.caisse.upsert({
+/** Seed le terminal de caisse par defaut et les seuils (prod + dev). */
+export async function seedDefaultTerminal(prisma: PrismaClient): Promise<void> {
+  // Les id techniques restent inchanges (references par migrations et fixtures).
+  const terminal = await prisma.terminalCaisse.upsert({
     where: { id: "caisse-principale" },
-    create: { id: "caisse-principale", code: "P1", nom: "Caisse principale", active: true },
-    update: { code: "P1", nom: "Caisse principale", active: true },
+    create: { id: "caisse-principale", code: "P1", nom: "Terminal principal", active: true },
+    update: { code: "P1", nom: "Terminal principal", active: true },
   });
-  console.log(`  > Caisse: ${caisse.nom} (${caisse.id})`);
+  console.log(`  > Terminal: ${terminal.nom} (${terminal.id})`);
 
-  // F1.1 — 2ème caisse pour le multi-poste
-  const caisse2 = await prisma.caisse.upsert({
+  // F1.1 — 2ème terminal pour le multi-poste
+  const terminal2 = await prisma.terminalCaisse.upsert({
     where: { id: "caisse-2" },
-    create: { id: "caisse-2", code: "P2", nom: "Caisse 2", active: true },
-    update: { code: "P2", nom: "Caisse 2", active: true },
+    create: { id: "caisse-2", code: "P2", nom: "Terminal 2", active: true },
+    update: { code: "P2", nom: "Terminal 2", active: true },
   });
-  console.log(`  > Caisse: ${caisse2.nom} (${caisse2.id})`);
-  console.log(`\nSeed OK — Caisses par defaut creees`);
+  console.log(`  > Terminal: ${terminal2.nom} (${terminal2.id})`);
+  console.log(`\nSeed OK — Terminaux de caisse par defaut crees`);
 
   for (const seuil of DEFAULT_SEUILS) {
     await prisma.seuilCaisse.upsert({

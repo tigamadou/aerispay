@@ -29,10 +29,10 @@ export async function POST(
       );
     }
 
-    // F1.1: charge la session avec caisseId (source de vérité)
+    // F1.1: charge la session avec terminalId (source de vérité)
     const session = await prisma.comptoirSession.findUnique({
       where: { id: vente.sessionId },
-      select: { id: true, statut: true, caisseId: true },
+      select: { id: true, statut: true, terminalId: true },
     });
 
     if (!session || session.statut !== "OUVERTE") {
@@ -41,7 +41,7 @@ export async function POST(
         { status: 422 }
       );
     }
-    const caisseId = session.caisseId;
+    const terminalId = session.terminalId;
 
     const updated = await prisma.$transaction(async (tx) => {
       // Cancel the sale
@@ -88,7 +88,7 @@ export async function POST(
             type: "REMBOURSEMENT",
             mode: paiement.mode,
             montant: -paiementMontant,
-            caisseId,
+            terminalId,
             sessionId: vente.sessionId,
             auteurId: result.user.id,
             venteId: vente.id,

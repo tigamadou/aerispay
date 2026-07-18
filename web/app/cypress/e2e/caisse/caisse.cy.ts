@@ -49,12 +49,12 @@ describe("Caisse — API mouvements", () => {
 });
 
 describe("Caisse — API soldes", () => {
-  it("GET /api/caisse/:id/soldes renvoie les soldes", () => {
+  it("GET /api/terminaux/:id/soldes renvoie les soldes", () => {
     cy.loginAsCaissier();
-    cy.request("/api/caisse").then((caisseRes) => {
+    cy.request("/api/terminaux").then((caisseRes) => {
       if (caisseRes.body.data && caisseRes.body.data.id) {
-        const caisseId = caisseRes.body.data.id as string;
-        cy.request(`/api/caisse/${caisseId}/soldes`).then((res) => {
+        const terminalId = caisseRes.body.data.id as string;
+        cy.request(`/api/terminaux/${terminalId}/soldes`).then((res) => {
           expect(res.status).to.eq(200);
           expect(res.body.data).to.exist;
         });

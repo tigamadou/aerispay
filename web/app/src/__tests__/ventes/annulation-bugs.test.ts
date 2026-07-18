@@ -1,7 +1,7 @@
 /**
  * P0-002: Refund exceeds sale total (overpayment).
  * P0-003: Cancellation possible on closed/validated session.
- * P0-005: Missing caisseId check in annulation route.
+ * P0-005: Missing terminalId check in annulation route.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Role } from "@prisma/client";
@@ -11,7 +11,7 @@ vi.mock("@/lib/db", () => ({
     vente: { findUnique: vi.fn(), update: vi.fn() },
     produit: { update: vi.fn() },
     mouvementStock: { create: vi.fn() },
-    caisse: { findFirst: vi.fn() },
+    terminalCaisse: { findFirst: vi.fn() },
     comptoirSession: { findUnique: vi.fn() },
     $transaction: vi.fn(),
   },
@@ -52,7 +52,7 @@ describe("P0-002: Refund must not exceed sale total", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     POST = (await import("@/app/api/ventes/[id]/annuler/route")).POST;
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
+    (prisma.terminalCaisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
   });
 
   it("caps refund to sale total when payment exceeds it (overpayment)", async () => {
@@ -123,7 +123,7 @@ describe("P0-003: Cancellation blocked on closed/validated session", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     POST = (await import("@/app/api/ventes/[id]/annuler/route")).POST;
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
+    (prisma.terminalCaisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
   });
 
   it("returns 422 when session is VALIDEE", async () => {
@@ -222,9 +222,9 @@ describe("P0-003: Cancellation blocked on closed/validated session", () => {
   });
 });
 
-// ─── P0-005: Missing caisseId check in annulation ─────────
+// ─── P0-005: Missing terminalId check in annulation ─────────
 
-describe("P0-005: caisseId validation on annulation", () => {
+describe("P0-005: terminalId validation on annulation", () => {
   let POST: (req: Request, ctx: { params: Promise<{ id: string }> }) => Promise<Response>;
 
   beforeEach(async () => {
@@ -232,7 +232,7 @@ describe("P0-005: caisseId validation on annulation", () => {
     POST = (await import("@/app/api/ventes/[id]/annuler/route")).POST;
   });
 
-  it("utilise le caisseId de la session pour le mouvement de remboursement (F1.1)", async () => {
+  it("utilise le terminalId de la session pour le mouvement de remboursement (F1.1)", async () => {
     mockSession("ADMIN");
 
     const vente = {
@@ -252,7 +252,7 @@ describe("P0-005: caisseId validation on annulation", () => {
 
     (prisma.vente.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(vente);
     (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: "session-1", statut: "OUVERTE", userId: "user-1", caisseId: "caisse-9",
+      id: "session-1", statut: "OUVERTE", userId: "user-1", terminalId: "caisse-9",
     });
     (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn: Function) => {
       const tx = {
@@ -272,7 +272,7 @@ describe("P0-005: caisseId validation on annulation", () => {
     expect(res.status).toBe(200);
     expect(createMovementInTx).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ caisseId: "caisse-9", type: "REMBOURSEMENT" }),
+      expect.objectContaining({ terminalId: "caisse-9", type: "REMBOURSEMENT" }),
     );
   });
 });

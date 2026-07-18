@@ -11,7 +11,7 @@ import type { Role } from "@prisma/client";
 vi.mock("@/lib/db", () => ({
   prisma: {
     comptoirSession: { findFirst: vi.fn(), create: vi.fn() },
-    caisse: { findFirst: vi.fn(), findUnique: vi.fn(), findMany: vi.fn() },
+    terminalCaisse: { findFirst: vi.fn(), findUnique: vi.fn(), findMany: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -44,7 +44,7 @@ describe("F1.1 — unicité par caisse ET par caissier (Option B)", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     POST = (await import("@/app/api/comptoir/sessions/route")).POST;
-    (prisma.caisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
+    (prisma.terminalCaisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1", active: true });
   });
 
   it("refuse (409) une 2ᵉ ouverture sur une caisse déjà OUVERTE, garde scopée à la caisse", async () => {
@@ -56,8 +56,8 @@ describe("F1.1 — unicité par caisse ET par caissier (Option B)", () => {
         comptoirSession: {
           findFirst: vi.fn().mockImplementation(async ({ where }: { where: Record<string, unknown> }) => {
             caisseCheckWhere = where;
-            if (where.caisseId === "caisse-1") {
-              return { id: "s-A", statut: "OUVERTE", caisseId: "caisse-1", userId: "caissier-A" };
+            if (where.terminalId === "caisse-1") {
+              return { id: "s-A", statut: "OUVERTE", terminalId: "caisse-1", userId: "caissier-A" };
             }
             return null;
           }),
@@ -70,24 +70,24 @@ describe("F1.1 — unicité par caisse ET par caissier (Option B)", () => {
     const res = await POST(new Request("http://localhost/api/comptoir/sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ declarations: { ESPECES: 20000 }, caisseId: "caisse-1" }),
+      body: JSON.stringify({ declarations: { ESPECES: 20000 }, terminalId: "caisse-1" }),
     }));
 
     expect(res.status).toBe(409);
-    expect(caisseCheckWhere).toMatchObject({ statut: "OUVERTE", caisseId: "caisse-1" });
+    expect(caisseCheckWhere).toMatchObject({ statut: "OUVERTE", terminalId: "caisse-1" });
   });
 
   it("refuse (409) si le caissier a déjà une session OUVERTE (même sur une autre caisse)", async () => {
     mockUser("CAISSIER", "caissier-A");
-    (prisma.caisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-2", active: true });
+    (prisma.terminalCaisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-2", active: true });
 
     (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn: Function) => {
       const tx = {
         comptoirSession: {
           findFirst: vi.fn().mockImplementation(async ({ where }: { where: Record<string, unknown> }) => {
-            if (where.caisseId === "caisse-2") return null;
+            if (where.terminalId === "caisse-2") return null;
             if (where.userId === "caissier-A") {
-              return { id: "s-A", statut: "OUVERTE", caisseId: "caisse-1", userId: "caissier-A" };
+              return { id: "s-A", statut: "OUVERTE", terminalId: "caisse-1", userId: "caissier-A" };
             }
             return null;
           }),
@@ -100,7 +100,7 @@ describe("F1.1 — unicité par caisse ET par caissier (Option B)", () => {
     const res = await POST(new Request("http://localhost/api/comptoir/sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ declarations: { ESPECES: 20000 }, caisseId: "caisse-2" }),
+      body: JSON.stringify({ declarations: { ESPECES: 20000 }, terminalId: "caisse-2" }),
     }));
 
     expect(res.status).toBe(409);
@@ -110,7 +110,7 @@ describe("F1.1 — unicité par caisse ET par caissier (Option B)", () => {
 
   it("autorise (201) une session sur une caisse libre par un autre caissier", async () => {
     mockUser("CAISSIER", "caissier-B");
-    (prisma.caisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-2", active: true });
+    (prisma.terminalCaisse.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-2", active: true });
 
     (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn: Function) => {
       const tx = {
@@ -118,7 +118,7 @@ describe("F1.1 — unicité par caisse ET par caissier (Option B)", () => {
           findFirst: vi.fn().mockResolvedValue(null),
           create: vi.fn().mockResolvedValue({
             id: "session-B",
-            caisseId: "caisse-2",
+            terminalId: "caisse-2",
             userId: "caissier-B",
             statut: "OUVERTE",
             ouvertureAt: new Date(),
@@ -133,7 +133,7 @@ describe("F1.1 — unicité par caisse ET par caissier (Option B)", () => {
     const res = await POST(new Request("http://localhost/api/comptoir/sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ declarations: { ESPECES: 20000 }, caisseId: "caisse-2" }),
+      body: JSON.stringify({ declarations: { ESPECES: 20000 }, terminalId: "caisse-2" }),
     }));
 
     expect(res.status).toBe(201);

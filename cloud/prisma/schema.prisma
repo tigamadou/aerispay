@@ -86,7 +86,7 @@ model VenteCloud {
   id             String   @id // cuid d'origine (magasin) → idempotence d'ingestion
   organisationId String
   magasinId      String
-  caisseId       String
+  terminalId       String
   numero         String   // VTE-<codePoste>-YYYY-NNNNN (unique à l'échelle organisation)
   total          Decimal  @db.Decimal(10, 2)
   dateVente      DateTime
@@ -96,7 +96,7 @@ model VenteCloud {
 
   @@unique([magasinId, numero])
   @@index([organisationId])
-  @@index([magasinId, caisseId])
+  @@index([magasinId, terminalId])
   @@map("ventes_cloud")
 }
 
@@ -104,15 +104,15 @@ model SessionCloud {
   id             String   @id // cuid d'origine
   organisationId String
   magasinId      String
-  caisseId       String
+  terminalId       String
   statut         String
-  hashIntegrite  String?  @db.VarChar(64) // chaîne par caisse, revérifiable côté cloud
+  hashIntegrite  String?  @db.VarChar(64) // chaîne par terminal, revérifiable côté cloud
   fermetureAt    DateTime?
   ingestedAt     DateTime @default(now())
 
   magasin        Magasin  @relation(fields: [magasinId], references: [id])
 
   @@index([organisationId])
-  @@index([magasinId, caisseId])
+  @@index([magasinId, terminalId])
   @@map("sessions_cloud")
 }

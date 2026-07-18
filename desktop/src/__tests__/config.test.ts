@@ -28,10 +28,10 @@ describe("validateEnrollInput", () => {
 });
 
 describe("authHeaders", () => {
-  it("compose Authorization + X-Aeris-Caisse", () => {
+  it("compose Authorization + X-Aeris-Terminal", () => {
     expect(authHeaders("https://x", "tok", "c1")).toEqual({
       Authorization: "Bearer tok",
-      "X-Aeris-Caisse": "c1",
+      "X-Aeris-Terminal": "c1",
     });
   });
 });

@@ -1,6 +1,6 @@
 /**
  * P1-002: Hash integrity must be computed inside the transaction.
- * P0-005 (bis): caisseId validation in correct route.
+ * P0-005 (bis): terminalId validation in correct route.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Role } from "@prisma/client";
@@ -13,7 +13,7 @@ vi.mock("@/lib/db", () => ({
       create: vi.fn(), findFirst: vi.fn(),
     },
     mouvementCaisse: { findMany: vi.fn(), create: vi.fn() },
-    caisse: { findFirst: vi.fn() },
+    terminalCaisse: { findFirst: vi.fn() },
     user: { findUnique: vi.fn() },
     $transaction: vi.fn(),
   },
@@ -72,7 +72,7 @@ describe("P1-002: Hash integrity inside transaction", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     POST = (await import("@/app/api/comptoir/sessions/[id]/correct/route")).POST;
-    (prisma.caisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
+    (prisma.terminalCaisse.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "caisse-1" });
     (prisma.user.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ motDePasse: "hashed" });
   });
 
@@ -80,7 +80,7 @@ describe("P1-002: Hash integrity inside transaction", () => {
     mockUser("ADMIN");
 
     (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: "s-1", statut: "VALIDEE", userId: "user-1", sessionCorrective: null, caisseId: "caisse-1",
+      id: "s-1", statut: "VALIDEE", userId: "user-1", sessionCorrective: null, terminalId: "caisse-1",
     });
 
     let transactionUpdateCalled = false;
@@ -115,7 +115,7 @@ describe("P1-002: Hash integrity inside transaction", () => {
   });
 });
 
-describe("F1.1: caisseId hérité de la session originale dans correct route", () => {
+describe("F1.1: terminalId hérité de la session originale dans correct route", () => {
   let POST: (req: Request, ctx: { params: Promise<{ id: string }> }) => Promise<Response>;
 
   beforeEach(async () => {
@@ -124,11 +124,11 @@ describe("F1.1: caisseId hérité de la session originale dans correct route", (
     (prisma.user.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ motDePasse: "hashed" });
   });
 
-  it("crée la session corrective avec le caisseId de la session originale", async () => {
+  it("crée la session corrective avec le terminalId de la session originale", async () => {
     mockUser("ADMIN");
 
     (prisma.comptoirSession.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: "s-1", statut: "VALIDEE", userId: "user-1", sessionCorrective: null, caisseId: "caisse-7",
+      id: "s-1", statut: "VALIDEE", userId: "user-1", sessionCorrective: null, terminalId: "caisse-7",
     });
 
     let createData: Record<string, unknown> | undefined;
@@ -147,6 +147,6 @@ describe("F1.1: caisseId hérité de la session originale dans correct route", (
 
     const res = await POST(jsonReq(validBody), ctx);
     expect(res.status).toBe(201);
-    expect(createData?.caisseId).toBe("caisse-7");
+    expect(createData?.terminalId).toBe("caisse-7");
   });
 });

@@ -55,12 +55,12 @@ export async function POST(req: Request) {
       );
     }
 
-    const { declarations, confirmeEcart, caisseId: caisseIdParam } = parsed.data;
+    const { declarations, confirmeEcart, terminalId: caisseIdParam } = parsed.data;
 
     // F1.1 — Résolution multi-caisse
     let caisse: { id: string };
     if (caisseIdParam) {
-      const found = await prisma.caisse.findUnique({
+      const found = await prisma.terminalCaisse.findUnique({
         where: { id: caisseIdParam },
         select: { id: true, active: true },
       });
@@ -72,16 +72,16 @@ export async function POST(req: Request) {
       }
       caisse = found;
     } else {
-      const caisses = await prisma.caisse.findMany({ where: { active: true }, select: { id: true } });
+      const caisses = await prisma.terminalCaisse.findMany({ where: { active: true }, select: { id: true } });
       if (caisses.length === 0) {
         return Response.json(
-          { error: "Aucune caisse active configurée" },
+          { error: "Aucun terminal actif configuré" },
           { status: 422 },
         );
       }
       if (caisses.length >= 2) {
         return Response.json(
-          { error: "caisseId requis : plusieurs caisses actives" },
+          { error: "terminalId requis : plusieurs caisses actives" },
           { status: 400 },
         );
       }
@@ -169,7 +169,7 @@ export async function POST(req: Request) {
     // 1 session OUVERTE par caisse ET 1 par caissier, vérifiées atomiquement.
     const session = await prisma.$transaction(async (tx) => {
       const existingCaisse = await tx.comptoirSession.findFirst({
-        where: { statut: "OUVERTE", caisseId: caisse.id },
+        where: { statut: "OUVERTE", terminalId: caisse.id },
       });
       if (existingCaisse) {
         return { conflict: "CAISSE_DEJA_OUVERTE" } as const;
@@ -190,7 +190,7 @@ export async function POST(req: Request) {
           ecartsOuverture: hasEcarts ? JSON.parse(JSON.stringify(ecarts)) : undefined,
           ecartOuvertureImputeSessionId: sessionPrecedente?.id ?? null,
           userId: result.user.id,
-          caisseId: caisse.id,
+          terminalId: caisse.id,
         },
         include: { user: { select: { id: true, nom: true, email: true } } },
       });
@@ -203,7 +203,7 @@ export async function POST(req: Request) {
             type: "FOND_OUVERTURE",
             mode,
             montant,
-            caisseId: caisse.id,
+            terminalId: caisse.id,
             sessionId: created.id,
             auteurId: result.user.id,
             motif: "Fond d'ouverture de session",
@@ -253,7 +253,7 @@ export async function POST(req: Request) {
     await emitEvent({
       type: EVENTS.SESSION_OPENED,
       sessionId: session.id,
-      payload: { caisseId: caisse.id, userId: result.user.id, declarations },
+      payload: { terminalId: caisse.id, userId: result.user.id, declarations },
     });
 
     return Response.json({ data: session }, { status: 201 });

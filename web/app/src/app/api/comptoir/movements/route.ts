@@ -108,10 +108,10 @@ export async function POST(req: Request) {
     const type = parsed.data.type as TypeMouvementCaisse;
     const mode = parsed.data.mode as string;
 
-    // Verify session exists and is OPEN — F1.1 : inclure caisseId
+    // Verify session exists and is OPEN — F1.1 : inclure terminalId
     const session = await prisma.comptoirSession.findUnique({
       where: { id: sessionId },
-      select: { id: true, statut: true, userId: true, caisseId: true },
+      select: { id: true, statut: true, userId: true, terminalId: true },
     });
 
     if (!session) {
@@ -152,11 +152,11 @@ export async function POST(req: Request) {
       }
     }
 
-    // F1.1 — caisseId vient de la session
+    // F1.1 — terminalId vient de la session
     // For RETRAIT/DEPENSE on ESPECES: check sufficient theoretical balance on caisse
     if (isOutflow && mode === "ESPECES") {
       const { computeSoldeCaisseParMode } = await import("@/lib/services/cash-movement");
-      const soldes = await computeSoldeCaisseParMode(session.caisseId);
+      const soldes = await computeSoldeCaisseParMode(session.terminalId);
       const soldeCash = soldes.find((s) => s.mode === "ESPECES")?.solde ?? 0;
       if (montant > soldeCash) {
         return Response.json(
@@ -170,7 +170,7 @@ export async function POST(req: Request) {
       type,
       mode,
       montant: signedMontant,
-      caisseId: session.caisseId,
+      terminalId: session.terminalId,
       sessionId,
       auteurId: result.user.id,
       motif,
@@ -199,7 +199,7 @@ export async function POST(req: Request) {
     await emitEvent({
       type: EVENTS.CASH_MOVEMENT_CREATED,
       sessionId,
-      payload: { mouvementId: mouvement.id, type, mode, montant: signedMontant, caisseId: session.caisseId },
+      payload: { mouvementId: mouvement.id, type, mode, montant: signedMontant, terminalId: session.terminalId },
     });
 
     return Response.json({ data: mouvement }, { status: 201 });
